@@ -207,13 +207,23 @@ class DSD(IOD):
         next_obs = v['next_obs']
 
         if self.inner:
-            cur_z = self.traj_encoder(obs).mean
-            next_z = self.traj_encoder(next_obs).mean
+            # cur_z = self.traj_encoder(obs).mean # original
+            # next_z = self.traj_encoder(next_obs).mean # original
+            cur_z = self.traj_encoder(obs)
+            next_z = self.traj_encoder(next_obs)
             target_z = next_z - cur_z
 
             if self.discrete:
-                masks = (v['options'] - v['options'].mean(dim=1, keepdim=True)) * self.dim_option / (self.dim_option - 1 if self.dim_option != 1 else 1)
+                masks = (v['options'] - v['options'].mean(dim=1, keepdim=True)) * self.dim_option / (self.dim_option - 1 if self.dim_option != 1 else 1) # original
+
+                batch_size = v['options'].shape[0]
+                option_vec = v['options'].reshape(batch_size, self.N, self.dim_option)  # (batch_size, N, dim_option)
+                per_factor_mean = option_vec.mean(dim=2, keepdim=True)  # (batch_size, N, 1)
+                masks = (option_vec - per_factor_mean) * self.dim_option / (self.dim_option - 1 if self.dim_option != 1 else 1)
+                masks = masks.reshape(batch_size, self.N * self.dim_option)  # back to (batch_size, total_option_dim)
+
                 rewards = (target_z * masks).sum(dim=1)
+
             else:
                 inner = (target_z * v['options']).sum(dim=1)
                 rewards = inner
