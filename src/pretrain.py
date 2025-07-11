@@ -47,7 +47,7 @@ from garagei.torch.policies.policy_ex import PolicyEx
 from garagei.torch.q_functions.continuous_mlp_q_function_ex import ContinuousMLPQFunctionEx
 from garagei.torch.optimizers.optimizer_group_wrapper import OptimizerGroupWrapper
 from garagei.torch.utils import xavier_normal_ex
-from iod.metra import METRA
+from iod.dsd import DSD
 from iod.dads import DADS
 
 from utils import get_exp_name, get_log_dir, make_env
@@ -301,12 +301,13 @@ def run(ctxt=None):
         alpha=args.alpha,
         max_path_length=args.max_path_length,
         n_epochs_per_eval=args.n_epochs_per_eval,
-        n_epochs_per_log=args.n_epochs_per_log, #done
-        n_epochs_per_tb=args.n_epochs_per_log, #done
-        n_epochs_per_save=args.n_epochs_per_save, #done
-        n_epochs_per_pt_save=args.n_epochs_per_pt_save, #done
-        n_epochs_per_pkl_update=args.n_epochs_per_eval if args.n_epochs_per_pkl_update is None else args.n_epochs_per_pkl_update, # done
+        n_epochs_per_log=args.n_epochs_per_log, 
+        n_epochs_per_tb=args.n_epochs_per_log, 
+        n_epochs_per_save=args.n_epochs_per_save, 
+        n_epochs_per_pt_save=args.n_epochs_per_pt_save, 
+        n_epochs_per_pkl_update=args.n_epochs_per_eval if args.n_epochs_per_pkl_update is None else args.n_epochs_per_pkl_update,
         dim_option=args.dim_option,
+        N = args.N,
         num_random_trajectories=args.num_random_trajectories,
         num_video_repeats=args.num_video_repeats,
         eval_record_video=args.eval_record_video,
@@ -348,7 +349,7 @@ def run(ctxt=None):
     )
 
     if args.algo == 'metra':
-        algo = METRA(
+        algo = DSD(
             **algo_kwargs,
             **skill_common_args,
         )

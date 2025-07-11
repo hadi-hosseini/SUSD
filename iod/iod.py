@@ -37,6 +37,7 @@ class IOD(RLAlgorithm):
             n_epochs_per_pt_save,
             n_epochs_per_pkl_update,
             dim_option,
+            N,
             num_random_trajectories,
             num_video_repeats,
             eval_record_video,
@@ -81,6 +82,7 @@ class IOD(RLAlgorithm):
         self.name = name
 
         self.dim_option = dim_option
+        self.N = N
 
         self._num_train_per_epoch = num_train_per_epoch
         self._env_spec = env_spec

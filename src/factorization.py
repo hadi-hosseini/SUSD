@@ -76,7 +76,8 @@ class PartitionedTrajectoryEncoder(nn.Module):
         for i in range(len(self.partition_points) - 1):
             start, end = self.partition_points[i], self.partition_points[i + 1]
             local_obs = obs[:, start:end]
-            local_encoded = self.encoders[i](local_obs)
+            dist = self.encoders[i](local_obs)
+            local_encoded = dist.mean
             outputs.append(local_encoded)
 
         final_encoding = torch.cat(outputs, dim=-1)

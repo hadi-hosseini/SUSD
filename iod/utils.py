@@ -211,9 +211,10 @@ def save_video(runner, label, tensor, fps=15, n_cols=None):
     plot_path.parent.mkdir(parents=True, exist_ok=True)
 
     clip.write_videofile(str(plot_path), audio=False, verbose=False, logger=None)
-    if 'WANDB_API_KEY' in os.environ:
-        import wandb
-        wandb.log({label: wandb.Video(str(plot_path))}, step=runner.step_itr)
+
+    # if 'WANDB_API_KEY' in os.environ: # hadi
+    #     import wandb
+    #     wandb.log({label: wandb.Video(str(plot_path))}, step=runner.step_itr)
 
 
 def record_video(runner, label, trajectories, n_cols=None, skip_frames=1):
