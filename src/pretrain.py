@@ -79,6 +79,21 @@ def run(ctxt=None):
     set_seed(args.seed)
 
     runner = OptionLocalRunner(ctxt)
+
+    # args.resume = True
+    # args.resume_path = "exp/Debug/sd000_1752237164_ant_metra"
+    if args.resume:
+        dowel.logger.log(f"Resuming from checkpoint: {args.resume_path}")
+        restored_train_args = runner.restore(
+            from_dir=args.resume_path,
+            make_env=functools.partial(make_env, args=args, max_path_length=args.max_path_length),
+            from_epoch='last',
+        )
+        runner.train(n_epochs=restored_train_args.n_epochs, batch_size=restored_train_args.batch_size)
+        return
+
+
+
     max_path_length = args.max_path_length
     contextualized_make_env = functools.partial(make_env, args=args, max_path_length=max_path_length)
     env = contextualized_make_env()

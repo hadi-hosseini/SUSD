@@ -33,6 +33,10 @@ class DSDConfig:
     n_epochs_per_pt_save: int = 1000  # Frequency to save PyTorch model state
     n_epochs_per_pkl_update: Optional[int] = None  # Frequency to update pickled files (default: n_epochs_per_eval)
 
+    # === Resume and checkpointing ===
+    resume: bool = False  # Whether to resume training from a saved checkpoint
+    resume_path: Optional[str] = None  # Path to checkpoint directory (e.g., exp/Debug/exp-name)
+
     # === Evaluation and visualization settings ===
     num_random_trajectories: int = 48  # Number of random trajectories per iteration
     num_video_repeats: int = 2  # Number of video repeats during evaluation

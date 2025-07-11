@@ -209,19 +209,19 @@ class DSD(IOD):
         if self.inner:
             # cur_z = self.traj_encoder(obs).mean # original
             # next_z = self.traj_encoder(next_obs).mean # original
+
             cur_z = self.traj_encoder(obs)
             next_z = self.traj_encoder(next_obs)
             target_z = next_z - cur_z
 
             if self.discrete:
-                masks = (v['options'] - v['options'].mean(dim=1, keepdim=True)) * self.dim_option / (self.dim_option - 1 if self.dim_option != 1 else 1) # original
+                # masks = (v['options'] - v['options'].mean(dim=1, keepdim=True)) * self.dim_option / (self.dim_option - 1 if self.dim_option != 1 else 1) # original
 
                 batch_size = v['options'].shape[0]
                 option_vec = v['options'].reshape(batch_size, self.N, self.dim_option)  # (batch_size, N, dim_option)
                 per_factor_mean = option_vec.mean(dim=2, keepdim=True)  # (batch_size, N, 1)
                 masks = (option_vec - per_factor_mean) * self.dim_option / (self.dim_option - 1 if self.dim_option != 1 else 1)
                 masks = masks.reshape(batch_size, self.N * self.dim_option)  # back to (batch_size, total_option_dim)
-
                 rewards = (target_z * masks).sum(dim=1)
 
             else:
@@ -469,36 +469,39 @@ class DSD(IOD):
 
         eval_option_metrics = {}
 
-        # # Videos
-        # if self.eval_record_video:
-        #     if self.discrete:
-        #         video_options = np.eye(self.dim_option)
-        #         video_options = video_options.repeat(self.num_video_repeats, axis=0)
-        #     else:
-        #         if self.dim_option == 2:
-        #             radius = 1. if self.unit_length else 1.5
-        #             video_options = []
-        #             for angle in [3, 2, 1, 4]:
-        #                 video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-        #             video_options.append([0, 0])
-        #             for angle in [0, 5, 6, 7]:
-        #                 video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-        #             video_options = np.array(video_options)
-        #         else:
-        #             video_options = np.random.randn(9, self.dim_option)
-        #             if self.unit_length:
-        #                 video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
-        #         video_options = video_options.repeat(self.num_video_repeats, axis=0)
-        #     video_trajectories = self._get_trajectories(
-        #         runner,
-        #         sampler_key='local_option_policy',
-        #         extras=self._generate_option_extras(video_options),
-        #         worker_update=dict(
-        #             _render=True,
-        #             _deterministic_policy=True,
-        #         ),
-        #     )
-        #     record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
+        # Videos
+        if self.eval_record_video:
+            if self.discrete:
+                video_options = np.eye(self.dim_option)
+                video_options = video_options.repeat(self.num_video_repeats, axis=0)
+            else:
+                if self.dim_option * self.N == 2:
+                    radius = 1. if self.unit_length else 1.5
+                    video_options = []
+                    for angle in [3, 2, 1, 4]:
+                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+                    video_options.append([0, 0])
+                    for angle in [0, 5, 6, 7]:
+                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+                    video_options = np.array(video_options)
+                else:
+                    video_options = np.random.randn(9, self.N, self.dim_option)
+                    # video_options = np.random.randn(9, self.dim_option) # original
+                    if self.unit_length:
+                        video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
+                    flat_random_options = video_options.reshape(9, self.N * self.dim_option)
+
+                video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
+            video_trajectories = self._get_trajectories(
+                runner,
+                sampler_key='local_option_policy',
+                extras=self._generate_option_extras(video_options),
+                worker_update=dict(
+                    _render=True,
+                    _deterministic_policy=True,
+                ),
+            )
+            record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
 
         eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
         with global_context.GlobalContext({'phase': 'eval', 'policy': 'option'}):
