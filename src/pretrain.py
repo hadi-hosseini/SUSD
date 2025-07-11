@@ -51,6 +51,7 @@ from iod.metra import METRA
 from iod.dads import DADS
 
 from utils import get_exp_name, get_log_dir, make_env
+from factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
 from conf import METRAAntConfig
 
 
@@ -62,48 +63,6 @@ else:
 
 args = METRAAntConfig()
 
-def get_gaussian_module_construction(args,
-                                     *,
-                                     hidden_sizes,
-                                     const_std=False,
-                                     hidden_nonlinearity=torch.relu,
-                                     w_init=torch.nn.init.xavier_uniform_,
-                                     init_std=1.0,
-                                     min_std=1e-6,
-                                     max_std=None,
-                                     **kwargs):
-    module_kwargs = dict()
-    if const_std:
-        module_cls = GaussianMLPModuleEx
-        module_kwargs.update(dict(
-            learn_std=False,
-            init_std=init_std,
-        ))
-    else:
-        module_cls = GaussianMLPIndependentStdModuleEx
-        module_kwargs.update(dict(
-            std_hidden_sizes=hidden_sizes,
-            std_hidden_nonlinearity=hidden_nonlinearity,
-            std_hidden_w_init=w_init,
-            std_output_w_init=w_init,
-            init_std=init_std,
-            min_std=min_std,
-            max_std=max_std,
-        ))
-
-    module_kwargs.update(dict(
-        hidden_sizes=hidden_sizes,
-        hidden_nonlinearity=hidden_nonlinearity,
-        hidden_w_init=w_init,
-        output_w_init=w_init,
-        std_parameterization='exp',
-        bias=True,
-        spectral_normalization=args.spectral_normalization,
-        **kwargs,
-    ))
-    return module_cls, module_kwargs
-
-
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
 def run(ctxt=None):
     if args.use_wandb:
@@ -112,7 +71,7 @@ def run(ctxt=None):
             wandb.init(project=args.wandb_project, entity=args.wandb_entity, group=args.run_group, name=get_exp_name()[0],
                     config=vars(args), dir=wandb_output_dir)
 
-    # dowel.logger.log('ARGS: ' + str(args))
+    dowel.logger.log('ARGS: ' + str(args))
 
     if args.n_thread is not None:
         torch.set_num_threads(args.n_thread)
@@ -162,6 +121,11 @@ def run(ctxt=None):
     else:
         module_obs_dim = obs_dim
 
+    
+    partition_points = factorize_environment(args)
+    args.N = len(partition_points) - 1
+    dowel.logger.log(f'observation space: {obs_dim}, action space: {action_dim}, partition_points: {partition_points},  #factors: {args.N}')
+
     option_info = {
         'dim_option': args.dim_option,
     }
@@ -170,6 +134,7 @@ def run(ctxt=None):
         name='option_policy',
         option_info=option_info,
     )
+
     module_kwargs = dict(
         hidden_sizes=master_dims,
         layer_normalization=False,
@@ -185,7 +150,7 @@ def run(ctxt=None):
         init_std=1.,
     ))
 
-    policy_q_input_dim = module_obs_dim + args.dim_option
+    policy_q_input_dim = module_obs_dim + args.dim_option * args.N  
     policy_module = module_cls(
         input_dim=policy_q_input_dim,
         output_dim=action_dim,
@@ -196,27 +161,25 @@ def run(ctxt=None):
         policy_module = with_encoder(policy_module)
 
     policy_kwargs['module'] = policy_module
-    option_policy = PolicyEx(**policy_kwargs)
+    option_policy = PolicyEx(**policy_kwargs) #  π(a∣s,z), O + Nd -> A
 
     output_dim = args.dim_option
-
-    traj_encoder_obs_dim = module_obs_dim
-    module_cls, module_kwargs = get_gaussian_module_construction(
-        args,
-        hidden_sizes=master_dims,
-        hidden_nonlinearity=nonlinearity or torch.relu,
-        w_init=torch.nn.init.xavier_uniform_,
-        input_dim=traj_encoder_obs_dim,
+    traj_encoder = PartitionedTrajectoryEncoder(
+        args=args,
+        partition_points=partition_points,
+        master_dims=master_dims,
+        nonlinearity=nonlinearity,
         output_dim=output_dim,
-    )
+        module_cls_factory=module_cls_factory
+    ) # π(z | s), O -> Nd
 
-    traj_encoder = module_cls(**module_kwargs)
     if args.encoder:
         if args.spectral_normalization:
             te_encoder = make_encoder(spectral_normalization=True)
         else:
             te_encoder = None
         traj_encoder = with_encoder(traj_encoder, encoder=te_encoder)
+
 
     module_cls, module_kwargs = get_gaussian_module_construction(
         args,
@@ -228,7 +191,6 @@ def run(ctxt=None):
         min_std=1e-6,
         max_std=1e6,
     )
-
     if args.dual_dist == 's2_from_s':
         dist_predictor = module_cls(**module_kwargs)
     else:
