@@ -378,14 +378,11 @@ class DSD(IOD):
             random_option_colors = np.array([cmap(c)[:3] for c in colors])
 
         else:
-            # Continuous options: shape (num_trajs, N, dim_option)
             random_options = np.random.randn(self.num_random_trajectories, self.N, self.dim_option)
             if self.unit_length:
                 random_options /= np.linalg.norm(random_options, axis=-1, keepdims=True)
-            # For continuous options, color by flattened values
             random_option_colors = get_option_colors(random_options.reshape(self.num_random_trajectories, -1) * 4)
 
-        # Flatten to (num_trajs, N * dim_option) → matches policy input: (obs + N * dim_option)
         flat_random_options = random_options.reshape(self.num_random_trajectories, self.N * self.dim_option)
 
         random_trajectories = self._get_trajectories(
@@ -399,54 +396,21 @@ class DSD(IOD):
             env_update=dict(_action_noise_std=None),
         )
 
-
-        # if self.discrete:
-        #     eye_options = np.eye(self.dim_option)
-        #     random_options = []
-        #     colors = []
-        #     for i in range(self.dim_option):
-        #         num_trajs_per_option = self.num_random_trajectories // self.dim_option + (i < self.num_random_trajectories % self.dim_option)
-        #         for _ in range(num_trajs_per_option):
-        #             random_options.append(eye_options[i])
-        #             colors.append(i)
-          
-        #     random_options = np.array(random_options)
-        #     colors = np.array(colors)
-        #     num_evals = len(random_options)
-        #     from matplotlib import cm
-        #     cmap = 'tab10' if self.dim_option <= 10 else 'tab20'
-        #     random_option_colors = []
-        #     for i in range(num_evals):
-        #         random_option_colors.extend([cm.get_cmap(cmap)(colors[i])[:3]])
-        #     random_option_colors = np.array(random_option_colors)
-
-        # else:
-        #     random_options = np.random.randn(self.num_random_trajectories, self.dim_option)
-        #     if self.unit_length:
-        #         random_options = random_options / np.linalg.norm(random_options, axis=1, keepdims=True)
-        #     random_option_colors = get_option_colors(random_options * 4)
-        
-        # random_trajectories = self._get_trajectories(
-        #     runner,
-        #     sampler_key='option_policy',
-        #     extras=self._generate_option_extras(random_options),
-        #     worker_update=dict(
-        #         _render=False,
-        #         _deterministic_policy=True,
-        #     ),
-        #     env_update=dict(_action_noise_std=None),
-        # )
-
         with FigManager(runner, 'TrajPlot_RandomZ') as fm:
             runner._env.render_trajectories(
                 random_trajectories, random_option_colors, self.eval_plot_axis, fm.ax
             )
 
-        # data = self.process_samples(random_trajectories)
-        # last_obs = torch.stack([torch.from_numpy(ob[-1]).to(self.device) for ob in data['obs']])
-        # option_dists = self.traj_encoder(last_obs)
+
+        from sklearn.decomposition import PCA
+        data = self.process_samples(random_trajectories)
+        last_obs = torch.stack([torch.from_numpy(ob[-1]).to(self.device) for ob in data['obs']])
+        option_dists = self.traj_encoder(last_obs)
 
         # option_means = option_dists.mean.detach().cpu().numpy() # original
+        option_means = option_dists.detach().cpu().numpy()
+        pca = PCA(n_components=2)
+        option_means_2d = pca.fit_transform(option_means)
 
         # if self.inner:
         #     option_stddevs = torch.ones_like(option_dists.stddev.detach().cpu()).numpy() # original
@@ -454,19 +418,20 @@ class DSD(IOD):
         #     option_stddevs = option_dists.stddev.detach().cpu().numpy()
 
         # option_samples = option_dists.mean.detach().cpu().numpy() # original
-        # option_colors = random_option_colors
 
-        # with FigManager(runner, f'PhiPlot') as fm:
-        #     draw_2d_gaussians(option_means, option_stddevs, option_colors, fm.ax)
-        #     draw_2d_gaussians(
-        #         option_samples,
-        #         [[0.03, 0.03]] * len(option_samples),
-        #         option_colors,
-        #         fm.ax,
-        #         fill=True,
-        #         use_adaptive_axis=True,
-        #     )
+        option_colors = random_option_colors
 
+        with FigManager(runner, f'PhiPlot') as fm:
+            # draw_2d_gaussians(option_means_2d, option_stddevs, option_colors, fm.ax)
+            draw_2d_gaussians(
+                option_means_2d,
+                [[0.03, 0.03]] * len(option_means_2d),
+                option_colors,
+                fm.ax,
+                fill=True,
+                use_adaptive_axis=True,
+            )
+        
         eval_option_metrics = {}
 
         # Videos
