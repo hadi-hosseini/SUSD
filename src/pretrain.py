@@ -8,11 +8,8 @@ import dowel
 
 import wandb
 
-import argparse
-import datetime
 import functools
 import os
-import sys
 import platform
 import torch.multiprocessing as mp
 
@@ -20,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 wandb_api_key = os.getenv('WANDB_API_KEY')
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  # hadi
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
 if 'mac' in platform.platform():
     pass
@@ -42,7 +39,6 @@ from garage.torch.distributions import TanhNormal
 
 from garagei.replay_buffer.path_buffer_ex import PathBufferEx
 from garagei.experiment.option_local_runner import OptionLocalRunner
-from garagei.envs.consistent_normalized_env import consistent_normalize
 from garagei.sampler.option_multiprocessing_sampler import OptionMultiprocessingSampler
 from garagei.torch.modules.with_encoder import WithEncoder, Encoder
 from garagei.torch.modules.gaussian_mlp_module_ex import GaussianMLPTwoHeadedModuleEx, GaussianMLPIndependentStdModuleEx, GaussianMLPModuleEx
@@ -53,125 +49,18 @@ from garagei.torch.optimizers.optimizer_group_wrapper import OptimizerGroupWrapp
 from garagei.torch.utils import xavier_normal_ex
 from iod.metra import METRA
 from iod.dads import DADS
-from iod.utils import get_normalizer_preset
+
+from utils import get_exp_name, get_log_dir, make_env
+from conf import METRAAntConfig
 
 
-EXP_DIR = 'exp'
 if os.environ.get('START_METHOD') is not None:
     START_METHOD = os.environ['START_METHOD']
 else:
     START_METHOD = 'spawn'
 
-def get_argparser():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('--run_group', type=str, default='Debug')
-    parser.add_argument('--normalizer_type', type=str, default='off', choices=['off', 'preset'])
-    parser.add_argument('--encoder', type=int, default=0)
-
-    parser.add_argument('--env', type=str, default='maze', choices=[
-        'maze', 'half_cheetah', 'ant', 'dmc_cheetah', 'dmc_quadruped', 'dmc_humanoid', 'kitchen',
-    ])
-    parser.add_argument('--frame_stack', type=int, default=None)
-
-    parser.add_argument('--max_path_length', type=int, default=200) #done
-
-    parser.add_argument('--use_gpu', type=int, default=1, choices=[0, 1])
-    parser.add_argument('--sample_cpu', type=int, default=1, choices=[0, 1])
-    parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--n_parallel', type=int, default=4)
-    parser.add_argument('--n_thread', type=int, default=1)
-
-    parser.add_argument('--n_epochs', type=int, default=1000000) #done
-    parser.add_argument('--traj_batch_size', type=int, default=8) #done
-    parser.add_argument('--trans_minibatch_size', type=int, default=256)
-    parser.add_argument('--trans_optimization_epochs', type=int, default=200)
-
-    parser.add_argument('--n_epochs_per_eval', type=int, default=125) #done
-    parser.add_argument('--n_epochs_per_log', type=int, default=25) #done
-    parser.add_argument('--n_epochs_per_save', type=int, default=1000) #done
-    parser.add_argument('--n_epochs_per_pt_save', type=int, default=1000) #done
-    parser.add_argument('--n_epochs_per_pkl_update', type=int, default=None) #done
-    parser.add_argument('--num_random_trajectories', type=int, default=48)
-    parser.add_argument('--num_video_repeats', type=int, default=2)
-    parser.add_argument('--eval_record_video', type=int, default=1)
-    parser.add_argument('--eval_plot_axis', type=float, default=None, nargs='*')
-    parser.add_argument('--video_skip_frames', type=int, default=1)
-
-    parser.add_argument('--dim_option', type=int, default=2) #done
-
-    parser.add_argument('--common_lr', type=float, default=1e-4)
-    parser.add_argument('--lr_op', type=float, default=None)
-    parser.add_argument('--lr_te', type=float, default=None)
-
-    parser.add_argument('--alpha', type=float, default=0.01)
-
-    parser.add_argument('--algo', type=str, default='metra', choices=['metra', 'dads'])
-
-    parser.add_argument('--sac_tau', type=float, default=5e-3)
-    parser.add_argument('--sac_lr_q', type=float, default=None)
-    parser.add_argument('--sac_lr_a', type=float, default=None)
-    parser.add_argument('--sac_discount', type=float, default=0.99)
-    parser.add_argument('--sac_scale_reward', type=float, default=1.)
-    parser.add_argument('--sac_target_coef', type=float, default=1.)
-    parser.add_argument('--sac_min_buffer_size', type=int, default=10000)
-    parser.add_argument('--sac_max_buffer_size', type=int, default=300000)
-
-    parser.add_argument('--spectral_normalization', type=int, default=0, choices=[0, 1])
-
-    parser.add_argument('--model_master_dim', type=int, default=1024)
-    parser.add_argument('--model_master_num_layers', type=int, default=2)
-    parser.add_argument('--model_master_nonlinearity', type=str, default=None, choices=['relu', 'tanh'])
-    parser.add_argument('--sd_const_std', type=int, default=1)
-    parser.add_argument('--sd_batch_norm', type=int, default=1, choices=[0, 1])
-
-    parser.add_argument('--num_alt_samples', type=int, default=100)
-    parser.add_argument('--split_group', type=int, default=65536)
-
-    parser.add_argument('--discrete', type=int, default=0, choices=[0, 1]) #done
-    parser.add_argument('--inner', type=int, default=1, choices=[0, 1])
-    parser.add_argument('--unit_length', type=int, default=1, choices=[0, 1])  # Only for continuous skills
-
-    parser.add_argument('--dual_reg', type=int, default=1, choices=[0, 1])
-    parser.add_argument('--dual_lam', type=float, default=30)
-    parser.add_argument('--dual_slack', type=float, default=1e-3)
-    parser.add_argument('--dual_dist', type=str, default='one', choices=['l2', 's2_from_s', 'one'])
-    parser.add_argument('--dual_lr', type=float, default=None)
-
-    return parser
-
-
-args = get_argparser().parse_args()
-g_start_time = int(datetime.datetime.now().timestamp())
-
-
-def get_exp_name():
-    exp_name = ''
-    exp_name += f'sd{args.seed:03d}_'
-    if 'SLURM_JOB_ID' in os.environ:
-        exp_name += f's_{os.environ["SLURM_JOB_ID"]}.'
-    if 'SLURM_PROCID' in os.environ:
-        exp_name += f'{os.environ["SLURM_PROCID"]}.'
-    exp_name_prefix = exp_name
-    if 'SLURM_RESTART_COUNT' in os.environ:
-        exp_name += f'rs_{os.environ["SLURM_RESTART_COUNT"]}.'
-    exp_name += f'{g_start_time}'
-
-    exp_name += '_' + args.env
-    exp_name += '_' + args.algo
-
-    return exp_name, exp_name_prefix
-
-
-def get_log_dir():
-    exp_name, exp_name_prefix = get_exp_name()
-    assert len(exp_name) <= os.pathconf('/', 'PC_NAME_MAX')
-    # Resolve symlinks to prevent runs from crashing in case of home nfs crashing.
-    log_dir = os.path.realpath(os.path.join(EXP_DIR, args.run_group, exp_name))
-    assert not os.path.exists(log_dir), f'The following path already exists: {log_dir}'
-
-    return log_dir
-
+args = METRAAntConfig()
 
 def get_gaussian_module_construction(args,
                                      *,
@@ -215,67 +104,15 @@ def get_gaussian_module_construction(args,
     return module_cls, module_kwargs
 
 
-def make_env(args, max_path_length):
-    if args.env == 'maze':
-        from envs.maze_env import MazeEnv
-        env = MazeEnv(
-            max_path_length=max_path_length,
-            action_range=0.2,
-        )
-    elif args.env == 'half_cheetah':
-        from envs.mujoco.half_cheetah_env import HalfCheetahEnv
-        env = HalfCheetahEnv(render_hw=100)
-    elif args.env == 'ant':
-        from envs.mujoco.ant_env import AntEnv
-        env = AntEnv(render_hw=100)
-    elif args.env.startswith('dmc'):
-        from envs.custom_dmc_tasks import dmc
-        from envs.custom_dmc_tasks.pixel_wrappers import RenderWrapper
-        assert args.encoder  # Only support pixel-based environments
-        if args.env == 'dmc_cheetah':
-            env = dmc.make('cheetah_run_forward_color', obs_type='states', frame_stack=1, action_repeat=2, seed=args.seed)
-            env = RenderWrapper(env)
-        elif args.env == 'dmc_quadruped':
-            env = dmc.make('quadruped_run_forward_color', obs_type='states', frame_stack=1, action_repeat=2, seed=args.seed)
-            env = RenderWrapper(env)
-        elif args.env == 'dmc_humanoid':
-            env = dmc.make('humanoid_run_color', obs_type='states', frame_stack=1, action_repeat=2, seed=args.seed)
-            env = RenderWrapper(env)
-        else:
-            raise NotImplementedError
-    elif args.env == 'kitchen':
-        sys.path.append('lexa')
-        from envs.lexa.mykitchen import MyKitchenEnv
-        assert args.encoder  # Only support pixel-based environments
-        env = MyKitchenEnv(log_per_goal=True)
-    else:
-        raise NotImplementedError
-
-    if args.frame_stack is not None:
-        from envs.custom_dmc_tasks.pixel_wrappers import FrameStackWrapper
-        env = FrameStackWrapper(env, args.frame_stack)
-
-    normalizer_type = args.normalizer_type
-    normalizer_kwargs = {}
-
-    if normalizer_type == 'off':
-        env = consistent_normalize(env, normalize_obs=False, **normalizer_kwargs)
-    elif normalizer_type == 'preset':
-        normalizer_name = args.env
-        normalizer_mean, normalizer_std = get_normalizer_preset(f'{normalizer_name}_preset')
-        env = consistent_normalize(env, normalize_obs=True, mean=normalizer_mean, std=normalizer_std, **normalizer_kwargs)
-
-    return env
-
-
-@wrap_experiment(log_dir=get_log_dir(), name=get_exp_name()[0])
+@wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
 def run(ctxt=None):
-    # if 'WANDB_API_KEY' in os.environ:
-    #     wandb_output_dir = tempfile.mkdtemp()
-    #     wandb.init(project='DSD', entity='hadi-hosseini0171-sharif-university-of-technology', group=args.run_group, name=get_exp_name()[0],
-    #                config=vars(args), dir=wandb_output_dir)
+    if args.use_wandb:
+        if wandb_api_key:
+            wandb_output_dir = tempfile.mkdtemp()
+            wandb.init(project=args.wandb_project, entity=args.wandb_entity, group=args.run_group, name=get_exp_name()[0],
+                    config=vars(args), dir=wandb_output_dir)
 
-    dowel.logger.log('ARGS: ' + str(args))
+    # dowel.logger.log('ARGS: ' + str(args))
 
     if args.n_thread is not None:
         torch.set_num_threads(args.n_thread)

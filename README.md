@@ -10,8 +10,8 @@ The implementation is based on
 ## Installation
 
 ```
-conda create --name metra python=3.8
-conda activate metra
+conda create --name dsd python=3.8
+conda activate dsd
 pip install -r requirements.txt --no-deps
 pip install -e .
 pip install -e garaged
