@@ -13,6 +13,8 @@ class AntMultiGoalsEnv(AntEnv):
 
         super().__init__(task="goal", **kwargs)
 
+        self.sample_new_goal()
+
 
     def reset_model(self):
         obs = super().reset_model()
@@ -40,7 +42,10 @@ class AntMultiGoalsEnv(AntEnv):
     
         else:
             distance = np.linalg.norm(np.array([xpos, ypos]) - self.current_goal)
-            return 2.5 if distance <= self.goal_radius else 0.0
+            if distance <= self.goal_radius:
+                self.sample_new_goal()
+                return 2.5
+            return 0
 
     def step(self, action, render=False):
         obs, reward, done, info = super().step(action, render=render)
