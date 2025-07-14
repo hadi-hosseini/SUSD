@@ -133,8 +133,8 @@ def draw_2d_gaussians(means, stddevs, colors, ax, fill=False, alpha=0.8, use_ada
         if len(mean) == 1:
             mean = np.concatenate([mean, [0.]])
             stddev = np.concatenate([stddev, [0.1]])
-        ellipse = Ellipse(xy=mean, width=stddev[0] * 2, height=stddev[1] * 2,
-                          edgecolor=color, lw=1, facecolor='none' if not fill else color, alpha=alpha)
+        ellipse = Ellipse(xy=mean, width=stddev[0] * 4, height=stddev[1] * 4,
+                          edgecolor=color, lw=2, facecolor=color, alpha=alpha)
         ax.add_patch(ellipse)
         square_axis_limit = max(
                 square_axis_limit,

@@ -50,16 +50,14 @@ from garagei.torch.utils import xavier_normal_ex
 from iod.dsd import DSD
 from iod.dads import DADS
 
-from utils import get_exp_name, get_log_dir, make_env
-from factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
-from conf import METRAAntConfig
-
+from src.utils import get_exp_name, get_log_dir, make_env
+from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
+from src.conf import METRAAntConfig
 
 if os.environ.get('START_METHOD') is not None:
     START_METHOD = os.environ['START_METHOD']
 else:
     START_METHOD = 'spawn'
-
 
 args = METRAAntConfig()
 
@@ -81,7 +79,7 @@ def run(ctxt=None):
     runner = OptionLocalRunner(ctxt)
 
     args.resume = True
-    args.resume_path = "exp/Debug/sd000_1752237164_ant_metra"
+    args.resume_path = "exp/Debug/sd000_1752248887_ant_metra"
     if args.resume:
         dowel.logger.log(f"Resuming from checkpoint: {args.resume_path}")
         restored_train_args = runner.restore(

@@ -378,9 +378,24 @@ class DSD(IOD):
             random_option_colors = np.array([cmap(c)[:3] for c in colors])
 
         else:
+            # random_option = np.random.randn(1, self.N, self.dim_option)
+            # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
+            # random_options = [random_option.copy()]
+
+            # for i in range(self.num_random_trajectories - 1):
+            #     new_random_option = random_option.copy()
+
+            #     time_idx = i % self.N
+            #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
+            #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
+            #     random_options.append(new_random_option)
+            
+            # random_options = np.vstack(random_options)
+           
             random_options = np.random.randn(self.num_random_trajectories, self.N, self.dim_option)
             if self.unit_length:
                 random_options /= np.linalg.norm(random_options, axis=-1, keepdims=True)
+            
             random_option_colors = get_option_colors(random_options.reshape(self.num_random_trajectories, -1) * 4)
 
         flat_random_options = random_options.reshape(self.num_random_trajectories, self.N * self.dim_option)
@@ -407,29 +422,20 @@ class DSD(IOD):
         last_obs = torch.stack([torch.from_numpy(ob[-1]).to(self.device) for ob in data['obs']])
         option_dists = self.traj_encoder(last_obs)
 
-        # option_means = option_dists.mean.detach().cpu().numpy() # original
         option_means = option_dists.detach().cpu().numpy()
         pca = PCA(n_components=2)
         option_means_2d = pca.fit_transform(option_means)
-
-        # if self.inner:
-        #     option_stddevs = torch.ones_like(option_dists.stddev.detach().cpu()).numpy() # original
-        # else:
-        #     option_stddevs = option_dists.stddev.detach().cpu().numpy()
-
-        # option_samples = option_dists.mean.detach().cpu().numpy() # original
-
         option_colors = random_option_colors
 
         with FigManager(runner, f'PhiPlot') as fm:
-            # draw_2d_gaussians(option_means_2d, option_stddevs, option_colors, fm.ax)
             draw_2d_gaussians(
                 option_means_2d,
-                [[0.03, 0.03]] * len(option_means_2d),
+                [[0.5, 0.5]] * len(option_means_2d),
                 option_colors,
                 fm.ax,
                 fill=True,
                 use_adaptive_axis=True,
+                alpha=1.0
             )
         
         eval_option_metrics = {}
@@ -451,7 +457,6 @@ class DSD(IOD):
                     video_options = np.array(video_options)
                 else:
                     video_options = np.random.randn(9, self.N, self.dim_option)
-                    # video_options = np.random.randn(9, self.dim_option) # original
                     if self.unit_length:
                         video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
                     flat_random_options = video_options.reshape(9, self.N * self.dim_option)

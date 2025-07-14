@@ -49,7 +49,6 @@ def get_gaussian_module_construction(args,
 def factorize_environment(args):
     if args.env == "ant":
         state_factorization_points = [0, 3, 7, 15, 18, 21, 29]
-
     return state_factorization_points
 
 
