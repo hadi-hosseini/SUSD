@@ -49,6 +49,8 @@ class AntMultiGoalsEnv(AntEnv):
 
     def step(self, action, render=False):
         obs, reward, done, info = super().step(action, render=render)
+
+        done = False
         
         if self.current_goal is not None:
             self.steps_since_goal += 1
@@ -61,7 +63,11 @@ class AntMultiGoalsEnv(AntEnv):
                 if self.goal_count < self.num_goals_per_episode:
                     self.sample_new_goal()
                 else:
-                    done = True  # All goals completed
+                    done = True 
+                
+            if self.goal_count > self.num_goals_per_episode:
+                done = True
 
             info["current_goal"] = self.current_goal
+
         return obs, reward, done, info
