@@ -73,6 +73,7 @@ class SkillWrapperEnv(gym.Env):
 
 def train():
     log_dir = "logs/sac_high_level"
+    # log_dir = "logs/test"
     model_dir = os.path.join(log_dir, "models")
     tensorboard_log_dir = os.path.join(log_dir, "tb")
 
@@ -119,8 +120,8 @@ def train():
             self.episode_reward = 0.0
 
         def _on_step(self) -> bool:
-            reward = self.locals.get('reward')
-            done = self.locals.get('done')
+            reward = self.locals.get('rewards')[0]
+            done = self.locals.get('dones')[0]
 
             if reward is not None:
                 self.episode_reward += reward
