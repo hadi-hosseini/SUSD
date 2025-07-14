@@ -24,7 +24,6 @@ traj_encoder.to(device)
 option_policy.eval()
 traj_encoder.eval()
 
-
 # Run up the Downstream Task
 env = AntMultiGoalsEnv(render_hw=256)
 
