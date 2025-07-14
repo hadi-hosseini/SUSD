@@ -112,7 +112,9 @@ class METRAAntConfig(DSDConfig):
     trans_optimization_epochs: int = 50
     n_epochs_per_log: int = 100
     n_epochs_per_eval: int = 1000
-    n_epochs_per_save: int = 10000
+    n_epochs_per_save: int = 1000 # 10000 phi encoder
+    n_epochs_per_pt_save: int = 1000 # 1000 option policy 
+    n_epochs_per_pkl_update: 1000 # 1000 parameters save
     sac_max_buffer_size: int = 1000000
     algo: str = 'metra'
     discrete: int = 0

@@ -87,6 +87,12 @@ def run(ctxt=None):
             make_env=functools.partial(make_env, args=args, max_path_length=args.max_path_length),
             from_epoch='last',
         )
+
+        # set new saving arguments 
+        runner._algo.n_epochs_per_pkl_update = 1000 # params
+        runner._algo.n_epochs_per_save = 1000 # phi encoder
+        runner._algo.n_epochs_per_pt_save = 1000 # option policy
+
         runner.train(n_epochs=restored_train_args.n_epochs, batch_size=restored_train_args.batch_size)
         return
 

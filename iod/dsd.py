@@ -456,6 +456,21 @@ class DSD(IOD):
                         video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
                     video_options = np.array(video_options)
                 else:
+                    # random_option = np.random.randn(1, self.N, self.dim_option)
+                    # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
+                    # random_options = [random_option.copy()]
+
+                    # for i in range(17):
+                    #     new_random_option = random_option.copy()
+
+                    #     time_idx = i % self.N
+                    #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
+                    #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
+                    #     random_options.append(new_random_option)
+                    
+                    # random_options = np.vstack(random_options)
+                    # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
+
                     video_options = np.random.randn(9, self.N, self.dim_option)
                     if self.unit_length:
                         video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
