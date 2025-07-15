@@ -5,7 +5,7 @@ from envs.mujoco.ant_env import AntEnv
 class AntMultiGoalsEnv(AntEnv):
     def __init__(self, **kwargs):
         self.goal_radius = 3.0
-        self.max_steps_per_goal = 50
+        self.max_steps_per_goal = 50 # 50
         self.num_goals_per_episode = 4
         self.goal_count = 0
         self.steps_since_goal = 0

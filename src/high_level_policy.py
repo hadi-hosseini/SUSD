@@ -27,18 +27,18 @@ mean, std = get_normalizer_preset("ant_preset")
 env = consistent_normalize(env, normalize_obs=True, mean=mean, std=std)
 
 skill_dim = 12 # N=6, d=2
-max_steps_per_goal = 25 # maximum number of steps for each z
+max_skill_steps = 10 # maximum number of steps for each z (25)
 
 
 class SkillWrapperEnv(gym.Env):
-    def __init__(self, env, option_policy, traj_encoder, skill_dim, max_steps_per_goal, device='cpu'):
+    def __init__(self, env, option_policy, traj_encoder, skill_dim, max_skill_steps, device='cpu'):
         super().__init__()
         self.env = env
         self.option_policy = option_policy.to(device).eval()
         self.traj_encoder = traj_encoder.to(device).eval()
         self.device = device
         self.skill_dim = skill_dim
-        self._max_skill_steps = max_steps_per_goal 
+        self._max_skill_steps = max_skill_steps 
         self.current_obs = None
 
         self.observation_space = env.observation_space
@@ -80,7 +80,7 @@ def train():
     os.makedirs(model_dir, exist_ok=True)
     os.makedirs(tensorboard_log_dir, exist_ok=True)
 
-    wrapped_env = DummyVecEnv([lambda: SkillWrapperEnv(env, option_policy, traj_encoder, skill_dim, max_steps_per_goal, device)])
+    wrapped_env = DummyVecEnv([lambda: SkillWrapperEnv(env, option_policy, traj_encoder, skill_dim, max_skill_steps, device)])
 
     new_logger = configure(folder=tensorboard_log_dir, format_strings=["stdout", "csv", "tensorboard"])
 
@@ -117,6 +117,9 @@ def train():
     class RewardLoggingCallback(BaseCallback):
         def __init__(self, verbose=0):
             super().__init__(verbose)
+            self.total_reward = 0.0
+            self.total_steps = 0
+            self.num_tasks = 0
             self.episode_reward = 0.0
 
         def _on_step(self) -> bool:
@@ -124,12 +127,23 @@ def train():
             done = self.locals.get('dones')[0]
 
             if reward is not None:
+                self.total_reward += reward
+                self.total_steps += 1
                 self.episode_reward += reward
 
             if done:
+                self.num_tasks += 1
+                avg_reward_per_task = self.total_reward / (self.num_tasks + 1e-8)
+
+                self.logger.record('custom/total_cumulative_reward', self.total_reward)
+                self.logger.record('custom/average_reward_per_task', avg_reward_per_task)
+                self.logger.record('custom/num_tasks', self.num_tasks)
                 self.logger.record('custom/episode_reward', self.episode_reward)
-                self.episode_reward = 0.0  # reset for next episode
+
+                self.episode_reward = 0.0
+
             return True
+
     
     reward_callback = RewardLoggingCallback()
     sac_model.learn(total_timesteps=1_000_000, callback=[checkpoint_callback, reward_callback])
@@ -137,7 +151,7 @@ def train():
 
 def eval():
     sac_model = SAC.load("sac_high_level_ant_multi_goals", device=device)
-    wrapped_env = SkillWrapperEnv(env, option_policy, traj_encoder, skill_dim, max_steps_per_goal, device)
+    wrapped_env = SkillWrapperEnv(env, option_policy, traj_encoder, skill_dim, max_skill_steps, device)
 
     num_eval_episodes = 20
     successes = []

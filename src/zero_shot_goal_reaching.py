@@ -17,7 +17,7 @@ from iod.utils import get_normalizer_preset
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # variables 
-algo = "metra" # ["dsd", "metra", "lsd", "csd", "diayn"]
+algo = "dsd" # ["dsd", "metra", "lsd", "csd", "diayn"]
 num_runs = 8
 max_duration = 50
 max_steps = 200
@@ -157,38 +157,6 @@ def run_multiple_seeds(num_runs=8, max_duration=30, max_steps=200):
     print(f"\n📁 Logs saved to {csv_path}")
     return all_logs
 
-
-# def plot_average_cumulative_reward(all_logs, max_duration, dt=1.0, confidence=0.95, save_path=None):
-#     common_times = np.arange(0, max_duration + dt, dt)
-    
-#     interp_rewards = []
-#     for log in all_logs:
-#         times, rewards = zip(*log)
-#         f = interp1d(times, rewards, kind='previous', bounds_error=False,
-#                      fill_value=(rewards[0], rewards[-1]))
-#         interp_rewards.append(f(common_times))
-    
-#     interp_rewards = np.array(interp_rewards) 
-    
-#     mean_rewards = np.mean(interp_rewards, axis=0)
-#     sem = stats.sem(interp_rewards, axis=0) 
-#     margin = sem * stats.t.ppf((1 + confidence) / 2., interp_rewards.shape[0] - 1)
-    
-#     plt.figure(figsize=(10, 5))
-#     plt.plot(common_times, mean_rewards, label='Average Cumulative Reward')
-#     plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.3, label=f'{int(confidence*100)}% Confidence Interval')
-#     plt.xlabel('Elapsed Time (s)')
-#     plt.ylabel('Cumulative Reward')
-#     plt.title('Average Cumulative Reward over Time with Confidence Bounds')
-#     plt.legend()
-#     plt.grid(True)
-#     plt.tight_layout()
-#     if save_path:
-#         plt.savefig(save_path)
-#         print(f"Plot saved to {save_path}")
-#     else:
-#         plt.show()
-
 def plot_multiple_methods_cumulative_reward(logs_by_method, max_duration, dt=1.0, confidence=0.95, save_path=None):
     common_times = np.arange(0, max_duration + dt, dt)
 
@@ -237,21 +205,21 @@ def load_logs_from_csv(csv_path):
 
 
 ## train the methods
-all_logs = run_multiple_seeds(num_runs, max_duration, max_steps)
+# all_logs = run_multiple_seeds(num_runs, max_duration, max_steps)
 
 
 # plot the results
-# metra_logs = load_logs_from_csv("results/metra.csv")
-# dsd_logs = load_logs_from_csv("results/dsd.csv")
+metra_logs = load_logs_from_csv("results/metra.csv")
+dsd_logs = load_logs_from_csv("results/dsd.csv")
 
-# logs_by_method = {
-#     "METRA": metra_logs,
-#     "DSD": dsd_logs
-# }
+logs_by_method = {
+    "METRA": metra_logs,
+    "DSD": dsd_logs
+}
 
-# plot_multiple_methods_cumulative_reward(
-#     logs_by_method,
-#     max_duration=max_duration,
-#     dt=1.0,
-#     save_path="results/zero_shot_comparison.png"
-# )
+plot_multiple_methods_cumulative_reward(
+    logs_by_method,
+    max_duration=max_duration,
+    dt=1.0,
+    save_path="results/zero_shot_comparison.png"
+)
