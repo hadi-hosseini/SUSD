@@ -4,6 +4,7 @@ import gym
 import gym.spaces
 import gym.spaces.utils
 import numpy as np
+from gym.spaces import Dict, Tuple
 
 from garage.envs import EnvSpec
 
@@ -49,7 +50,7 @@ class ConsistentNormalizedEnv(AkroWrapperTrait, gym.Wrapper):
         if self._normalize_obs:
             obs = self._apply_normalize_obs(obs)
 
-        if self._flatten_obs:
+        if self._flatten_obs and isinstance(self.env.observation_space, (Dict, Tuple)):
             obs = gym.spaces.utils.flatten(self.env.observation_space, obs)
 
         return obs
@@ -76,7 +77,7 @@ class ConsistentNormalizedEnv(AkroWrapperTrait, gym.Wrapper):
         if self._normalize_obs:
             next_obs = self._apply_normalize_obs(next_obs)
 
-        if self._flatten_obs:
+        if self._flatten_obs and isinstance(self.env.observation_space, (Dict, Tuple)):
             next_obs = gym.spaces.utils.flatten(self.env.observation_space, next_obs)
 
         return next_obs, reward, done, info

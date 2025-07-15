@@ -94,10 +94,23 @@ def make_env(args, max_path_length):
         env = MyKitchenEnv(log_per_goal=True)
 
     elif args.env == "kitchen_franka":
-        # from envs.kitchen_franka import MyKitchenEnv
-        # assert args.encoder  # Only support pixel-based environments
-        # env = MyKitchenEnv(log_per_goal=True)
-        pass
+        from envs.mujoco.kitchen_franka import KitchenFranka
+        from gymnasium_robotics.envs.franka_kitchen import KitchenEnv
+
+        custom_order = [
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,     # Panda Arm and Gripper States
+                19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Burners and Overhead Light
+                29, 30, 31, 49, 50, 51,                                           # Cabinets (Slide + Left + Right Hinge)
+                32, 52,                                                          # Microwave Door
+                33, 34, 35, 36, 37, 38, 39, 53, 54, 55, 56, 57, 58               # Kettle
+        ]
+        base_env = KitchenEnv(
+            tasks_to_complete=["microwave", "kettle"],
+            terminate_on_tasks_completed=True,
+            render_mode="rgb_array"
+        )
+
+        env = KitchenFranka(base_env, custom_order=custom_order)
 
     else:
         raise NotImplementedError

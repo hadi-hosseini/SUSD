@@ -262,7 +262,7 @@ class METRADmcHumanoidConfig(DSDConfig):
 @dataclass
 class METRAKitchenConfig(DSDConfig):
     run_group: str = 'Debug'
-    env: str = 'kitchen'
+    env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
@@ -272,7 +272,7 @@ class METRAKitchenConfig(DSDConfig):
     # frame_stack: Optional[int] = 3
     sac_max_buffer_size: int = 100000
     algo: str = 'metra'
-    sac_lr_a: float = -1
+    # sac_lr_a: float = -1
     trans_optimization_epochs: int = 100
     n_epochs_per_log: int = 25
     n_epochs_per_eval: int = 250

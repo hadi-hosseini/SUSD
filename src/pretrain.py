@@ -103,13 +103,7 @@ def run(ctxt=None):
     contextualized_make_env = functools.partial(make_env, args=args, max_path_length=max_path_length)
     env = contextualized_make_env()
 
-
-    print(env.observation_space)
-    print(env.action_space)
-
     example_ob = env.reset()
-
-    exit()
 
     if args.encoder:
         if hasattr(env, 'ob_info'):
@@ -129,6 +123,8 @@ def run(ctxt=None):
         nonlinearity = torch.tanh
     else:
         nonlinearity = None
+    
+
 
     obs_dim = env.spec.observation_space.flat_dim
     action_dim = env.spec.action_space.flat_dim
@@ -168,6 +164,7 @@ def run(ctxt=None):
     )
     if nonlinearity is not None:
         module_kwargs.update(hidden_nonlinearity=nonlinearity)
+
 
     module_cls = GaussianMLPTwoHeadedModuleEx
     module_kwargs.update(dict(
