@@ -52,14 +52,15 @@ from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env
 from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
-from src.conf import METRAAntConfig
+from src.conf import METRAAntConfig, METRAKitchenConfig
 
 if os.environ.get('START_METHOD') is not None:
     START_METHOD = os.environ['START_METHOD']
 else:
     START_METHOD = 'spawn'
 
-args = METRAAntConfig()
+# args = METRAAntConfig()
+args = METRAKitchenConfig()
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
 def run(ctxt=None):
@@ -78,8 +79,8 @@ def run(ctxt=None):
 
     runner = OptionLocalRunner(ctxt)
 
-    args.resume = True
-    args.resume_path = "exp/Debug/sd000_1752248887_ant_metra"
+    # args.resume = True
+    # args.resume_path = "exp/Debug/sd000_1752248887_ant_metra"
     if args.resume:
         dowel.logger.log(f"Resuming from checkpoint: {args.resume_path}")
         restored_train_args = runner.restore(
@@ -101,7 +102,14 @@ def run(ctxt=None):
     max_path_length = args.max_path_length
     contextualized_make_env = functools.partial(make_env, args=args, max_path_length=max_path_length)
     env = contextualized_make_env()
+
+
+    print(env.observation_space)
+    print(env.action_space)
+
     example_ob = env.reset()
+
+    exit()
 
     if args.encoder:
         if hasattr(env, 'ob_info'):

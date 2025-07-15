@@ -266,10 +266,10 @@ class METRAKitchenConfig(DSDConfig):
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 4
+    n_parallel: int = 1 # 4
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
-    frame_stack: Optional[int] = 3
+    # frame_stack: Optional[int] = 3
     sac_max_buffer_size: int = 100000
     algo: str = 'metra'
     sac_lr_a: float = -1
@@ -278,7 +278,8 @@ class METRAKitchenConfig(DSDConfig):
     n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
     n_epochs_per_pt_save: int = 1000
-    discrete: int = 1
-    dim_option: int = 24
-    encoder: int = 1
+    # discrete: int = 1
+    dim_option: int = 2 # 24
+    # encoder: int = 1
     sample_cpu: int = 0
+    

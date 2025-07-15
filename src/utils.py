@@ -90,14 +90,22 @@ def make_env(args, max_path_length):
     elif args.env == 'kitchen':
         sys.path.append('lexa')
         from envs.lexa.mykitchen import MyKitchenEnv
-        assert args.encoder  # Only support pixel-based environments
+        # assert args.encoder  # Only support pixel-based environments
         env = MyKitchenEnv(log_per_goal=True)
+
+    elif args.env == "kitchen_franka":
+        # from envs.kitchen_franka import MyKitchenEnv
+        # assert args.encoder  # Only support pixel-based environments
+        # env = MyKitchenEnv(log_per_goal=True)
+        pass
+
     else:
         raise NotImplementedError
+    
 
-    if args.frame_stack is not None:
-        from envs.custom_dmc_tasks.pixel_wrappers import FrameStackWrapper
-        env = FrameStackWrapper(env, args.frame_stack)
+    # if args.frame_stack is not None:
+    #     from envs.custom_dmc_tasks.pixel_wrappers import FrameStackWrapper
+    #     env = FrameStackWrapper(env, args.frame_stack)
 
     normalizer_type = args.normalizer_type
     normalizer_kwargs = {}
