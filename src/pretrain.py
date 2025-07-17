@@ -223,7 +223,22 @@ def run(ctxt=None):
         dist_predictor = None
 
     # dual_lam = ParameterModule(torch.Tensor([np.log(args.dual_lam)]))
-    dual_lam = nn.ModuleList([ParameterModule(torch.tensor(np.log(args.dual_lam), dtype=torch.float32))for _ in range(args.N)])
+
+    # class ExpParameterModule(nn.Module):
+    #     def __init__(self, init_value):
+    #         super().__init__()
+    #         self.param = nn.Parameter(init_value)
+
+    #     def forward(self):
+    #         return self.param.exp()
+    class LogDualParam(nn.Module):
+        def __init__(self, init_log_val):
+            super().__init__()
+            self.param = nn.Parameter(init_log_val)
+
+        def forward(self):
+            return self.param
+    dual_lam = nn.ModuleList([LogDualParam(torch.tensor(np.log(args.dual_lam), dtype=torch.float32))for _ in range(args.N)])
 
     # Skill dynamics do not support pixel obs
     sd_dim_option = args.dim_option
@@ -266,8 +281,19 @@ def run(ctxt=None):
         #     {'params': dual_lam.parameters(), 'lr': _finalize_lr(args.dual_lr)},
         # ]),
     }
-    optimizers['dual_lam'] = [torch.optim.Adam([{'params': [dual.param], 'lr': _finalize_lr(args.dual_lr)}]) for dual in dual_lam]
-    optimizers['traj_encoder'] = [torch.optim.Adam([{'params': encoder.parameters(), 'lr': _finalize_lr(args.lr_te)}]) for encoder in traj_encoder.encoders]
+    # optimizers['dual_lam'] = [torch.optim.Adam([{'params': [dual.param], 'lr': _finalize_lr(args.dual_lr)}]) for dual in dual_lam]
+    # optimizers['traj_encoder'] = [torch.optim.Adam([{'params': encoder.parameters(), 'lr': _finalize_lr(args.lr_te)}]) for encoder in traj_encoder.encoders]
+
+    for i, dual in enumerate(dual_lam):
+        optimizers[f'dual_lam_{i}'] = torch.optim.Adam(
+            [dual.param], lr=_finalize_lr(args.dual_lr)
+        )
+
+    # Add each traj_encoder optimizer with a unique key
+    for i, encoder in enumerate(traj_encoder.encoders):
+        optimizers[f'traj_encoder_{i}'] = torch.optim.Adam(
+            encoder.parameters(), lr=_finalize_lr(args.lr_te)
+        )
 
     if skill_dynamics is not None:
         optimizers.update({

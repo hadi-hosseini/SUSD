@@ -288,11 +288,11 @@ class DSDKitchenConfig(DSDConfig):
     max_path_length: int = 150
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 2
+    n_parallel: int = 2 #### should be larger
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 100000 # 100000
-    sac_min_buffer_size: int = 100 # M=10000
+    sac_min_buffer_size: int = 100 # M=10000 #### should be fixed
     algo: str = 'metra'
     trans_optimization_epochs: int = 100
     n_epochs_per_log: int = 25

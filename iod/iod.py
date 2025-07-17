@@ -315,18 +315,15 @@ class IOD(RLAlgorithm):
     #     self._optimizer.step(keys=optimizer_keys)
 
     def _gradient_descent(self, losses, optimizer_keys):
-        for key in optimizer_keys:
-            optimizers = self._optimizer[key]
-
-            if isinstance(optimizers, list):
-                for loss, optimizer in zip(losses, optimizers):
-                    optimizer.zero_grad()
-                    loss.backward() 
-                    optimizer.step()
-            else:
-                self._optimizer.zero_grad(keys=optimizer_keys)
-                loss.backward()
-                self._optimizer.step(keys=optimizer_keys)
+        if isinstance(optimizer_keys, list) and len(optimizer_keys) > 1:
+            for loss, optimizer_key in zip(losses, optimizer_keys):
+                self._optimizer.zero_grad(keys=[optimizer_key])
+                loss.backward(retain_graph=True) 
+                self._optimizer.step(keys=[optimizer_key])
+        else:
+            self._optimizer.zero_grad(keys=optimizer_keys)
+            losses.backward()
+            self._optimizer.step(keys=optimizer_keys)
 
 
     def _get_mini_tensors(self, epoch_data):

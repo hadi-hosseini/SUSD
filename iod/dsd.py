@@ -167,17 +167,23 @@ class DSD(IOD):
     def _optimize_te(self, tensors, internal_vars):
         self._update_loss_te(tensors, internal_vars)
 
-        self._gradient_descent(
-            tensors['LossTe'],
-            optimizer_keys=['traj_encoder'],
-        )
+        # self._gradient_descent(
+        #     tensors['LossTe'],
+        #     optimizer_keys=['traj_encoder'],
+        # )
+        losses_te = tensors['LossTe']
+        te_keys = [f'traj_encoder_{i}' for i in range(len(losses_te))]
+        self._gradient_descent(losses_te, optimizer_keys=te_keys)
 
         if self.dual_reg:
             self._update_loss_dual_lam(tensors, internal_vars)
-            self._gradient_descent(
-                tensors['LossDualLam'],
-                optimizer_keys=['dual_lam'],
-            )
+            losses_dual = tensors['LossDualLam']
+            dual_keys = [f'dual_lam_{i}' for i in range(len(losses_dual))]
+            self._gradient_descent(losses_dual, optimizer_keys=dual_keys)
+            # self._gradient_descent(
+            #     tensors['LossDualLam'],
+            #     optimizer_keys=['dual_lam'],
+            # )
             if self.dual_dist == 's2_from_s':
                 self._gradient_descent(
                     tensors['LossDp'],
@@ -351,7 +357,9 @@ class DSD(IOD):
 
                 
 
-            
+                v.update({
+                    'csd_distances': csd_distances
+                })
             ##### this should be modified
             # cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
             # cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
@@ -427,13 +435,21 @@ class DSD(IOD):
         processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
         next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
 
+        #### define the reward of the low-level policy 
+        rewards = 0
+        if len(v['rewards']) > 1:
+            for i in range(len(self.partition_points) - 1):
+                rewards += v['csd_distances'][i] * v['rewards'][i]
+        else:
+            rewards = v['rewards']
+
         sac_utils.update_loss_qf(
             self, tensors, v,
             obs=processed_cat_obs,
             actions=v['actions'],
             next_obs=next_processed_cat_obs,
             dones=v['dones'],
-            rewards=v['rewards'] * self._reward_scale_factor,
+            rewards=rewards * self._reward_scale_factor,
             policy=self.option_policy,
         )
 
