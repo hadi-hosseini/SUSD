@@ -291,7 +291,8 @@ class DSDKitchenConfig(DSDConfig):
     n_parallel: int = 2
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
-    sac_max_buffer_size: int = 100000
+    sac_max_buffer_size: int = 100000 # 100000
+    sac_min_buffer_size: int = 100 # M=10000
     algo: str = 'metra'
     trans_optimization_epochs: int = 100
     n_epochs_per_log: int = 25

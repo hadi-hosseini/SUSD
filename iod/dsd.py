@@ -163,6 +163,7 @@ class DSD(IOD):
 
         return tensors
 
+
     def _optimize_te(self, tensors, internal_vars):
         self._update_loss_te(tensors, internal_vars)
 
@@ -226,7 +227,8 @@ class DSD(IOD):
                 ### modify
                 rewards = []
                 for i in range(len(self.partition_points) - 1):
-                    start = i, end = i + 1
+                    start = i
+                    end = i + 1
                     rewards_i = (target_z[:, start:end] * v['options'][:, start:end]).sum(dim=1)
                     rewards.append(rewards_i)
 
@@ -276,7 +278,7 @@ class DSD(IOD):
         return mean_partitions, std_partitions
     
 
-    def _csd_loss(obs, next_obs, s2_dist_std, s2_dist_mean):
+    def _csd_loss(self, obs, next_obs, s2_dist_mean, s2_dist_std):
         scaling_factor = 1. / s2_dist_std
         geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
         normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
@@ -298,7 +300,8 @@ class DSD(IOD):
             })
 
         if self.dual_reg:
-            dual_lam = self.dual_lam.param.exp()
+            # dual_lam = self.dual_lam.param.exp()
+            dual_lam = [dual.param.exp() for dual in self.dual_lam]
             x = obs
             y = next_obs
             phi_x = v['cur_z']
@@ -335,16 +338,19 @@ class DSD(IOD):
             else:
                 raise NotImplementedError
             
-
-            for i in range(self.partition_points):
+            cst_penalty = []
+            te_objs = []
+            for i in range(len(self.partition_points) - 1):
                 start = i * self.dim_option
                 end = (i+1) * self.dim_option
                 cst_penalty_i = torch.ones_like(x[:, 0]) - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
                 cst_penalty_i = torch.clamp(cst_penalty_i, max=self.dual_slack)
                 te_obj_i = csd_distances[i] * rewards[i] + dual_lam[i].detach() * cst_penalty_i
+                cst_penalty.append(cst_penalty_i)
+                te_objs.append(te_obj_i)
 
-            cst_penalty = None
-            te_obj = None
+                
+
             
             ##### this should be modified
             # cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
@@ -352,7 +358,8 @@ class DSD(IOD):
             # te_obj = rewards + dual_lam.detach() * cst_penalty
 
             v.update({
-                'cst_penalty': cst_penalty
+                'cst_penalty': cst_penalty,
+                # 'te_objs': te_objs,
             })
             # tensors.update({
             #     'DualCstPenalty': cst_penalty.mean(),
@@ -360,22 +367,61 @@ class DSD(IOD):
         else:
             te_obj = rewards
 
-        loss_te = -te_obj.mean()
+        loss_te = []
+        for te_obj in te_objs:
+            loss_te_i = -te_obj.mean()
+            loss_te.append(loss_te_i)
 
         tensors.update({
-            'TeObjMean': te_obj.mean(),
-            'LossTe': loss_te,
+            'LossTe': loss_te
         })
+
+
+        # loss_te = -te_obj.mean()
+
+        # tensors.update({
+        #     'TeObjMean': te_obj.mean(),
+        #     'LossTe': loss_te,
+        # })
 
     def _update_loss_dual_lam(self, tensors, v):
-        log_dual_lam = self.dual_lam.param
-        dual_lam = log_dual_lam.exp()
-        loss_dual_lam = log_dual_lam * (v['cst_penalty'].detach()).mean()
+        assert len(v['cst_penalty']) == len(self.dual_lam)
 
+        dual_lams = []
+        loss_dual_lams = []
+
+        for i, (dual_lam_module, cst_penalty_i) in enumerate(zip(self.dual_lam, v['cst_penalty'])):
+            log_dual_lam_i = dual_lam_module()                           # log(λ_i)
+            dual_lam_i = log_dual_lam_i.exp()                            # λ_i
+            loss_dual_lam_i = log_dual_lam_i * cst_penalty_i.detach().mean()  # λ_i * E[cst]
+
+            dual_lams.append(dual_lam_i)
+            loss_dual_lams.append(loss_dual_lam_i)
+
+            # Save each one individually
+            tensors.update({
+                f'DualLam_{i}': dual_lam_i,
+                f'LossDualLam_{i}': loss_dual_lam_i,
+            })
+
+        # Optionally store them as a tensor list
         tensors.update({
-            'DualLam': dual_lam,
-            'LossDualLam': loss_dual_lam,
+            'DualLam': torch.stack(dual_lams),               # shape: [N]
+            'LossDualLam': torch.stack(loss_dual_lams),      # shape: [N]
         })
+
+
+
+
+        ### original
+        # log_dual_lam = self.dual_lam.param
+        # dual_lam = log_dual_lam.exp()
+        # loss_dual_lam = log_dual_lam * (v['cst_penalty'].detach()).mean()
+
+        # tensors.update({
+        #     'DualLam': dual_lam,
+        #     'LossDualLam': loss_dual_lam,
+        # })
 
     def _update_loss_qf(self, tensors, v):
         processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
@@ -499,52 +545,52 @@ class DSD(IOD):
         eval_option_metrics = {}
 
         # Videos
-        if self.eval_record_video:
-            if self.discrete:
-                video_options = np.eye(self.dim_option)
-                video_options = video_options.repeat(self.num_video_repeats, axis=0)
-            else:
-                if self.dim_option * self.N == 2:
-                    radius = 1. if self.unit_length else 1.5
-                    video_options = []
-                    for angle in [3, 2, 1, 4]:
-                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-                    video_options.append([0, 0])
-                    for angle in [0, 5, 6, 7]:
-                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-                    video_options = np.array(video_options)
-                else:
-                    # random_option = np.random.randn(1, self.N, self.dim_option)
-                    # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
-                    # random_options = [random_option.copy()]
+        # if self.eval_record_video:
+        #     if self.discrete:
+        #         video_options = np.eye(self.dim_option)
+        #         video_options = video_options.repeat(self.num_video_repeats, axis=0)
+        #     else:
+        #         if self.dim_option * self.N == 2:
+        #             radius = 1. if self.unit_length else 1.5
+        #             video_options = []
+        #             for angle in [3, 2, 1, 4]:
+        #                 video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+        #             video_options.append([0, 0])
+        #             for angle in [0, 5, 6, 7]:
+        #                 video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+        #             video_options = np.array(video_options)
+        #         else:
+        #             # random_option = np.random.randn(1, self.N, self.dim_option)
+        #             # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
+        #             # random_options = [random_option.copy()]
 
-                    # for i in range(17):
-                    #     new_random_option = random_option.copy()
+        #             # for i in range(17):
+        #             #     new_random_option = random_option.copy()
 
-                    #     time_idx = i % self.N
-                    #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
-                    #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
-                    #     random_options.append(new_random_option)
+        #             #     time_idx = i % self.N
+        #             #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
+        #             #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
+        #             #     random_options.append(new_random_option)
                     
-                    # random_options = np.vstack(random_options)
-                    # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
+        #             # random_options = np.vstack(random_options)
+        #             # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
 
-                    video_options = np.random.randn(9, self.N, self.dim_option)
-                    if self.unit_length:
-                        video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
-                    flat_random_options = video_options.reshape(9, self.N * self.dim_option)
+        #             video_options = np.random.randn(9, self.N, self.dim_option)
+        #             if self.unit_length:
+        #                 video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
+        #             flat_random_options = video_options.reshape(9, self.N * self.dim_option)
 
-                video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
-            video_trajectories = self._get_trajectories(
-                runner,
-                sampler_key='local_option_policy',
-                extras=self._generate_option_extras(video_options),
-                worker_update=dict(
-                    _render=True,
-                    _deterministic_policy=True,
-                ),
-            )
-            record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
+        #         video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
+        #     video_trajectories = self._get_trajectories(
+        #         runner,
+        #         sampler_key='local_option_policy',
+        #         extras=self._generate_option_extras(video_options),
+        #         worker_update=dict(
+        #             _render=True,
+        #             _deterministic_policy=True,
+        #         ),
+        #     )
+        #     record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
 
         eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
         with global_context.GlobalContext({'phase': 'eval', 'policy': 'option'}):
