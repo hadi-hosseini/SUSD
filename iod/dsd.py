@@ -223,8 +223,16 @@ class DSD(IOD):
                 rewards = (target_z * masks).sum(dim=1)
 
             else:
-                inner = (target_z * v['options']).sum(dim=1)
-                rewards = inner
+                ### modify
+                rewards = []
+                for i in range(len(self.partition_points) - 1):
+                    start = i, end = i + 1
+                    rewards_i = (target_z[:, start:end] * v['options'][:, start:end]).sum(dim=1)
+                    rewards.append(rewards_i)
+
+                ### original
+                # inner = (target_z * v['options']).sum(dim=1)
+                # rewards = inner
 
             # For dual objectives
             v.update({
@@ -240,10 +248,10 @@ class DSD(IOD):
             else:
                 rewards = target_dists.log_prob(v['options'])
 
-        tensors.update({
-            'PureRewardMean': rewards.mean(),
-            'PureRewardStd': rewards.std(),
-        })
+        # tensors.update({
+        #     'PureRewardMean': rewards.mean(),
+        #     'PureRewardStd': rewards.std(),
+        # })
 
         v['rewards'] = rewards
 
@@ -301,39 +309,39 @@ class DSD(IOD):
             elif self.dual_dist == 'one':
                 cst_dist = torch.ones_like(x[:, 0])
             elif self.dual_dist == 's2_from_s':
-                s2_dist = self.dist_predictor(obs)
-                s2_dist_mean = s2_dist.mean
-                s2_dist_std = s2_dist.stddev
+                # s2_dist = self.dist_predictor(obs)
+                # s2_dist_mean = s2_dist.mean
+                # s2_dist_std = s2_dist.stddev
 
-                scaling_factor = 1. / s2_dist_std
-                geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-                normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-                cst_dist = torch.mean(torch.square((y - x) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+                # scaling_factor = 1. / s2_dist_std
+                # geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+                # normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+                # cst_dist = torch.mean(torch.square((y - x) - s2_dist_mean) * normalized_scaling_factor, dim=1)
 
                 mean_partitions, std_partitions = self._partition_dist_predictor(obs)
-                csd_losses = []
+                csd_distances = []
                 for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
                     start = self.partition_points[i]
                     end = self.partition_points[i + 1]
                     obs_i = x[:, start:end]
                     next_obs_i = x[:, start:end]
-                    csd_losses.append(self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std))
+                    csd_distances.append(self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std))
 
-                tensors.update({
-                    'ScalingFactor': scaling_factor.mean(dim=0),
-                    'NormalizedScalingFactor': normalized_scaling_factor.mean(dim=0),
-                })
+                # tensors.update({
+                #     'ScalingFactor': scaling_factor.mean(dim=0),
+                #     'NormalizedScalingFactor': normalized_scaling_factor.mean(dim=0),
+                # })
+
             else:
                 raise NotImplementedError
             
 
-            ##### new modified part
             for i in range(self.partition_points):
                 start = i * self.dim_option
                 end = (i+1) * self.dim_option
-                cst_penalty_i = csd_losses[i] - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
+                cst_penalty_i = torch.ones_like(x[:, 0]) - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
                 cst_penalty_i = torch.clamp(cst_penalty_i, max=self.dual_slack)
-                te_obj_i = rewards[i] + dual_lam[i].detach() * cst_penalty_i
+                te_obj_i = csd_distances[i] * rewards[i] + dual_lam[i].detach() * cst_penalty_i
 
             cst_penalty = None
             te_obj = None
@@ -343,9 +351,9 @@ class DSD(IOD):
             # cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
             # te_obj = rewards + dual_lam.detach() * cst_penalty
 
-            # v.update({
-            #     'cst_penalty': cst_penalty
-            # })
+            v.update({
+                'cst_penalty': cst_penalty
+            })
             # tensors.update({
             #     'DualCstPenalty': cst_penalty.mean(),
             # })
