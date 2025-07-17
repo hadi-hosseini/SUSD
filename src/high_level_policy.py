@@ -17,13 +17,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from iod.utils import get_normalizer_preset
 from garagei.envs.consistent_normalized_env import consistent_normalize
 from downstream_tasks.ant_multi_goals import AntMultiGoalsEnv 
-from src.zero_shot_goal_reaching import plot_multiple_methods_cumulative_reward
+from src.zero_shot_goal_reaching import plot_multiple_methods_cumulative_reward, load_logs_from_csv
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-is_train = False
-
-algo = "metra"
+mode = "plot" # ["train", "plot", "eval"]
+env_name = "ant" # ["ant", "kitchen_franka"]
+algo = "metra" # ["dsd", "metra"]
 
 if algo == "dsd":
     option_policy_checkpoint_path = 'exp/Debug/sd000_1752248887_ant_metra/option_policy19000.pt'
@@ -239,23 +239,22 @@ def run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10):
     print(f"\n📁 Logs saved to {csv_path}")
     return all_logs
 
-if is_train:
+if mode == "train":
     train()
-else:
+elif mode == "eval":
     run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10)
+elif mode == "plot":
+    metra_logs = load_logs_from_csv("results/high_level_metra.csv")
+    dsd_logs = load_logs_from_csv("results/high_level_dsd.csv")
 
-# plot the results
-# metra_logs = load_logs_from_csv("results/high_level_metra.csv")
-# dsd_logs = load_logs_from_csv("results/high_level_dsd.csv")
+    logs_by_method = {
+        "METRA": metra_logs,
+        "DSD": dsd_logs
+    }
 
-# logs_by_method = {
-#     "METRA": metra_logs,
-#     "DSD": dsd_logs
-# }
-
-# plot_multiple_methods_cumulative_reward(
-#     logs_by_method,
-#     max_duration=max_duration,
-#     dt=1.0,
-#     save_path="results/zero_shot_comparison.png"
-# )
+    plot_multiple_methods_cumulative_reward(
+        logs_by_method,
+        max_duration=50.0,
+        dt=1.0,
+        save_path=f"results/high_level_{env_name}_comparison.png"
+    )
