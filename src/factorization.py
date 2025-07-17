@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
 
 from garagei.torch.modules.gaussian_mlp_module_ex import GaussianMLPIndependentStdModuleEx, GaussianMLPModuleEx
 
@@ -74,6 +73,7 @@ class PartitionedTrajectoryEncoder(nn.Module):
             self.encoders.append(module_cls(**module_kwargs))
 
     def forward(self, obs):
+        # local_encodings = []
         outputs = []
         for i in range(len(self.partition_points) - 1):
             start, end = self.partition_points[i], self.partition_points[i + 1]
@@ -81,6 +81,7 @@ class PartitionedTrajectoryEncoder(nn.Module):
             dist = self.encoders[i](local_obs)
             local_encoded = dist.mean
             outputs.append(local_encoded)
+            # local_encodings.append(local_encoded)
 
         final_encoding = torch.cat(outputs, dim=-1)
         return final_encoding

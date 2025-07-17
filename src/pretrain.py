@@ -52,7 +52,7 @@ from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env
 from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
-from src.conf import METRAAntConfig, METRAKitchenConfig
+from src.conf import METRAAntConfig, METRAKitchenConfig, DSDKitchenConfig
 
 if os.environ.get('START_METHOD') is not None:
     START_METHOD = os.environ['START_METHOD']
@@ -60,7 +60,8 @@ else:
     START_METHOD = 'spawn'
 
 # args = METRAAntConfig()
-args = METRAKitchenConfig()
+# args = METRAKitchenConfig()
+args = DSDKitchenConfig()
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
 def run(ctxt=None):
@@ -370,6 +371,8 @@ def run(ctxt=None):
         dual_dist=args.dual_dist,
 
         pixel_shape=pixel_shape,
+        partition_points=partition_points
+
     )
 
     if args.algo == 'metra':

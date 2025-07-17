@@ -263,23 +263,44 @@ class METRADmcHumanoidConfig(DSDConfig):
 class METRAKitchenConfig(DSDConfig):
     run_group: str = 'Debug'
     env: str = 'kitchen_franka'
-    max_path_length: int = 150 # 50
+    max_path_length: int = 150
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 2 # 4
+    n_parallel: int = 2
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
-    # frame_stack: Optional[int] = 3
     sac_max_buffer_size: int = 100000
     algo: str = 'metra'
-    # sac_lr_a: float = -1
     trans_optimization_epochs: int = 100
     n_epochs_per_log: int = 25
     n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
     n_epochs_per_pt_save: int = 1000
-    # discrete: int = 1
+    discrete: int = 0
     dim_option: int = 5 # 24
-    # encoder: int = 1
     sample_cpu: int = 0
+
+
+@dataclass
+class DSDKitchenConfig(DSDConfig):
+    run_group: str = 'Debug'
+    env: str = 'kitchen_franka'
+    max_path_length: int = 150
+    seed: int = 0
+    traj_batch_size: int = 8
+    n_parallel: int = 2
+    normalizer_type: str = 'off'
+    num_video_repeats: int = 1
+    sac_max_buffer_size: int = 100000
+    algo: str = 'metra'
+    trans_optimization_epochs: int = 100
+    n_epochs_per_log: int = 25
+    n_epochs_per_eval: int = 250
+    n_epochs_per_save: int = 1000
+    n_epochs_per_pt_save: int = 1000
+    discrete: int = 0
+    dim_option: int = 5 # 24
+    sample_cpu: int = 0
+    dual_dist: str = 's2_from_s'  # Distance metric choice; options: 'l2', 's2_from_s', 'one'
+
     
