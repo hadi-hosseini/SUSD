@@ -334,8 +334,10 @@ class DSD(IOD):
                     end = self.partition_points[i + 1]
                     obs_i = x[:, start:end]
                     next_obs_i = x[:, start:end]
-                    csd_distances.append(self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std))
+                    csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                    csd_distances.append(csd_distance)
 
+                v.update({'csd_distances': csd_distances})
                 # tensors.update({
                 #     'ScalingFactor': scaling_factor.mean(dim=0),
                 #     'NormalizedScalingFactor': normalized_scaling_factor.mean(dim=0),
@@ -357,9 +359,6 @@ class DSD(IOD):
 
                 
 
-                v.update({
-                    'csd_distances': csd_distances
-                })
             ##### this should be modified
             # cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
             # cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
