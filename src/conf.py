@@ -263,10 +263,10 @@ class METRADmcHumanoidConfig(DSDConfig):
 class METRAKitchenConfig(DSDConfig):
     run_group: str = 'Debug'
     env: str = 'kitchen_franka'
-    max_path_length: int = 50
+    max_path_length: int = 150 # 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 1 # 4
+    n_parallel: int = 2 # 4
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     # frame_stack: Optional[int] = 3
@@ -279,7 +279,7 @@ class METRAKitchenConfig(DSDConfig):
     n_epochs_per_save: int = 1000
     n_epochs_per_pt_save: int = 1000
     # discrete: int = 1
-    dim_option: int = 2 # 24
+    dim_option: int = 5 # 24
     # encoder: int = 1
     sample_cpu: int = 0
     

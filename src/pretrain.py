@@ -80,7 +80,7 @@ def run(ctxt=None):
     runner = OptionLocalRunner(ctxt)
 
     # args.resume = True
-    # args.resume_path = "exp/Debug/sd000_1752248887_ant_metra"
+    # args.resume_path = "exp/Debug/sd000_1752602706_kitchen_franka_metra"
     if args.resume:
         dowel.logger.log(f"Resuming from checkpoint: {args.resume_path}")
         restored_train_args = runner.restore(

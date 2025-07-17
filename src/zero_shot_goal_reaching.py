@@ -209,17 +209,17 @@ def load_logs_from_csv(csv_path):
 
 
 # plot the results
-metra_logs = load_logs_from_csv("results/metra.csv")
-dsd_logs = load_logs_from_csv("results/dsd.csv")
+# metra_logs = load_logs_from_csv("results/metra.csv")
+# dsd_logs = load_logs_from_csv("results/dsd.csv")
 
-logs_by_method = {
-    "METRA": metra_logs,
-    "DSD": dsd_logs
-}
+# logs_by_method = {
+#     "METRA": metra_logs,
+#     "DSD": dsd_logs
+# }
 
-plot_multiple_methods_cumulative_reward(
-    logs_by_method,
-    max_duration=max_duration,
-    dt=1.0,
-    save_path="results/zero_shot_comparison.png"
-)
+# plot_multiple_methods_cumulative_reward(
+#     logs_by_method,
+#     max_duration=max_duration,
+#     dt=1.0,
+#     save_path="results/zero_shot_comparison.png"
+# )

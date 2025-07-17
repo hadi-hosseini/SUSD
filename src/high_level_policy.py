@@ -4,6 +4,9 @@ import numpy as np
 import torch
 from gym import spaces
 import imageio
+import time
+from tqdm import tqdm
+import csv
 
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -14,11 +17,25 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from iod.utils import get_normalizer_preset
 from garagei.envs.consistent_normalized_env import consistent_normalize
 from downstream_tasks.ant_multi_goals import AntMultiGoalsEnv 
+from src.zero_shot_goal_reaching import plot_multiple_methods_cumulative_reward
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-option_ckpt = torch.load("exp/Debug/sd000_1752248887_ant_metra/option_policy19000.pt")
-traj_ckpt = torch.load("exp/Debug/sd000_1752248887_ant_metra/traj_encoder19000.pt")
+is_train = False
+
+algo = "metra"
+
+if algo == "dsd":
+    option_policy_checkpoint_path = 'exp/Debug/sd000_1752248887_ant_metra/option_policy19000.pt'
+    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752248887_ant_metra/traj_encoder19000.pt'
+
+elif algo == "metra": 
+    option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
+    traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
+
+csv_path = f"results/high_level_{algo}.csv"
+option_ckpt = torch.load(option_policy_checkpoint_path)
+traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
 traj_encoder = traj_ckpt["traj_encoder"]
 
@@ -72,7 +89,7 @@ class SkillWrapperEnv(gym.Env):
 
 
 def train():
-    log_dir = "logs/sac_high_level"
+    log_dir = f"logs/sac_high_level_{algo}"
     # log_dir = "logs/test"
     model_dir = os.path.join(log_dir, "models")
     tensorboard_log_dir = os.path.join(log_dir, "tb")
@@ -149,51 +166,96 @@ def train():
     sac_model.learn(total_timesteps=1_000_000, callback=[checkpoint_callback, reward_callback])
     sac_model.save(os.path.join(model_dir, "sac_highlevel_final"))
 
-def eval():
-    sac_model = SAC.load("sac_high_level_ant_multi_goals", device=device)
+def eval(env, max_duration=30.0, max_skill_steps=10):
+    log_dir = f"logs/sac_high_level_{algo}"
+    snapshot_version = "sac_highlevel_ant_200000_steps.zip"
+    model_dir = os.path.join(log_dir, "models", snapshot_version)
+
+    sac_model = SAC.load(model_dir, device=device)
     wrapped_env = SkillWrapperEnv(env, option_policy, traj_encoder, skill_dim, max_skill_steps, device)
 
-    num_eval_episodes = 20
-    successes = []
-    rewards = []
-    video_frames = [] 
-    record_video = True
+    time_reward_log = []
+    record_video = False
+    done = True
+    start_time = time.time()
+    last_log_time = start_time
+    cumulative_reward = 0.0
+    frames = []
 
-    for ep in range(num_eval_episodes):
-        obs = wrapped_env.reset()
-        done = False
-        ep_reward = 0.0
-        ep_success = 0
-        ep_frames = []
-
-        while not done:
+    while time.time() - start_time < max_duration:
+        if done:
+            obs = wrapped_env.reset()
+            done = False
+        else:
             z, _ = sac_model.predict(obs, deterministic=True)
-            obs, reward, done, info = wrapped_env.step(z)
-            ep_reward += reward
-            if "current_goal" in info:
-                ep_success += 1
+            obs, reward, done, _ = wrapped_env.step(z)
+            cumulative_reward += reward
 
             if record_video:
                 frame = env.render(mode="rgb_array")
-                ep_frames.append(frame)
+                frames.append(frame)
 
-        rewards.append(ep_reward)
-        successes.append(ep_success)
-        print(f"Episode {ep+1}/{num_eval_episodes} - Reward: {ep_reward:.2f} - Goals Reached: {ep_success}")
+        current_time = time.time()
+        if current_time - last_log_time >= 1.0:
+            elapsed = current_time - start_time
+            time_reward_log.append((elapsed, cumulative_reward))
+            last_log_time = current_time
 
-        if record_video:
-            video_frames.extend(ep_frames)
-
-    avg_reward = np.mean(rewards)
-    avg_success = np.mean(successes)
-    print(f"\n✅ Evaluation over {num_eval_episodes} episodes:")
-    print(f"Average Reward: {avg_reward:.2f}")
-    print(f"Average Goals Reached: {avg_success:.2f} per episode")
+    print(f"Total accumulated reward: {cumulative_reward:.2f}")
 
     if record_video:
-        video_path = "eval_sac_highlevel_ant.mp4"
-        imageio.mimsave(video_path, video_frames, fps=30)
+        video_path = f"eval_sac_highlevel_ant_{algo}.mp4"
+        imageio.mimsave(video_path, frames, fps=30)
         print(f"🎞️ Video saved to: {video_path}")
 
+    return time_reward_log
 
-train()
+
+def run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10):
+    all_logs = []
+    csv_rows = []
+    
+    for seed in tqdm(range(num_runs)):
+        print(f"Running seed {seed}...")
+        env = AntMultiGoalsEnv(render_hw=256)
+        env.seed(seed)
+        
+        normalizer_mean, normalizer_std = get_normalizer_preset(f'ant_preset')
+        env = consistent_normalize(env, normalize_obs=True, mean=normalizer_mean, std=normalizer_std)
+        
+        time_reward_log = eval(env, max_duration=max_duration, max_skill_steps=max_skill_steps)
+        all_logs.append(time_reward_log)
+
+        for time_val, reward in time_reward_log:
+            csv_rows.append({'seed': seed, 'time': time_val, 'cumulative_reward': reward})
+
+
+    fieldnames = ['seed', 'time', 'cumulative_reward']
+    with open(csv_path, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(csv_rows)
+
+    print(f"\n📁 Logs saved to {csv_path}")
+    return all_logs
+
+if is_train:
+    train()
+else:
+    run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10)
+
+# plot the results
+# metra_logs = load_logs_from_csv("results/high_level_metra.csv")
+# dsd_logs = load_logs_from_csv("results/high_level_dsd.csv")
+
+# logs_by_method = {
+#     "METRA": metra_logs,
+#     "DSD": dsd_logs
+# }
+
+# plot_multiple_methods_cumulative_reward(
+#     logs_by_method,
+#     max_duration=max_duration,
+#     dt=1.0,
+#     save_path="results/zero_shot_comparison.png"
+# )
