@@ -30,8 +30,8 @@ mode = "train" # ["train", "plot", "eval"]
 algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/option_policy6000.pt'
-    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/traj_encoder6000.pt'
+    option_policy_checkpoint_path = '/home/hadi/RL/LDG/DSD/test/option_policy33000.pt'
+    traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/DSD/test/traj_encoder33000.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
@@ -51,7 +51,7 @@ env = KitchenEnv(
 max_steps = 280  # Set your max steps per episode here
 env = TimeLimit(env, max_episode_steps=max_steps)
 
-skill_dim = 25 # N=5, d=5
+skill_dim = 24 # N=5, d=5
 max_skill_steps = 20 # maximum number of steps for each z (25)
 
 
@@ -100,6 +100,8 @@ class SkillWrapperEnv(gym.Env):
                 completed_tasks = info.get("episode_task_completions", [])
                 total_completed_tasks += len(completed_tasks)
                 print("Completed tasks:", completed_tasks)
+                info['total_reward'] = total_reward
+                info['total_completed_tasks'] = total_completed_tasks
                 self.reset()
                 break
 
@@ -155,21 +157,17 @@ def train():
         def __init__(self, verbose=0):
             super().__init__(verbose)
             self.total_reward = 0.0
-            self.completed_tasks = 0
+            self.completed_tasks = 0.0
 
         def _on_step(self) -> bool:
-            # Get reward and done from rollout buffer
-            reward = self.locals.get('rewards', [0.0])[0]
             done = self.locals.get('dones', [False])[0]
             info = self.locals.get('infos', [{}])[0]
 
-            # Accumulate reward
-            self.total_reward += reward
+            if 'total_reward' in info:
+                self.total_reward += info['total_reward'] 
+                self.completed_tasks += info['total_completed_tasks']
 
             if done:
-                completed = info.get("episode_task_completions", [])
-                self.completed_tasks += len(completed)
-
                 self.logger.record('custom/total_cumulative_reward', self.total_reward)
                 self.logger.record('custom/completed_tasks', self.completed_tasks)
 
