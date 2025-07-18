@@ -169,6 +169,7 @@ def train():
 def eval(env, max_duration=30.0, max_skill_steps=10):
     log_dir = f"logs/sac_high_level_{algo}"
     snapshot_version = "sac_highlevel_ant_200000_steps.zip"
+    # snapshot_version = "sac_highlevel_ant_433000_steps.zip"
     model_dir = os.path.join(log_dir, "models", snapshot_version)
 
     sac_model = SAC.load(model_dir, device=device)

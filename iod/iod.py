@@ -158,10 +158,24 @@ class IOD(RLAlgorithm):
                     dowel_wrapper.get_tabular('plot').record(key, Histogram(val))
 
                 for k in tensors.keys():
-                    if tensors[k].numel() == 1:
-                        _record_scalar(f'{k}', tensors[k].item())
+                    # if tensors[k].numel() == 1:
+                    #     _record_scalar(f'{k}', tensors[k].item())
+                    # else:
+                    #     _record_scalar(f'{k}', np.array2string(tensors[k].detach().cpu().numpy(), suppress_small=True))
+
+                    value = tensors[k]
+                    if isinstance(value, list):
+                        value = torch.tensor(value, device='cuda' if torch.cuda.is_available() else 'cpu')
+                        
+                    if isinstance(value, torch.Tensor):
+                        if value.numel() == 1:
+                            _record_scalar(f'{k}', value.item())
+                        else:
+                            _record_scalar(f'{k}', np.array2string(value.detach().cpu().numpy(), suppress_small=True))
                     else:
-                        _record_scalar(f'{k}', np.array2string(tensors[k].detach().cpu().numpy(), suppress_small=True))
+                        _record_scalar(f'{k}', str(value))
+
+
                 with torch.no_grad():
                     total_norm = compute_total_norm(self.all_parameters())
                     _record_scalar('TotalGradNormAll', total_norm.item())
