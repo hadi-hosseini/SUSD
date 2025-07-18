@@ -296,9 +296,9 @@ class DSDKitchenConfig(DSDConfig):
     algo: str = 'metra'
     trans_optimization_epochs: int = 100
     n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 250
-    n_epochs_per_save: int = 1000
-    n_epochs_per_pt_save: int = 1000
+    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_save: int = 1000 # 1000
+    n_epochs_per_pt_save: int = 1000 # 1000
     discrete: int = 0
     dim_option: int = 5 # should be larger
     sample_cpu: int = 0

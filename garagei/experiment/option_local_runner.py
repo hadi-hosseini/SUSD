@@ -132,6 +132,13 @@ class OptionLocalRunner(LocalRunner):
                 'dim_option': self._algo.dim_option,
                 'traj_encoder': self._algo.traj_encoder,
             }, file_name)
+            if self._algo.dist_predictor:
+                file_name = os.path.join(self._snapshotter._snapshot_dir, f'dist_predictor{epoch}.pt')
+                torch.save({
+                    'discrete': self._algo.discrete,
+                    'dim_option': self._algo.dim_option,
+                    'dist_predictor': self._algo.dist_predictor,
+                }, file_name)
 
         if pt_save and epoch != 0:
             file_name = os.path.join(self._snapshotter._snapshot_dir, f'option_policy{epoch}.pt')

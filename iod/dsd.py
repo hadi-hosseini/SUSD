@@ -147,7 +147,10 @@ class DSD(IOD):
         if self.replay_buffer is not None and self.replay_buffer.n_transitions_stored < self.min_buffer_size:
             return {}
 
-        for _ in range(self._trans_optimization_epochs):
+        for i in range(self._trans_optimization_epochs):
+            if i == 0:
+                self.do_print = True
+
             tensors = {}
 
             if self.replay_buffer is None:
@@ -328,6 +331,14 @@ class DSD(IOD):
                 # cst_dist = torch.mean(torch.square((y - x) - s2_dist_mean) * normalized_scaling_factor, dim=1)
 
                 mean_partitions, std_partitions = self._partition_dist_predictor(obs)
+
+                # if self.do_print:
+                #     output = []
+                #     for i in range(len(self.partition_points) - 1):
+                #         output.append(f"Sigma for factor {i}: {std_partitions[i][0].tolist()}")
+                #     output.append(60 * '-')
+                #     print('\n'.join(output))
+
                 csd_distances = []
                 for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
                     start = self.partition_points[i]
@@ -337,6 +348,12 @@ class DSD(IOD):
                     csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
                     csd_distances.append(csd_distance)
 
+                # if self.do_print:
+                #     output = [f"CSD for factor {i}: {csd_distances[i][0]}" for i in range(len(self.partition_points) - 1)]
+                #     output.append(60 * '-')
+                #     print('\n'.join(output))
+                #     self.do_print = False
+
                 v.update({'csd_distances': csd_distances})
                 # tensors.update({
                 #     'ScalingFactor': scaling_factor.mean(dim=0),
@@ -345,7 +362,7 @@ class DSD(IOD):
 
             else:
                 raise NotImplementedError
-            
+
             cst_penalty = []
             te_objs = []
             for i in range(len(self.partition_points) - 1):
@@ -357,12 +374,6 @@ class DSD(IOD):
                 cst_penalty.append(cst_penalty_i)
                 te_objs.append(te_obj_i)
 
-                
-
-            ##### this should be modified
-            # cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
-            # cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
-            # te_obj = rewards + dual_lam.detach() * cst_penalty
 
             v.update({
                 'cst_penalty': cst_penalty,
@@ -438,7 +449,7 @@ class DSD(IOD):
         rewards = 0
         if len(v['rewards']) > 1:
             for i in range(len(self.partition_points) - 1):
-                rewards += v['csd_distances'][i] * v['rewards'][i]
+                rewards = rewards + v['csd_distances'][i] * v['rewards'][i]
         else:
             rewards = v['rewards']
 

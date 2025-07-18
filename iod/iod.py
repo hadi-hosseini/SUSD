@@ -158,7 +158,7 @@ class IOD(RLAlgorithm):
                     dowel_wrapper.get_tabular('plot').record(key, Histogram(val))
 
                 for k in tensors.keys():
-                   if isinstance(tensors[k], torch.Tensor):
+                    if isinstance(tensors[k], torch.Tensor):
                         if tensors[k].numel() == 1:
                             _record_scalar(f'{k}', tensors[k].item())
                         else:
