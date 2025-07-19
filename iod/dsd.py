@@ -353,13 +353,15 @@ class DSD(IOD):
                     csd_distances.append(csd_distance)
 
                 if self.do_print:
-                    output = [f"CSD for factor {i}: {csd_distances[i][0]}" for i in range(len(self.partition_points) - 1)]
-                    output.append(60 * '-')
-                    print('\n'.join(output))
+                    # output = [f"CSD for factor {i}: {csd_distances[i][0]}" for i in range(len(self.partition_points) - 1)]
+                    # output.append(60 * '-')
+                    # print('\n'.join(output))
+                    # print(f"epoch number: {runner.step_itr}")
                     self.do_print = False
-                    self.csd_logs.append([csd_distances[i][0] for i in range(len(self.partition_points) - 1)])
-                    self.csd_logs.append((runner.step_itr, [csd_distances[i][0].item() for i in range(len(self.partition_points) - 1)]))
-
+                    self.csd_logs.append((
+                        runner.step_itr,
+                        [csd_distances[i][0].detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]
+                    ))
 
 
                 v.update({'csd_distances': csd_distances})
@@ -410,24 +412,33 @@ class DSD(IOD):
         #     'LossTe': loss_te,
         # })
 
-
     def plot_csd_logs(self, runner):
-        if not self.csd_logs:
+        if len(self.csd_logs) == 0:
             return
 
         epochs, csd_values = zip(*self.csd_logs)
-        csd_values = np.array(csd_values)  # Shape: (num_epochs, num_factors)
+        csd_values = 1e6 * np.array(csd_values)  # Scale if desired
+
+        print(csd_values)
 
         fig, ax = plt.subplots(figsize=(10, 6))
         for i in range(csd_values.shape[1]):
-            ax.plot(epochs, csd_values[:, i], label=f'Factor {i}')
+            ax.plot(
+                epochs,
+                csd_values[:, i],
+                label=f'Factor {i}',
+                marker='o',             # Circle marker
+                markersize=6,           # Size of circle
+                linewidth=2             # Optional: make lines thicker
+            )
         ax.set_xlabel('Epoch')
-        ax.set_ylabel('CSD Value')
+        ax.set_ylabel('CSD Value (x1e6)')
         ax.set_title('CSD per Factor over Epochs')
         ax.legend()
         ax.grid(True)
+        fig.tight_layout()
 
-        csd_plot_path = os.path.join(runner._snapshot_dir, f'results/csd_plot_epoch_{runner.step_itr}.png')
+        csd_plot_path = f'results/csd_logs/csd_plot_epoch_{runner.step_itr}.png'
         fig.savefig(csd_plot_path)
         plt.close(fig)
 
@@ -599,53 +610,53 @@ class DSD(IOD):
         
         eval_option_metrics = {}
 
-        # Videos
-        if self.eval_record_video:
-            if self.discrete:
-                video_options = np.eye(self.dim_option)
-                video_options = video_options.repeat(self.num_video_repeats, axis=0)
-            else:
-                if self.dim_option * self.N == 2:
-                    radius = 1. if self.unit_length else 1.5
-                    video_options = []
-                    for angle in [3, 2, 1, 4]:
-                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-                    video_options.append([0, 0])
-                    for angle in [0, 5, 6, 7]:
-                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-                    video_options = np.array(video_options)
-                else:
-                    # random_option = np.random.randn(1, self.N, self.dim_option)
-                    # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
-                    # random_options = [random_option.copy()]
+        # # Videos
+        # if self.eval_record_video:
+        #     if self.discrete:
+        #         video_options = np.eye(self.dim_option)
+        #         video_options = video_options.repeat(self.num_video_repeats, axis=0)
+        #     else:
+        #         if self.dim_option * self.N == 2:
+        #             radius = 1. if self.unit_length else 1.5
+        #             video_options = []
+        #             for angle in [3, 2, 1, 4]:
+        #                 video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+        #             video_options.append([0, 0])
+        #             for angle in [0, 5, 6, 7]:
+        #                 video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+        #             video_options = np.array(video_options)
+        #         else:
+        #             # random_option = np.random.randn(1, self.N, self.dim_option)
+        #             # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
+        #             # random_options = [random_option.copy()]
 
-                    # for i in range(17):
-                    #     new_random_option = random_option.copy()
+        #             # for i in range(17):
+        #             #     new_random_option = random_option.copy()
 
-                    #     time_idx = i % self.N
-                    #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
-                    #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
-                    #     random_options.append(new_random_option)
+        #             #     time_idx = i % self.N
+        #             #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
+        #             #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
+        #             #     random_options.append(new_random_option)
                     
-                    # random_options = np.vstack(random_options)
-                    # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
+        #             # random_options = np.vstack(random_options)
+        #             # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
 
-                    video_options = np.random.randn(9, self.N, self.dim_option)
-                    if self.unit_length:
-                        video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
-                    flat_random_options = video_options.reshape(9, self.N * self.dim_option)
+        #             video_options = np.random.randn(9, self.N, self.dim_option)
+        #             if self.unit_length:
+        #                 video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
+        #             flat_random_options = video_options.reshape(9, self.N * self.dim_option)
 
-                video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
-            video_trajectories = self._get_trajectories(
-                runner,
-                sampler_key='local_option_policy',
-                extras=self._generate_option_extras(video_options),
-                worker_update=dict(
-                    _render=True,
-                    _deterministic_policy=True,
-                ),
-            )
-            record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
+        #         video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
+        #     video_trajectories = self._get_trajectories(
+        #         runner,
+        #         sampler_key='local_option_policy',
+        #         extras=self._generate_option_extras(video_options),
+        #         worker_update=dict(
+        #             _render=True,
+        #             _deterministic_policy=True,
+        #         ),
+        #     )
+        #     record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
 
         eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
         with global_context.GlobalContext({'phase': 'eval', 'policy': 'option'}):

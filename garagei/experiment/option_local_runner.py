@@ -139,6 +139,9 @@ class OptionLocalRunner(LocalRunner):
                     'dim_option': self._algo.dim_option,
                     'dist_predictor': self._algo.dist_predictor,
                 }, file_name)
+                file_name = os.path.join(self._snapshotter._snapshot_dir, f'csd_logs.npy')
+                np.save(file_name, np.array(self._algo.csd_logs, dtype=object))
+                logger.log(f"Saved CSD logs to {file_name}")
 
         if pt_save and epoch != 0:
             file_name = os.path.join(self._snapshotter._snapshot_dir, f'option_policy{epoch}.pt')
@@ -208,6 +211,17 @@ class OptionLocalRunner(LocalRunner):
         logger.log(fmt.format('-- Stats --', '-- Value --'))
         logger.log(fmt.format('last_itr', last_itr))
         logger.log(fmt.format('total_env_steps', total_env_steps))
+
+        if self._algo.dist_predictor:
+            csd_path = os.path.join(self._snapshotter.snapshot_dir, 'csd_logs.npy')
+            if os.path.exists(csd_path):
+                try:
+                    self.algo.csd_logs = np.load(csd_path, allow_pickle=True).tolist()
+                    logger.log(f"Loaded CSD logs from {csd_path}")
+                except Exception as e:
+                    logger.log(f"Failed to load CSD logs from {csd_path}: {e}")
+            else:
+                logger.log(f"No CSD log file found at {csd_path}")
 
         self._train_args.start_epoch = last_epoch
         return copy.copy(self._train_args)
