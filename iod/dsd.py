@@ -7,6 +7,8 @@ from garagei import log_performance_ex
 from iod import sac_utils
 from iod.iod import IOD
 import copy
+import matplotlib.pyplot as plt
+import os
 
 from iod.utils import get_torch_concat_obs, FigManager, get_option_colors, record_video, draw_2d_gaussians
 
@@ -73,6 +75,8 @@ class DSD(IOD):
     
         self.partition_points = partition_points
 
+        self.csd_logs = []
+
         assert self._trans_optimization_epochs is not None
 
     @property
@@ -134,16 +138,16 @@ class DSD(IOD):
             data[key] = torch.from_numpy(value).float().to(self.device)
         return data
 
-    def _train_once_inner(self, path_data):
+    def _train_once_inner(self, path_data, runner):
         self._update_replay_buffer(path_data)
 
         epoch_data = self._flatten_data(path_data)
 
-        tensors = self._train_components(epoch_data)
+        tensors = self._train_components(epoch_data, runner)
 
         return tensors
 
-    def _train_components(self, epoch_data):
+    def _train_components(self, epoch_data, runner):
         if self.replay_buffer is not None and self.replay_buffer.n_transitions_stored < self.min_buffer_size:
             return {}
 
@@ -158,7 +162,7 @@ class DSD(IOD):
             else:
                 v = self._sample_replay_buffer()
 
-            self._optimize_te(tensors, v)
+            self._optimize_te(tensors, v, runner)
             self._update_rewards(tensors, v)
             self._optimize_op(tensors, v)
         
@@ -167,8 +171,8 @@ class DSD(IOD):
         return tensors
 
 
-    def _optimize_te(self, tensors, internal_vars):
-        self._update_loss_te(tensors, internal_vars)
+    def _optimize_te(self, tensors, internal_vars, runner):
+        self._update_loss_te(tensors, internal_vars, runner)
 
         # self._gradient_descent(
         #     tensors['LossTe'],
@@ -294,7 +298,7 @@ class DSD(IOD):
         cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
         return cst_dist
 
-    def _update_loss_te(self, tensors, v):
+    def _update_loss_te(self, tensors, v, runner):
         self._update_rewards(tensors, v)
         rewards = v['rewards']
 
@@ -348,11 +352,15 @@ class DSD(IOD):
                     csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
                     csd_distances.append(csd_distance)
 
-                # if self.do_print:
-                #     output = [f"CSD for factor {i}: {csd_distances[i][0]}" for i in range(len(self.partition_points) - 1)]
-                #     output.append(60 * '-')
-                #     print('\n'.join(output))
-                #     self.do_print = False
+                if self.do_print:
+                    output = [f"CSD for factor {i}: {csd_distances[i][0]}" for i in range(len(self.partition_points) - 1)]
+                    output.append(60 * '-')
+                    print('\n'.join(output))
+                    self.do_print = False
+                    self.csd_logs.append([csd_distances[i][0] for i in range(len(self.partition_points) - 1)])
+                    self.csd_logs.append((runner.step_itr, [csd_distances[i][0].item() for i in range(len(self.partition_points) - 1)]))
+
+
 
                 v.update({'csd_distances': csd_distances})
                 # tensors.update({
@@ -401,6 +409,27 @@ class DSD(IOD):
         #     'TeObjMean': te_obj.mean(),
         #     'LossTe': loss_te,
         # })
+
+
+    def plot_csd_logs(self, runner):
+        if not self.csd_logs:
+            return
+
+        epochs, csd_values = zip(*self.csd_logs)
+        csd_values = np.array(csd_values)  # Shape: (num_epochs, num_factors)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for i in range(csd_values.shape[1]):
+            ax.plot(epochs, csd_values[:, i], label=f'Factor {i}')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('CSD Value')
+        ax.set_title('CSD per Factor over Epochs')
+        ax.legend()
+        ax.grid(True)
+
+        csd_plot_path = os.path.join(runner._snapshot_dir, f'results/csd_plot_epoch_{runner.step_itr}.png')
+        fig.savefig(csd_plot_path)
+        plt.close(fig)
 
     def _update_loss_dual_lam(self, tensors, v):
         assert len(v['cst_penalty']) == len(self.dual_lam)
@@ -627,3 +656,5 @@ class DSD(IOD):
                 additional_records=eval_option_metrics,
             )
         self._log_eval_metrics(runner)
+
+        self.plot_csd_logs(runner)
