@@ -417,7 +417,7 @@ class DSD(IOD):
             return
 
         epochs, csd_values = zip(*self.csd_logs)
-        csd_values = 1e6 * np.array(csd_values)  # Scale if desired
+        csd_values = 1e5 * np.array(csd_values)  # Scale if desired
 
         print(csd_values)
 
