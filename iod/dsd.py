@@ -419,7 +419,7 @@ class DSD(IOD):
         epochs, csd_values = zip(*self.csd_logs)
         csd_values = 1e5 * np.array(csd_values)  # Scale if desired
 
-        print(csd_values)
+        # print(csd_values)
 
         fig, ax = plt.subplots(figsize=(10, 6))
         for i in range(csd_values.shape[1]):
@@ -432,7 +432,7 @@ class DSD(IOD):
                 linewidth=2             # Optional: make lines thicker
             )
         ax.set_xlabel('Epoch')
-        ax.set_ylabel('CSD Value (x1e6)')
+        ax.set_ylabel('CSD Value (x1e5)')
         ax.set_title('CSD per Factor over Epochs')
         ax.legend()
         ax.grid(True)
@@ -610,53 +610,53 @@ class DSD(IOD):
         
         eval_option_metrics = {}
 
-        # # Videos
-        # if self.eval_record_video:
-        #     if self.discrete:
-        #         video_options = np.eye(self.dim_option)
-        #         video_options = video_options.repeat(self.num_video_repeats, axis=0)
-        #     else:
-        #         if self.dim_option * self.N == 2:
-        #             radius = 1. if self.unit_length else 1.5
-        #             video_options = []
-        #             for angle in [3, 2, 1, 4]:
-        #                 video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-        #             video_options.append([0, 0])
-        #             for angle in [0, 5, 6, 7]:
-        #                 video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-        #             video_options = np.array(video_options)
-        #         else:
-        #             # random_option = np.random.randn(1, self.N, self.dim_option)
-        #             # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
-        #             # random_options = [random_option.copy()]
+        # Videos
+        if self.eval_record_video:
+            if self.discrete:
+                video_options = np.eye(self.dim_option)
+                video_options = video_options.repeat(self.num_video_repeats, axis=0)
+            else:
+                if self.dim_option * self.N == 2:
+                    radius = 1. if self.unit_length else 1.5
+                    video_options = []
+                    for angle in [3, 2, 1, 4]:
+                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+                    video_options.append([0, 0])
+                    for angle in [0, 5, 6, 7]:
+                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+                    video_options = np.array(video_options)
+                else:
+                    # random_option = np.random.randn(1, self.N, self.dim_option)
+                    # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
+                    # random_options = [random_option.copy()]
 
-        #             # for i in range(17):
-        #             #     new_random_option = random_option.copy()
+                    # for i in range(17):
+                    #     new_random_option = random_option.copy()
 
-        #             #     time_idx = i % self.N
-        #             #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
-        #             #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
-        #             #     random_options.append(new_random_option)
+                    #     time_idx = i % self.N
+                    #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
+                    #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
+                    #     random_options.append(new_random_option)
                     
-        #             # random_options = np.vstack(random_options)
-        #             # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
+                    # random_options = np.vstack(random_options)
+                    # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
 
-        #             video_options = np.random.randn(9, self.N, self.dim_option)
-        #             if self.unit_length:
-        #                 video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
-        #             flat_random_options = video_options.reshape(9, self.N * self.dim_option)
+                    video_options = np.random.randn(9, self.N, self.dim_option)
+                    if self.unit_length:
+                        video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
+                    flat_random_options = video_options.reshape(9, self.N * self.dim_option)
 
-        #         video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
-        #     video_trajectories = self._get_trajectories(
-        #         runner,
-        #         sampler_key='local_option_policy',
-        #         extras=self._generate_option_extras(video_options),
-        #         worker_update=dict(
-        #             _render=True,
-        #             _deterministic_policy=True,
-        #         ),
-        #     )
-        #     record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
+                video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
+            video_trajectories = self._get_trajectories(
+                runner,
+                sampler_key='local_option_policy',
+                extras=self._generate_option_extras(video_options),
+                worker_update=dict(
+                    _render=True,
+                    _deterministic_policy=True,
+                ),
+            )
+            record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
 
         eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
         with global_context.GlobalContext({'phase': 'eval', 'policy': 'option'}):
