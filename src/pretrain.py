@@ -83,6 +83,8 @@ def run(ctxt=None):
 
     # args.resume = True
     # args.resume_path = "exp/Debug/sd000_1752855987_kitchen_franka_metra"
+    args.resume = True
+    args.resume_path = "exp/Debug/sd000_1752773936_kitchen_franka_metra"
     if args.resume:
         dowel.logger.log(f"Resuming from checkpoint: {args.resume_path}")
         restored_train_args = runner.restore(
@@ -92,9 +94,14 @@ def run(ctxt=None):
         )
 
         # set new saving arguments 
-        runner._algo.n_epochs_per_pkl_update = 1000 # params
-        runner._algo.n_epochs_per_save = 1000 # phi encoder
-        runner._algo.n_epochs_per_pt_save = 1000 # option policy
+        runner._algo.n_epochs_per_pkl_update = 1 # params
+        runner._algo.n_epochs_per_save = 1 # phi encoder
+        runner._algo.n_epochs_per_pt_save = 1 # option policy
+        runner._algo.n_epochs_per_log = 1 # save logs
+        runner._algo.n_epochs_per_eval = 1 # save eval
+        runner._algo.csd_logs = []
+        # print(runner._algo.csd_logs)
+        # exit()
 
         runner.train(n_epochs=restored_train_args.n_epochs, batch_size=restored_train_args.batch_size)
         return

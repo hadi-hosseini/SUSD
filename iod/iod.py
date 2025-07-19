@@ -137,7 +137,7 @@ class IOD(RLAlgorithm):
         time_training = [0.0]
 
         with MeasureAndAccTime(time_training):
-            tensors = self._train_once_inner(data)
+            tensors = self._train_once_inner(data, runner)
 
         performence = log_performance_ex(
             itr,

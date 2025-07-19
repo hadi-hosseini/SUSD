@@ -1,8 +1,13 @@
 import os
-import gym
 import numpy as np
 import torch
-from gym import spaces
+# import gym
+# from gym import spaces
+
+import gymnasium as gym
+from gymnasium import spaces
+from gymnasium.wrappers import TimeLimit
+
 import imageio
 import time
 from tqdm import tqdm
@@ -14,37 +19,40 @@ from stable_baselines3.common.logger import configure
 from stable_baselines3 import SAC
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from iod.utils import get_normalizer_preset
-from garagei.envs.consistent_normalized_env import consistent_normalize
-from downstream_tasks.ant_multi_goals import AntMultiGoalsEnv 
-from src.zero_shot_goal_reaching import plot_multiple_methods_cumulative_reward, load_logs_from_csv
+# from src.evaluations.zero_shot_goal_reaching_ant import plot_multiple_methods_cumulative_reward, load_logs_from_csv
+from gymnasium_robotics.envs.franka_kitchen import KitchenEnv
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
 
-mode = "plot" # ["train", "plot", "eval"]
-env_name = "ant" # ["ant", "kitchen_franka"]
-algo = "metra" # ["dsd", "metra"]
+mode = "train" # ["train", "plot", "eval"]
+algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'exp/Debug/sd000_1752248887_ant_metra/option_policy19000.pt'
-    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752248887_ant_metra/traj_encoder19000.pt'
+    option_policy_checkpoint_path = '/home/hadi/RL/LDG/DSD/test/option_policy33000.pt'
+    traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/DSD/test/traj_encoder33000.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
     traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
 
-csv_path = f"results/high_level_{algo}.csv"
+csv_path = f"results/high_level_{algo}_kitchen.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
 traj_encoder = traj_ckpt["traj_encoder"]
 
-env = AntMultiGoalsEnv(render_hw=256)
-mean, std = get_normalizer_preset("ant_preset")
-env = consistent_normalize(env, normalize_obs=True, mean=mean, std=std)
+env = KitchenEnv(
+    tasks_to_complete=all_tasks,
+    terminate_on_tasks_completed=True,
+    render_mode="rgb_array"
+)
+max_steps = 280  # Set your max steps per episode here
+env = TimeLimit(env, max_episode_steps=max_steps)
 
-skill_dim = 12 # N=6, d=2
-max_skill_steps = 10 # maximum number of steps for each z (25)
+skill_dim = 24 # N=5, d=5
+max_skill_steps = 20 # maximum number of steps for each z (25)
 
 
 class SkillWrapperEnv(gym.Env):
@@ -58,38 +66,53 @@ class SkillWrapperEnv(gym.Env):
         self._max_skill_steps = max_skill_steps 
         self.current_obs = None
 
-        self.observation_space = env.observation_space
+        self.observation_space = env.observation_space.spaces['observation']
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(skill_dim,), dtype=np.float32)
 
-    def reset(self):
-        self.current_obs = self.env.reset()
-        return self.current_obs
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self.current_obs = obs['observation']
+        return self.current_obs, info
 
     def step(self, skill_z):
         skill_z = torch.tensor(skill_z, dtype=torch.float32).unsqueeze(0).to(self.device)
         total_reward = 0.0
+        total_completed_tasks = 0.0
         done = False
         info = {}
 
         for _ in range(self._max_skill_steps):
-            obs_tensor = torch.tensor(self.current_obs, dtype=torch.float32).unsqueeze(0).to(self.device)
+            if isinstance(self.current_obs, dict):
+                obs_tensor = torch.tensor(self.current_obs['observation'], dtype=torch.float32).unsqueeze(0).to(self.device)
+            else:
+                obs_tensor = torch.tensor(self.current_obs, dtype=torch.float32).unsqueeze(0).to(self.device)
             input_tensor = torch.cat([obs_tensor, skill_z], dim=-1)
 
             with torch.no_grad():
                 action_np, _ = self.option_policy.get_action(input_tensor)
             action = action_np[0]
 
-            self.current_obs, reward, done, info = self.env.step(action)
+            self.current_obs, reward, terminated, truncated, info  = self.env.step(action)
+            done = terminated or truncated
             total_reward += reward
 
             if done:
+                completed_tasks = info.get("episode_task_completions", [])
+                total_completed_tasks += len(completed_tasks)
+                print("Completed tasks:", completed_tasks)
+                info['total_reward'] = total_reward
+                info['total_completed_tasks'] = total_completed_tasks
+                self.reset()
                 break
 
-        return self.current_obs, total_reward, done, info
+        if isinstance(self.current_obs, dict):
+            return self.current_obs['observation'], reward, terminated, truncated, info
+        else:
+            return self.current_obs, reward, terminated, truncated, info
 
 
 def train():
-    log_dir = f"logs/sac_high_level_{algo}"
+    log_dir = f"logs/sac_high_level_{algo}_kitchen"
     # log_dir = "logs/test"
     model_dir = os.path.join(log_dir, "models")
     tensorboard_log_dir = os.path.join(log_dir, "tb")
@@ -98,7 +121,6 @@ def train():
     os.makedirs(tensorboard_log_dir, exist_ok=True)
 
     wrapped_env = DummyVecEnv([lambda: SkillWrapperEnv(env, option_policy, traj_encoder, skill_dim, max_skill_steps, device)])
-
     new_logger = configure(folder=tensorboard_log_dir, format_strings=["stdout", "csv", "tensorboard"])
 
     policy_kwargs = dict(
@@ -126,7 +148,7 @@ def train():
     checkpoint_callback = CheckpointCallback(
         save_freq=1000,
         save_path=model_dir,
-        name_prefix="sac_highlevel_ant",
+        name_prefix="sac_highlevel_kitchen",
         save_replay_buffer=True,
         save_vecnormalize=True,
     )
@@ -135,32 +157,21 @@ def train():
         def __init__(self, verbose=0):
             super().__init__(verbose)
             self.total_reward = 0.0
-            self.total_steps = 0
-            self.num_tasks = 0
-            self.episode_reward = 0.0
+            self.completed_tasks = 0.0
 
         def _on_step(self) -> bool:
-            reward = self.locals.get('rewards')[0]
-            done = self.locals.get('dones')[0]
+            done = self.locals.get('dones', [False])[0]
+            info = self.locals.get('infos', [{}])[0]
 
-            if reward is not None:
-                self.total_reward += reward
-                self.total_steps += 1
-                self.episode_reward += reward
+            if 'total_reward' in info:
+                self.total_reward += info['total_reward'] 
+                self.completed_tasks += info['total_completed_tasks']
 
             if done:
-                self.num_tasks += 1
-                avg_reward_per_task = self.total_reward / (self.num_tasks + 1e-8)
-
                 self.logger.record('custom/total_cumulative_reward', self.total_reward)
-                self.logger.record('custom/average_reward_per_task', avg_reward_per_task)
-                self.logger.record('custom/num_tasks', self.num_tasks)
-                self.logger.record('custom/episode_reward', self.episode_reward)
-
-                self.episode_reward = 0.0
+                self.logger.record('custom/completed_tasks', self.completed_tasks)
 
             return True
-
     
     reward_callback = RewardLoggingCallback()
     sac_model.learn(total_timesteps=1_000_000, callback=[checkpoint_callback, reward_callback])
@@ -257,5 +268,5 @@ elif mode == "plot":
         logs_by_method,
         max_duration=50.0,
         dt=1.0,
-        save_path=f"results/high_level_{env_name}_comparison.png"
+        save_path=f"results/high_level_kitchen_comparison.png"
     )
