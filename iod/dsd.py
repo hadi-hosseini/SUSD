@@ -292,11 +292,27 @@ class DSD(IOD):
         return mean_partitions, std_partitions
     
 
+    # the original
     def _csd_loss(self, obs, next_obs, s2_dist_mean, s2_dist_std):
         scaling_factor = 1. / s2_dist_std
         geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
         normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
         cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+        return cst_dist
+    
+    def calculate_one_minus_q(self, obs, next_obs, s2_dist_mean, s2_dist_std):
+        csd_loss = self._csd_loss(obs, next_obs, s2_dist_mean, s2_dist_std)
+        q = torch.exp(-csd_loss)
+        one_minus_q = 1 - q
+        return one_minus_q
+        
+
+    def _csd_loss_normalize(self, obs, next_obs, s2_dist_mean, s2_dist_std):
+        scaling_factor = 1. / s2_dist_std
+        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+        csd_dist = csd_dist / csd_dist.sum()
         return cst_dist
 
     def _update_loss_te(self, tensors, v, runner):
