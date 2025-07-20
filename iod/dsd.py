@@ -413,26 +413,38 @@ class DSD(IOD):
         #     'LossTe': loss_te,
         # })
 
-    def plot_csd_logs(self, runner):
+    def plot_csd_logs(self, runner, min_csd=None, max_csd=None):
         if len(self.csd_logs) == 0:
             return
 
         epochs, csd_values = zip(*self.csd_logs)
+        epochs = np.array(epochs)
         csd_values = 1e5 * np.array(csd_values)  # Scale if desired
 
+        # Clip values if bounds are provided
+        if min_csd is not None or max_csd is not None:
+            # Use default bounds if needed
+            if min_csd is None:
+                min_csd = -np.inf
+            if max_csd is None:
+                max_csd = np.inf
+            csd_values = np.clip(csd_values, min_csd, max_csd)
+
+        # Plotting
         fig, ax = plt.subplots(figsize=(10, 6))
         for i in range(csd_values.shape[1]):
             ax.plot(
                 epochs,
                 csd_values[:, i],
                 label=f'Factor {i}',
-                marker='o',         # Small circle marker
-                markersize=3,       # Smaller circle (default is ~6)
-                linewidth=1         # Thinner line (default is ~1.5-2)
+                marker='o',
+                markersize=3,
+                linewidth=1
             )
+
         ax.set_xlabel('Epoch')
         ax.set_ylabel('CSD Value (x1e5)')
-        ax.set_title('CSD per Factor over Epochs')
+        ax.set_title('CSD per Factor over Epochs (Clipped)')
         ax.legend()
         ax.grid(True)
         fig.tight_layout()
@@ -667,4 +679,4 @@ class DSD(IOD):
             )
         self._log_eval_metrics(runner)
 
-        self.plot_csd_logs(runner)
+        self.plot_csd_logs(runner, 0, 3000)
