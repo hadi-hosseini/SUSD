@@ -213,10 +213,10 @@ class OptionLocalRunner(LocalRunner):
         logger.log(fmt.format('total_env_steps', total_env_steps))
 
         if self._algo.dist_predictor:
-            csd_path = os.path.join(self._snapshotter.snapshot_dir, 'csd_logs.npy')
+            csd_path = os.path.join(from_dir, 'csd_logs.npy')
             if os.path.exists(csd_path):
                 try:
-                    self.algo.csd_logs = np.load(csd_path, allow_pickle=True).tolist()
+                    self._algo.csd_logs = np.load(csd_path, allow_pickle=True).tolist()
                     logger.log(f"Loaded CSD logs from {csd_path}")
                 except Exception as e:
                     logger.log(f"Failed to load CSD logs from {csd_path}: {e}")

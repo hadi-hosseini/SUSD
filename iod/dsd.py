@@ -76,6 +76,7 @@ class DSD(IOD):
         self.partition_points = partition_points
 
         self.csd_logs = []
+        self.do_print = False
 
         assert self._trans_optimization_epochs is not None
 
@@ -152,7 +153,7 @@ class DSD(IOD):
             return {}
 
         for i in range(self._trans_optimization_epochs):
-            if i == 0:
+            if i == 0 and runner.step_itr % 50 == 0:
                 self.do_print = True
 
             tensors = {}
@@ -419,17 +420,15 @@ class DSD(IOD):
         epochs, csd_values = zip(*self.csd_logs)
         csd_values = 1e5 * np.array(csd_values)  # Scale if desired
 
-        # print(csd_values)
-
         fig, ax = plt.subplots(figsize=(10, 6))
         for i in range(csd_values.shape[1]):
             ax.plot(
                 epochs,
                 csd_values[:, i],
                 label=f'Factor {i}',
-                marker='o',             # Circle marker
-                markersize=6,           # Size of circle
-                linewidth=2             # Optional: make lines thicker
+                marker='o',         # Small circle marker
+                markersize=3,       # Smaller circle (default is ~6)
+                linewidth=1         # Thinner line (default is ~1.5-2)
             )
         ax.set_xlabel('Epoch')
         ax.set_ylabel('CSD Value (x1e5)')
