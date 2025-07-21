@@ -30,8 +30,8 @@ mode = "train" # ["train", "plot", "eval"]
 algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = '/home/hadi/RL/LDG/DSD/test/option_policy33000.pt'
-    traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/DSD/test/traj_encoder33000.pt'
+    option_policy_checkpoint_path = 'exp/Debug/sd000_1752951536_kitchen_franka_metra/option_policy15000.pt'
+    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752951536_kitchen_franka_metra/traj_encoder15000.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
@@ -51,7 +51,7 @@ env = KitchenEnv(
 max_steps = 280  # Set your max steps per episode here
 env = TimeLimit(env, max_episode_steps=max_steps)
 
-skill_dim = 24 # N=5, d=5
+skill_dim = 25 # N=5, d=5
 max_skill_steps = 20 # maximum number of steps for each z (25)
 
 
@@ -103,8 +103,17 @@ class SkillWrapperEnv(gym.Env):
                 info['total_reward'] = total_reward
                 info['total_completed_tasks'] = total_completed_tasks
                 self.reset()
-                break
+                return self.current_obs, reward, terminated, truncated, info
+                # break
 
+
+        completed_tasks = info.get("episode_task_completions", [])
+        total_completed_tasks += len(completed_tasks)
+        print("Completed tasks:", completed_tasks)
+        info['total_reward'] = total_reward
+        info['total_completed_tasks'] = total_completed_tasks
+        # self.reset()
+        
         if isinstance(self.current_obs, dict):
             return self.current_obs['observation'], reward, terminated, truncated, info
         else:
@@ -112,7 +121,7 @@ class SkillWrapperEnv(gym.Env):
 
 
 def train():
-    log_dir = f"logs/sac_high_level_{algo}_kitchen"
+    log_dir = f"logs/sac_high_level_{algo}_15000_kitchen"
     # log_dir = "logs/test"
     model_dir = os.path.join(log_dir, "models")
     tensorboard_log_dir = os.path.join(log_dir, "tb")

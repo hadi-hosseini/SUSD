@@ -449,7 +449,7 @@ class DSD(IOD):
         ax.grid(True)
         fig.tight_layout()
 
-        csd_plot_path = f'results/csd_logs/csd_plot_epoch_{runner.step_itr}.png'
+        csd_plot_path = f'results/test/csd_plot_epoch_{runner.step_itr}.png'
         fig.savefig(csd_plot_path)
         plt.close(fig)
 
@@ -679,4 +679,4 @@ class DSD(IOD):
             )
         self._log_eval_metrics(runner)
 
-        self.plot_csd_logs(runner, 0, 3000)
+        self.plot_csd_logs(runner, 0, 5000)
