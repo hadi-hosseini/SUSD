@@ -50,6 +50,8 @@ def factorize_environment(args):
         state_factorization_points = [0, 3, 7, 15, 18, 21, 29]
     elif args.env == "kitchen_franka":
         state_factorization_points = [0, 18, 38, 44, 46, 59]
+    elif args.env == "fetch":
+        state_factorization_points = [0, 11, 25]
 
     return state_factorization_points
 

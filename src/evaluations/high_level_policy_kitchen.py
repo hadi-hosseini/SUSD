@@ -228,12 +228,13 @@ def run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10):
     
     for seed in tqdm(range(num_runs)):
         print(f"Running seed {seed}...")
-        env = AntMultiGoalsEnv(render_hw=256)
+        env = KitchenEnv(
+            tasks_to_complete=all_tasks,
+            terminate_on_tasks_completed=True,
+            render_mode="rgb_array"
+        )
         env.seed(seed)
-        
-        normalizer_mean, normalizer_std = get_normalizer_preset(f'ant_preset')
-        env = consistent_normalize(env, normalize_obs=True, mean=normalizer_mean, std=normalizer_std)
-        
+                
         time_reward_log = eval(env, max_duration=max_duration, max_skill_steps=max_skill_steps)
         all_logs.append(time_reward_log)
 
