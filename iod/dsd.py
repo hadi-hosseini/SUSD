@@ -300,7 +300,7 @@ class DSD(IOD):
         cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
         return cst_dist
     
-    def calculate_one_minus_q(self, obs, next_obs, s2_dist_mean, s2_dist_std):
+    def _calculate_one_minus_q(self, obs, next_obs, s2_dist_mean, s2_dist_std):
         csd_loss = self._csd_loss(obs, next_obs, s2_dist_mean, s2_dist_std)
         q = torch.exp(-csd_loss)
         one_minus_q = 1 - q
@@ -312,8 +312,16 @@ class DSD(IOD):
         geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
         normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
         cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
-        csd_dist = csd_dist / csd_dist.sum()
-        return cst_dist
+        csd_dist = cst_dist / cst_dist.sum()
+        return csd_dist
+    
+    def _csd_loss_clip(self, obs, next_obs, s2_dist_mean, s2_dist_std):
+        scaling_factor = 1. / s2_dist_std
+        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+        cst_dist_clipped = torch.clamp(cst_dist, min=0.0, max=0.05)
+        return cst_dist_clipped
 
     def _update_loss_te(self, tensors, v, runner):
         self._update_rewards(tensors, v)
