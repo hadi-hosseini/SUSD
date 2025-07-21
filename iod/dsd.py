@@ -473,7 +473,7 @@ class DSD(IOD):
         ax.grid(True)
         fig.tight_layout()
 
-        csd_plot_path = f'results/csd_logs/csd_plot_epoch_{runner.step_itr}.png'
+        csd_plot_path = f'results/test/csd_plot_epoch_{runner.step_itr}.png'
         fig.savefig(csd_plot_path)
         plt.close(fig)
 
