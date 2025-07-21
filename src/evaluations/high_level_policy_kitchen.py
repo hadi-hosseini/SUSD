@@ -30,8 +30,8 @@ mode = "train" # ["train", "plot", "eval"]
 algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'exp/Debug/sd000_1752951536_kitchen_franka_metra/option_policy15000.pt'
-    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752951536_kitchen_franka_metra/traj_encoder15000.pt'
+    option_policy_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/option_policy15000.pt'
+    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/traj_encoder15000.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
@@ -77,7 +77,6 @@ class SkillWrapperEnv(gym.Env):
     def step(self, skill_z):
         skill_z = torch.tensor(skill_z, dtype=torch.float32).unsqueeze(0).to(self.device)
         total_reward = 0.0
-        total_completed_tasks = 0.0
         done = False
         info = {}
 
@@ -97,27 +96,18 @@ class SkillWrapperEnv(gym.Env):
             total_reward += reward
 
             if done:
-                completed_tasks = info.get("episode_task_completions", [])
-                total_completed_tasks += len(completed_tasks)
-                print("Completed tasks:", completed_tasks)
-                info['total_reward'] = total_reward
-                info['total_completed_tasks'] = total_completed_tasks
-                self.reset()
-                return self.current_obs, reward, terminated, truncated, info
-                # break
+                break
 
 
         completed_tasks = info.get("episode_task_completions", [])
-        total_completed_tasks += len(completed_tasks)
         print("Completed tasks:", completed_tasks)
         info['total_reward'] = total_reward
-        info['total_completed_tasks'] = total_completed_tasks
-        # self.reset()
-        
+        info['total_completed_tasks'] = len(completed_tasks)
+
         if isinstance(self.current_obs, dict):
-            return self.current_obs['observation'], reward, terminated, truncated, info
+            return self.current_obs['observation'], total_reward, terminated, truncated, info
         else:
-            return self.current_obs, reward, terminated, truncated, info
+            return self.current_obs, total_reward, terminated, truncated, info
 
 
 def train():
@@ -238,12 +228,13 @@ def run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10):
     
     for seed in tqdm(range(num_runs)):
         print(f"Running seed {seed}...")
-        env = AntMultiGoalsEnv(render_hw=256)
+        env = KitchenEnv(
+            tasks_to_complete=all_tasks,
+            terminate_on_tasks_completed=True,
+            render_mode="rgb_array"
+        )
         env.seed(seed)
-        
-        normalizer_mean, normalizer_std = get_normalizer_preset(f'ant_preset')
-        env = consistent_normalize(env, normalize_obs=True, mean=normalizer_mean, std=normalizer_std)
-        
+                
         time_reward_log = eval(env, max_duration=max_duration, max_skill_steps=max_skill_steps)
         all_logs.append(time_reward_log)
 

@@ -292,12 +292,36 @@ class DSD(IOD):
         return mean_partitions, std_partitions
     
 
+    # the original
     def _csd_loss(self, obs, next_obs, s2_dist_mean, s2_dist_std):
         scaling_factor = 1. / s2_dist_std
         geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
         normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
         cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
         return cst_dist
+    
+    def _calculate_one_minus_q(self, obs, next_obs, s2_dist_mean, s2_dist_std):
+        csd_loss = self._csd_loss(obs, next_obs, s2_dist_mean, s2_dist_std)
+        q = torch.exp(-csd_loss)
+        one_minus_q = 1 - q
+        return one_minus_q
+        
+
+    def _csd_loss_normalize(self, obs, next_obs, s2_dist_mean, s2_dist_std):
+        scaling_factor = 1. / s2_dist_std
+        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+        csd_dist = cst_dist / cst_dist.sum()
+        return csd_dist
+    
+    def _csd_loss_clip(self, obs, next_obs, s2_dist_mean, s2_dist_std):
+        scaling_factor = 1. / s2_dist_std
+        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+        cst_dist_clipped = torch.clamp(cst_dist, min=0.0, max=0.05)
+        return cst_dist_clipped
 
     def _update_loss_te(self, tensors, v, runner):
         self._update_rewards(tensors, v)
@@ -452,6 +476,7 @@ class DSD(IOD):
         csd_plot_path = f'results/test/csd_plot_epoch_{runner.step_itr}.png'
         fig.savefig(csd_plot_path)
         plt.close(fig)
+
 
     def _update_loss_dual_lam(self, tensors, v):
         assert len(v['cst_penalty']) == len(self.dual_lam)

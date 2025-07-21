@@ -2,6 +2,8 @@ import datetime
 import os
 import socket
 import sys
+import gymnasium as gym
+
 
 from garage.experiment.experiment import get_metadata
 from garagei.envs.consistent_normalized_env import consistent_normalize
@@ -104,6 +106,7 @@ def make_env(args, max_path_length):
                 32, 52,                                                          # Microwave Door
                 33, 34, 35, 36, 37, 38, 39, 53, 54, 55, 56, 57, 58               # Kettle
         ]
+        
         base_env = KitchenEnv(
             tasks_to_complete=[],
             terminate_on_tasks_completed=False,
@@ -111,6 +114,25 @@ def make_env(args, max_path_length):
         )
 
         env = KitchenFranka(base_env, custom_order=custom_order)
+
+
+    elif args.env == "fetch":
+        from envs.mujoco.fetch import FetchEnvironment
+
+        custom_order = [
+                    0, 1, 2,      # Gripper position
+                    9, 10,        # Finger joint positions
+                    20, 21, 22,   # Gripper linear velocities
+                    23, 24,       # Finger linear velocities
+                    3, 4, 5,      # Puck global position
+                    6, 7, 8,      # Puck relative position to gripper
+                    11, 12, 13,   # Puck global rotation (Euler angles)
+                    14, 15, 16,   # Puck relative linear velocity
+                    17, 18, 19    # Puck angular velocity
+                ]
+
+        base_env = gym.make('FetchPickAndPlace-v3', max_episode_steps=150, render_mode="rgb_array")
+        env = FetchEnvironment(base_env, custom_order=custom_order)
 
     else:
         raise NotImplementedError
