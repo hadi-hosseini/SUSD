@@ -19,7 +19,7 @@ os.environ["MUJOCO_GL"] = "egl"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # variables 
-algo = "csd" # ["dsd", "metra", "lsd", "csd", "diayn"]
+algo = "csd" # ["csd", "metra", "lsd", "csd", "diayn"]
 num_runs = 1
 max_duration = 50
 max_steps = 200
@@ -50,6 +50,26 @@ traj_encoder.to(device)
 option_policy.eval()
 traj_encoder.eval()
 
+custom_order = [
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,     # Panda Arm and Gripper States
+                18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Burners and Overhead Light
+                29, 30, 31, 49, 50, 51,                                           # Cabinets (Slide + Left + Right Hinge)
+                32, 52,                                                          # Microwave Door
+                33, 34, 35, 36, 37, 38, 39, 53, 54, 55, 56, 57, 58               # Kettle
+        ]
+
+
+def rearrange_vector(vec, custom_order):
+    if isinstance(vec, torch.Tensor):
+        indices = torch.tensor(custom_order, device=vec.device, dtype=torch.long)
+        return vec[indices]
+    elif isinstance(vec, np.ndarray):
+        return vec[custom_order]
+    elif isinstance(vec, list):
+        return [vec[i] for i in custom_order]
+    else:
+        raise TypeError("Unsupported type for vec. Must be torch.Tensor, numpy.ndarray, or list.")
+
 def zero_shot_eval(env, max_duration=30.0, max_steps=200, goal="kettle"):
 
     obs = env.reset()
@@ -78,6 +98,9 @@ def zero_shot_eval(env, max_duration=30.0, max_steps=200, goal="kettle"):
                 obs_vec = obs['observation'].copy()
             else:
                 raise ValueError(f"Unexpected obs type: {type(obs)}")
+            
+            vector = np.asarray(obs_vec)
+            obs_vec = rearrange_vector(vector, custom_order)
 
 
             s_tensor = torch.from_numpy(obs_vec).float().unsqueeze(0).to(device)
@@ -169,8 +192,8 @@ def run_multiple_seeds(num_runs=8, max_duration=30, max_steps=200):
     csv_rows = []
     # all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
     # all_tasks = ['microwave']
-    # all_tasks = ['kettle']
-    all_tasks = ['slide cabinet']
+    all_tasks = ['kettle']
+    # all_tasks = ['slide cabinet']
 
 
 

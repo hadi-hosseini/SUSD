@@ -3,6 +3,11 @@ import numpy as np
 import torch
 # import gym
 # from gym import spaces
+import matplotlib.pyplot as plt
+import pandas as pd
+from scipy.interpolate import interp1d
+from scipy import stats
+
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -18,26 +23,24 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
 from stable_baselines3 import SAC
 from stable_baselines3.common.vec_env import DummyVecEnv
-
-# from src.evaluations.zero_shot_goal_reaching_ant import plot_multiple_methods_cumulative_reward, load_logs_from_csv
 from gymnasium_robotics.envs.franka_kitchen import KitchenEnv
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
 
-mode = "train" # ["train", "plot", "eval"]
+mode = "eval" # ["train", "plot", "eval"]
 algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/option_policy15000.pt'
-    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/traj_encoder15000.pt'
+    option_policy_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/option_policy5000.pt'
+    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/traj_encoder5000.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
     traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
 
-csv_path = f"results/high_level_{algo}_kitchen.csv"
+csv_path = f"results/high_level_{algo}_kitchen_5000.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -100,9 +103,11 @@ class SkillWrapperEnv(gym.Env):
 
 
         completed_tasks = info.get("episode_task_completions", [])
-        print("Completed tasks:", completed_tasks)
+        # print("Completed tasks:", completed_tasks)
         info['total_reward'] = total_reward
         info['total_completed_tasks'] = len(completed_tasks)
+        info['completed_tasks'] = completed_tasks
+
 
         if isinstance(self.current_obs, dict):
             return self.current_obs['observation'], total_reward, terminated, truncated, info
@@ -111,7 +116,7 @@ class SkillWrapperEnv(gym.Env):
 
 
 def train():
-    log_dir = f"logs/sac_high_level_{algo}_15000_kitchen"
+    log_dir = f"logs/sac_high_level_{algo}_5000_kitchen"
     # log_dir = "logs/test"
     model_dir = os.path.join(log_dir, "models")
     tensorboard_log_dir = os.path.join(log_dir, "tb")
@@ -177,9 +182,8 @@ def train():
     sac_model.save(os.path.join(model_dir, "sac_highlevel_final"))
 
 def eval(env, max_duration=30.0, max_skill_steps=10):
-    log_dir = f"logs/sac_high_level_{algo}"
-    snapshot_version = "sac_highlevel_ant_200000_steps.zip"
-    # snapshot_version = "sac_highlevel_ant_433000_steps.zip"
+    log_dir = f"logs/sac_high_level_{algo}_5000_kitchen"
+    snapshot_version = "sac_highlevel_kitchen_120000_steps.zip"
     model_dir = os.path.join(log_dir, "models", snapshot_version)
 
     sac_model = SAC.load(model_dir, device=device)
@@ -192,14 +196,17 @@ def eval(env, max_duration=30.0, max_skill_steps=10):
     last_log_time = start_time
     cumulative_reward = 0.0
     frames = []
+    # diverse_tasks = set()
 
     while time.time() - start_time < max_duration:
         if done:
-            obs = wrapped_env.reset()
+            obs, _ = wrapped_env.reset()
             done = False
         else:
             z, _ = sac_model.predict(obs, deterministic=True)
-            obs, reward, done, _ = wrapped_env.step(z)
+            obs, reward, terminated, truncated, info = wrapped_env.step(z)
+            done = terminated or truncated
+            # diverse_tasks.update(info['completed_tasks'])
             cumulative_reward += reward
 
             if record_video:
@@ -210,6 +217,7 @@ def eval(env, max_duration=30.0, max_skill_steps=10):
         if current_time - last_log_time >= 1.0:
             elapsed = current_time - start_time
             time_reward_log.append((elapsed, cumulative_reward))
+            # time_reward_log.append((elapsed, len(diverse_tasks)))
             last_log_time = current_time
 
     print(f"Total accumulated reward: {cumulative_reward:.2f}")
@@ -231,9 +239,9 @@ def run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10):
         env = KitchenEnv(
             tasks_to_complete=all_tasks,
             terminate_on_tasks_completed=True,
-            render_mode="rgb_array"
+            render_mode="rgb_array",
         )
-        env.seed(seed)
+        # env.seed(seed)
                 
         time_reward_log = eval(env, max_duration=max_duration, max_skill_steps=max_skill_steps)
         all_logs.append(time_reward_log)
@@ -251,22 +259,71 @@ def run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10):
     print(f"\n📁 Logs saved to {csv_path}")
     return all_logs
 
+
+def plot_multiple_methods_cumulative_reward(logs_by_method, max_duration, dt=1.0, confidence=0.95, save_path=None):
+    common_times = np.arange(0, max_duration + dt, dt)
+
+    plt.figure(figsize=(10, 6))
+
+    for method, all_logs in logs_by_method.items():
+        interp_rewards = []
+        for log in all_logs:
+            times, rewards = zip(*log)
+            f = interp1d(times, rewards, kind='previous', bounds_error=False,
+                         fill_value=(rewards[0], rewards[-1]))
+            interp_rewards.append(f(common_times))
+        
+        interp_rewards = np.array(interp_rewards)
+        mean_rewards = np.mean(interp_rewards, axis=0)
+        sem = stats.sem(interp_rewards, axis=0)
+        margin = sem * stats.t.ppf((1 + confidence) / 2., interp_rewards.shape[0] - 1)
+
+        # Plot mean and confidence interval
+        plt.plot(common_times, mean_rewards, label=method)
+        plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.2)
+
+    plt.xlabel('Elapsed Time (s)')
+    plt.ylabel('Cumulative Reward')
+    plt.title('Average Cumulative Tasks over Time')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path)
+        print(f"✅ Plot saved to: {save_path}")
+    else:
+        plt.show()
+
+def load_logs_from_csv(csv_path):
+    df = pd.read_csv(csv_path)
+    all_logs = []
+
+    for seed, group in df.groupby("seed"):
+        sorted_group = group.sort_values("time")
+        log = list(zip(sorted_group["time"], sorted_group["cumulative_reward"]))
+        all_logs.append(log)
+
+    return all_logs
+
 if mode == "train":
     train()
 elif mode == "eval":
     run_multiple_seeds(num_runs=8, max_duration=50.0, max_skill_steps=10)
 elif mode == "plot":
-    metra_logs = load_logs_from_csv("results/high_level_metra.csv")
-    dsd_logs = load_logs_from_csv("results/high_level_dsd.csv")
+    logs_5000 = load_logs_from_csv("results/high_level_dsd_kitchen_5000.csv")
+    logs_10000 = load_logs_from_csv("results/high_level_dsd_kitchen_10000.csv")
+    logs_15000 = load_logs_from_csv("results/high_level_dsd_kitchen_15000.csv")
 
     logs_by_method = {
-        "METRA": metra_logs,
-        "DSD": dsd_logs
+        "5000": logs_5000,
+        "10000": logs_10000,
+        "15000": logs_15000
     }
 
     plot_multiple_methods_cumulative_reward(
         logs_by_method,
         max_duration=50.0,
         dt=1.0,
-        save_path=f"results/high_level_kitchen_comparison.png"
+        save_path=f"results/high_level_kitchen_comparison_ours.png"
     )
