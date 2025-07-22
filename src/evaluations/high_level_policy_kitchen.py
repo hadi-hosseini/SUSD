@@ -29,18 +29,18 @@ from gymnasium_robotics.envs.franka_kitchen import KitchenEnv
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
 
-mode = "eval" # ["train", "plot", "eval"]
+mode = "train" # ["train", "plot", "eval"]
 algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/option_policy5000.pt'
-    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752773936_kitchen_franka_metra/traj_encoder5000.pt'
+    option_policy_checkpoint_path = 'dsd_models/q/option_policy8000.pt'
+    traj_encoder_checkpoint_path = 'dsd_models/q/traj_encoder8000.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
     traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
 
-csv_path = f"results/high_level_{algo}_kitchen_5000.csv"
+csv_path = f"results/high_level_{algo}_kitchen.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -51,12 +51,18 @@ env = KitchenEnv(
     terminate_on_tasks_completed=True,
     render_mode="rgb_array"
 )
-max_steps = 280  # Set your max steps per episode here
+max_steps = 200  # Set your max steps per episode here
 env = TimeLimit(env, max_episode_steps=max_steps)
 
 skill_dim = 25 # N=5, d=5
-max_skill_steps = 20 # maximum number of steps for each z (25)
+max_skill_steps = 10
 
+all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
+
+task_to_onehot = {
+    task: np.eye(len(all_tasks))[i]
+    for i, task in enumerate(all_tasks)
+}
 
 class SkillWrapperEnv(gym.Env):
     def __init__(self, env, option_policy, traj_encoder, skill_dim, max_skill_steps, device='cpu'):
@@ -68,14 +74,31 @@ class SkillWrapperEnv(gym.Env):
         self.skill_dim = skill_dim
         self._max_skill_steps = max_skill_steps 
         self.current_obs = None
+        self.all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
+        self.num_tasks = len(self.all_tasks)
 
-        self.observation_space = env.observation_space.spaces['observation']
+
+        obs_space = env.observation_space.spaces['observation']
+        obs_low = obs_space.low
+        obs_high = obs_space.high
+        self.observation_space = gym.spaces.Box(low=np.concatenate([obs_low, np.zeros(self.num_tasks)]), high=np.concatenate([obs_high, np.ones(self.num_tasks)]), dtype=np.float32)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(skill_dim,), dtype=np.float32)
 
-    def reset(self, **kwargs):
+    def reset(self, task_idx=None, **kwargs):
+        if task_idx is None:
+            task_idx = np.random.randint(self.num_tasks)
+
+        self.current_goal_onehot = np.eye(self.num_tasks)[task_idx]
+        self.current_task_name = self.all_tasks[task_idx]
+
         obs, info = self.env.reset(**kwargs)
-        self.current_obs = obs['observation']
-        return self.current_obs, info
+        self.current_obs = obs['observation'] if isinstance(obs, dict) else obs
+
+        return self._get_augmented_obs(self.current_obs), info
+    
+
+    def _get_augmented_obs(self, obs):
+        return np.concatenate([obs, self.current_goal_onehot], axis=-1).astype(np.float32)
 
     def step(self, skill_z):
         skill_z = torch.tensor(skill_z, dtype=torch.float32).unsqueeze(0).to(self.device)
@@ -85,9 +108,12 @@ class SkillWrapperEnv(gym.Env):
 
         for _ in range(self._max_skill_steps):
             if isinstance(self.current_obs, dict):
+                
                 obs_tensor = torch.tensor(self.current_obs['observation'], dtype=torch.float32).unsqueeze(0).to(self.device)
             else:
                 obs_tensor = torch.tensor(self.current_obs, dtype=torch.float32).unsqueeze(0).to(self.device)
+            
+
             input_tensor = torch.cat([obs_tensor, skill_z], dim=-1)
 
             with torch.no_grad():
@@ -103,20 +129,26 @@ class SkillWrapperEnv(gym.Env):
 
 
         completed_tasks = info.get("episode_task_completions", [])
-        # print("Completed tasks:", completed_tasks)
+        total_reward = total_reward * ([self.current_task_name] == completed_tasks)
+        print("Completed tasks:", completed_tasks)
+        print(self.current_task_name)
+        print(total_reward)
+        print(60*'-')
         info['total_reward'] = total_reward
         info['total_completed_tasks'] = len(completed_tasks)
         info['completed_tasks'] = completed_tasks
 
-
         if isinstance(self.current_obs, dict):
-            return self.current_obs['observation'], total_reward, terminated, truncated, info
+            obs_out = self.current_obs['observation']
         else:
-            return self.current_obs, total_reward, terminated, truncated, info
+            obs_out = self.current_obs
+
+        return self._get_augmented_obs(obs_out), total_reward, terminated, truncated, info
+
 
 
 def train():
-    log_dir = f"logs/sac_high_level_{algo}_5000_kitchen"
+    log_dir = f"logs/sac_high_level_{algo}_kitchen"
     # log_dir = "logs/test"
     model_dir = os.path.join(log_dir, "models")
     tensorboard_log_dir = os.path.join(log_dir, "tb")
@@ -160,20 +192,20 @@ def train():
     class RewardLoggingCallback(BaseCallback):
         def __init__(self, verbose=0):
             super().__init__(verbose)
-            self.total_reward = 0.0
-            self.completed_tasks = 0.0
+            self.episode_reward = 0.0
+            self.episode_completed_tasks = 0.0
 
         def _on_step(self) -> bool:
             done = self.locals.get('dones', [False])[0]
             info = self.locals.get('infos', [{}])[0]
 
             if 'total_reward' in info:
-                self.total_reward += info['total_reward'] 
-                self.completed_tasks += info['total_completed_tasks']
+                self.episode_reward += info['total_reward'] 
+                self.episode_completed_tasks += info['total_completed_tasks']
 
             if done:
-                self.logger.record('custom/total_cumulative_reward', self.total_reward)
-                self.logger.record('custom/completed_tasks', self.completed_tasks)
+                self.logger.record('custom/episode_reward', self.episode_reward)
+                self.logger.record('custom/episode_completed_tasks', self.episode_completed_tasks)
 
             return True
     
