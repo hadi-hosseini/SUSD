@@ -37,14 +37,14 @@ mode = "eval" # ["plot", "eval"]
 algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'dsd_models/q/option_policy8000.pt'
-    traj_encoder_checkpoint_path = 'dsd_models/q/traj_encoder8000.pt'
+    option_policy_checkpoint_path = 'dsd_models/clip/option_policy8000.pt'
+    traj_encoder_checkpoint_path = 'dsd_models/clip/traj_encoder8000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/option_policy17000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/traj_encoder17000.pt'
+    option_policy_checkpoint_path = 'final_models/option_policy25000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/traj_encoder25000.pt'
 
-csv_path = f"results/high_level_{algo}_q_kitchen.csv"
+csv_path = f"results/high_level_{algo}_csd_kitchen.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -62,7 +62,29 @@ env = TimeLimit(env, max_episode_steps=max_steps)
 
 skill_dim = 25 # N=5, d=5
 
-def eval(env):
+
+custom_order = [
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,     # Panda Arm and Gripper States
+                18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Burners and Overhead Light
+                29, 30, 31, 49, 50, 51,                                           # Cabinets (Slide + Left + Right Hinge)
+                32, 52,                                                          # Microwave Door
+                33, 34, 35, 36, 37, 38, 39, 53, 54, 55, 56, 57, 58               # Kettle
+        ]
+
+
+def rearrange_vector(vec, custom_order):
+    if isinstance(vec, torch.Tensor):
+        indices = torch.tensor(custom_order, device=vec.device, dtype=torch.long)
+        return vec[indices]
+    elif isinstance(vec, np.ndarray):
+        return vec[custom_order]
+    elif isinstance(vec, list):
+        return [vec[i] for i in custom_order]
+    else:
+        raise TypeError("Unsupported type for vec. Must be torch.Tensor, numpy.ndarray, or list.")
+
+
+def eval(env, seed):
 
     log = []
     record_video = True
@@ -74,7 +96,7 @@ def eval(env):
 
     while steps <= 1e4:
         if done:
-            obs, _ = env.reset()
+            obs, _ = env.reset(seed=seed)
             obs = obs['observation']
             done = False
             random_z = np.random.randn(1, skill_dim)
@@ -84,7 +106,9 @@ def eval(env):
                 random_z = np.random.randn(1, skill_dim)
                 random_z = torch.tensor(random_z, dtype=torch.float32).to(device)
 
+            obs = rearrange_vector(obs, custom_order)
             obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(device)
+
             input_tensor = torch.cat([obs, random_z], dim=-1)
             with torch.no_grad():
                 action_np, _ = option_policy.get_action(input_tensor)
@@ -106,7 +130,7 @@ def eval(env):
     print(f"completed unique tasks: {len(unique_tasks):.2f}")
 
     if record_video:
-        video_path = f"eval_sac_highlevel_kitchen_{algo}_q.mp4"
+        video_path = f"eval_sac_highlevel_kitchen_{algo}_csd.mp4"
         imageio.mimsave(video_path, frames, fps=30)
         print(f"🎞️ Video saved to: {video_path}")
 
@@ -128,7 +152,7 @@ def run_multiple_seeds(num_runs=8):
 
         # env.seed(seed)
                 
-        time_reward_log = eval(env)
+        time_reward_log = eval(env, seed)
         all_logs.append(time_reward_log)
 
         for time_val, reward in time_reward_log:
