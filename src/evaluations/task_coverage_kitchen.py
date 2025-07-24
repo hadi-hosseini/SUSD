@@ -33,18 +33,30 @@ os.environ["MUJOCO_GL"] = "egl"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
 
-mode = "eval" # ["plot", "eval"]
+mode = "plot" # ["plot", "eval"]
 algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'dsd_models/clip/option_policy8000.pt'
-    traj_encoder_checkpoint_path = 'dsd_models/clip/traj_encoder8000.pt'
+    option_policy_checkpoint_path = 'dsd_models/DSD/option_policy40000.pt'
+    traj_encoder_checkpoint_path = 'dsd_models/DSD/traj_encoder40000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/option_policy25000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/traj_encoder25000.pt'
+    option_policy_checkpoint_path = 'final_models/METRA/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/METRA/traj_encoder40000.pt'
 
-csv_path = f"results/high_level_{algo}_csd_kitchen.csv"
+elif algo == "csd":
+    option_policy_checkpoint_path = 'final_models/CSD/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/CSD/traj_encoder40000.pt'
+
+elif algo == "lsd":
+    option_policy_checkpoint_path = 'final_models/LSD/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/LSD/traj_encoder40000.pt'
+
+elif algo == "diayn":
+    option_policy_checkpoint_path = 'final_models/DIAYN/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/DIAYN/traj_encoder40000.pt'
+
+csv_path = f"final_models/COVERAGE/task_coverage_{algo}_kitchen.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -60,7 +72,7 @@ env = KitchenEnv(
 max_steps = 200  # Set your max steps per episode here
 env = TimeLimit(env, max_episode_steps=max_steps)
 
-skill_dim = 25 # N=5, d=5
+skill_dim = 2 # N=5, d=5
 
 
 custom_order = [
@@ -87,7 +99,7 @@ def rearrange_vector(vec, custom_order):
 def eval(env, seed):
 
     log = []
-    record_video = True
+    record_video = False
     done = True
     frames = []
     unique_tasks = set()
@@ -130,7 +142,7 @@ def eval(env, seed):
     print(f"completed unique tasks: {len(unique_tasks):.2f}")
 
     if record_video:
-        video_path = f"eval_sac_highlevel_kitchen_{algo}_csd.mp4"
+        video_path = f"eval_sac_highlevel_kitchen_{algo}.mp4"
         imageio.mimsave(video_path, frames, fps=30)
         print(f"🎞️ Video saved to: {video_path}")
 
@@ -149,8 +161,6 @@ def run_multiple_seeds(num_runs=8):
             render_mode="rgb_array",
         )
         env = TimeLimit(env, max_episode_steps=max_steps)
-
-        # env.seed(seed)
                 
         time_reward_log = eval(env, seed)
         all_logs.append(time_reward_log)
@@ -191,9 +201,9 @@ def plot_multiple_methods_cumulative_reward(logs_by_method, max_duration, dt=1.0
         plt.plot(common_times, mean_rewards, label=method)
         plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.2)
 
-    plt.xlabel('Elapsed Time (s)')
-    plt.ylabel('Cumulative Reward')
-    plt.title('Average Cumulative Tasks over Time')
+    plt.xlabel('Steps')
+    plt.ylabel('Task Coverage')
+    plt.title('Average Task Coverage over Steps')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -215,22 +225,23 @@ def load_logs_from_csv(csv_path):
 
     return all_logs
 
+
 if mode == "eval":
-    run_multiple_seeds(num_runs=1)
+    run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    logs_5000 = load_logs_from_csv("results/high_level_dsd_kitchen_5000.csv")
-    logs_10000 = load_logs_from_csv("results/high_level_dsd_kitchen_10000.csv")
-    logs_15000 = load_logs_from_csv("results/high_level_dsd_kitchen_15000.csv")
+    # dsd_logs = load_logs_from_csv("final_models/COVERAGE/high_level_DSD_kitchen.csv")
+    metra_logs = load_logs_from_csv("final_models/COVERAGE/high_level_METRA_kitchen.csv")
+    csd_logs = load_logs_from_csv("final_models/COVERAGE/high_level_CSD_kitchen.csv")
 
     logs_by_method = {
-        "5000": logs_5000,
-        "10000": logs_10000,
-        "15000": logs_15000
+        # "DSD": dsd_logs,
+        "METRA": metra_logs,
+        "CSD": csd_logs
     }
 
     plot_multiple_methods_cumulative_reward(
         logs_by_method,
-        max_duration=50.0,
+        max_duration=1e4,
         dt=1.0,
-        save_path=f"results/high_level_kitchen_comparison_ours.png"
+        save_path=f"final_models/COVERAGE/high_level_kitchen_comparison_ours.png"
     )
