@@ -163,12 +163,12 @@ class DSD(IOD):
             else:
                 v = self._sample_replay_buffer()
 
+
             self._optimize_te(tensors, v, runner)
             self._update_rewards(tensors, v)
             self._optimize_op(tensors, v)
         
         print("Train Modules")
-
         return tensors
 
 
@@ -241,8 +241,9 @@ class DSD(IOD):
                 ### modify
                 rewards = []
                 for i in range(len(self.partition_points) - 1):
-                    start = i
-                    end = i + 1
+                    start = i * self.dim_option
+                    end = (i+1) * self.dim_option
+                    
                     rewards_i = (target_z[:, start:end] * v['options'][:, start:end]).sum(dim=1)
                     rewards.append(rewards_i)
 
@@ -373,8 +374,8 @@ class DSD(IOD):
                     start = self.partition_points[i]
                     end = self.partition_points[i + 1]
                     obs_i = x[:, start:end]
-                    next_obs_i = x[:, start:end]
-                    csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                    next_obs_i = y[:, start:end]
+                    csd_distance = self._csd_loss_normalize(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
                     csd_distances.append(csd_distance)
 
                 if self.do_print:
@@ -473,7 +474,7 @@ class DSD(IOD):
         ax.grid(True)
         fig.tight_layout()
 
-        csd_plot_path = f'results/test/csd_plot_epoch_{runner.step_itr}.png'
+        csd_plot_path = f'results/csd_logs_q/csd_plot_epoch_{runner.step_itr}.png'
         fig.savefig(csd_plot_path)
         plt.close(fig)
 

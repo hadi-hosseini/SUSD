@@ -283,28 +283,27 @@ class METRAKitchenConfig(DSDConfig):
 
 @dataclass
 class DSDKitchenConfig(DSDConfig):
-    run_group: str = 'Debug'
+    run_group: str = 'DSD_Q'
     env: str = 'kitchen_franka'
-    max_path_length: int = 150
+    max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 4 
+    n_parallel: int = 8 # 8 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
-    sac_max_buffer_size: int = 100000 # 100000
-    sac_min_buffer_size: int = 10000 # M=10000 #### should be fixed
+    sac_max_buffer_size: int = 100000
+    sac_min_buffer_size: int = 10000 
     algo: str = 'metra'
-    trans_optimization_epochs: int = 100
+    trans_optimization_epochs: int = 20 # 100 (I change this)
     n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 250 # 250
-    n_epochs_per_save: int = 1000 # 1000
-    n_epochs_per_pt_save: int = 1000 # 1000
+    n_epochs_per_eval: int = 250
+    n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 5 # should be larger
+    dim_option: int = 2 
     sample_cpu: int = 0
-    dual_dist: str = 's2_from_s'  # Distance metric choice; options: 'l2', 's2_from_s', 'one'
-    trans_minibatch_size: int = 256  # should be deleted later
-
+    dual_dist: str = 's2_from_s' 
+    dual_lam: float = 3000
+    dual_slack: float =  1e-06 
 
     
 @dataclass

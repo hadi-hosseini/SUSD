@@ -46,7 +46,7 @@ elif algo == "csd":
     option_policy_checkpoint_path = 'final_models/CSD/option_policy40000.pt'    
     traj_encoder_checkpoint_path = 'final_models/CSD/traj_encoder40000.pt'
 
-csv_path = f"final_models/HRL/high_level_{algo}_kitchen.csv"
+csv_path = f"final_models/TEST/high_level_{algo}_kitchen.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -222,8 +222,8 @@ class BalancedTaskReplayBuffer(ReplayBuffer):
 
 
 def train():
-    log_dir = f"final_models/HRL/sac_high_level_{algo}_kitchen"
-    # log_dir = "logs/HRL"
+    log_dir = f"final_models/TEST/sac_high_level_{algo}_kitchen"
+    # log_dir = "logs/TEST"
     model_dir = os.path.join(log_dir, "models")
     tensorboard_log_dir = os.path.join(log_dir, "tb")
 
@@ -254,7 +254,7 @@ def train():
         verbose=1,
         device=device,
         tensorboard_log=tensorboard_log_dir,
-        min_buffer_size=1000
+        min_buffer_size=1
     )
     sac_model.set_logger(new_logger)
 
@@ -285,7 +285,7 @@ def train():
                 self.logger.record('custom/episode_completed_tasks', self.episode_completed_tasks)
 
             return True
-    
+        
     reward_callback = RewardLoggingCallback()
     sac_model.learn(total_timesteps=1_000_000, callback=[checkpoint_callback, reward_callback])
     sac_model.save(os.path.join(model_dir, "sac_highlevel_final"))
