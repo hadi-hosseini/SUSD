@@ -24,23 +24,29 @@ from stable_baselines3.common.logger import configure
 from stable_baselines3 import SAC
 from stable_baselines3.common.vec_env import DummyVecEnv
 from gymnasium_robotics.envs.franka_kitchen import KitchenEnv
+from stable_baselines3.common.buffers import ReplayBuffer
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
+NUM_TASKS = len(all_tasks)
 
 mode = "train" # ["train", "plot", "eval"]
-algo = "dsd" # ["dsd", "metra"]
+algo = "metra" # ["dsd", "metra", "csd"]
 
 if algo == "dsd":
     option_policy_checkpoint_path = 'dsd_models/q/option_policy8000.pt'
     traj_encoder_checkpoint_path = 'dsd_models/q/traj_encoder8000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/option_policy19000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/traj_encoder19000.pt'
+    option_policy_checkpoint_path = 'final_models/METRA/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/METRA/traj_encoder40000.pt'
 
-csv_path = f"results/high_level_{algo}_kitchen.csv"
+elif algo == "csd": 
+    option_policy_checkpoint_path = 'final_models/CSD/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/CSD/traj_encoder40000.pt'
+
+csv_path = f"final_models/HRL/high_level_{algo}_kitchen.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -54,7 +60,7 @@ env = KitchenEnv(
 max_steps = 200  # Set your max steps per episode here
 env = TimeLimit(env, max_episode_steps=max_steps)
 
-skill_dim = 25 # N=5, d=5
+skill_dim = 2 # N=5, d=5
 max_skill_steps = 10
 
 all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
@@ -109,6 +115,7 @@ class SkillWrapperEnv(gym.Env):
         if task_idx is None:
             task_idx = np.random.randint(self.num_tasks)
 
+        self.task_idx = task_idx
         self.current_goal_onehot = np.eye(self.num_tasks)[task_idx]
         self.current_task_name = self.all_tasks[task_idx]
 
@@ -151,13 +158,15 @@ class SkillWrapperEnv(gym.Env):
 
         completed_tasks = info.get("episode_task_completions", [])
         total_reward = total_reward * ([self.current_task_name] == completed_tasks)
-        print("Completed tasks:", completed_tasks)
-        print(self.current_task_name)
-        print(total_reward)
-        print(60*'-')
+        if total_reward == 1:
+            print("Completed tasks:", completed_tasks)
+            print(self.current_task_name)
+            print(total_reward)
+            print(60*'-')
         info['total_reward'] = total_reward
         info['total_completed_tasks'] = len(completed_tasks)
         info['completed_tasks'] = completed_tasks
+        info['task_idx'] = self.task_idx
 
         if isinstance(self.current_obs, dict):
             obs_out = self.current_obs['observation']
@@ -169,10 +178,52 @@ class SkillWrapperEnv(gym.Env):
         return self._get_augmented_obs(obs_out), total_reward, terminated, truncated, info
 
 
+class SACWithMinBufferSize(SAC):
+    def __init__(self, *args, min_buffer_size=10000, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.min_buffer_size = min_buffer_size
+
+    def train(self, gradient_steps: int, batch_size: int = 64) -> None:
+        # Skip training if buffer not large enough
+        if self.replay_buffer.size() < self.min_buffer_size:
+            # Optionally print or log this event
+            # print(f"Skipping training: replay buffer size {self.replay_buffer.size()} < {self.min_buffer_size}")
+            return
+        # Otherwise call original train
+        super().train(gradient_steps, batch_size)
+
+class BalancedTaskReplayBuffer(ReplayBuffer):
+    def __init__(self, buffer_size, observation_space, action_space, device,
+                 n_tasks: int, **kwargs):
+        super().__init__(buffer_size, observation_space, action_space, device, **kwargs)
+        self.task_indices = np.empty((buffer_size,), dtype=np.int32)
+        self.n_tasks = n_tasks
+
+    def add(self, obs, next_obs, action, reward, done, infos):
+        task_idx = infos[0]['task_idx']
+        super().add(obs, next_obs, action, reward, done, infos)
+        self.task_indices[self.pos - 1] = task_idx
+
+    def sample(self, batch_size: int, env=None):
+        batch_per_task = batch_size // self.n_tasks
+        remainder = batch_size % self.n_tasks
+
+        indices = []
+        for task in range(self.n_tasks):
+            task_indices = np.where(self.task_indices[:self.size()] == task)[0]
+            if len(task_indices) == 0:
+                continue
+            k = batch_per_task + (1 if task < remainder else 0)
+            sampled = np.random.choice(task_indices, size=min(k, len(task_indices)), replace=False)
+            indices.extend(sampled)
+
+        indices = np.array(indices)
+        return self._get_samples(indices, env)
+
 
 def train():
-    log_dir = f"logs/sac_high_level_{algo}_kitchen"
-    # log_dir = "logs/test"
+    log_dir = f"final_models/HRL/sac_high_level_{algo}_kitchen"
+    # log_dir = "logs/HRL"
     model_dir = os.path.join(log_dir, "models")
     tensorboard_log_dir = os.path.join(log_dir, "tb")
 
@@ -186,9 +237,11 @@ def train():
         net_arch=[1024, 1024],
     )
 
-    sac_model = SAC(
+    sac_model = SACWithMinBufferSize(
         policy="MlpPolicy",
         env=wrapped_env,
+        replay_buffer_class=BalancedTaskReplayBuffer,
+        replay_buffer_kwargs=dict(n_tasks=NUM_TASKS),  # pass your number of tasks
         learning_rate=1e-4,
         buffer_size=int(1e6),
         batch_size=256,
@@ -200,12 +253,13 @@ def train():
         policy_kwargs=policy_kwargs,
         verbose=1,
         device=device,
-        tensorboard_log=tensorboard_log_dir  # Enables TB metrics
+        tensorboard_log=tensorboard_log_dir,
+        min_buffer_size=1000
     )
     sac_model.set_logger(new_logger)
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=1000,
+        save_freq=4000,
         save_path=model_dir,
         name_prefix="sac_highlevel_kitchen",
         save_replay_buffer=True,
