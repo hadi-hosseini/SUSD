@@ -37,8 +37,8 @@ mode = "plot" # ["plot", "eval"]
 algo = "dsd" # ["dsd", "metra"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'dsd_models/DSD/option_policy40000.pt'
-    traj_encoder_checkpoint_path = 'dsd_models/DSD/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/DSD/option_policy6000.pt'
+    traj_encoder_checkpoint_path = 'final_models/DSD/traj_encoder6000.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = 'final_models/METRA/option_policy40000.pt'    
@@ -72,7 +72,7 @@ env = KitchenEnv(
 max_steps = 200  # Set your max steps per episode here
 env = TimeLimit(env, max_episode_steps=max_steps)
 
-skill_dim = 2 # N=5, d=5
+skill_dim = 10 # N=5, d=5
 
 
 custom_order = [
@@ -229,12 +229,14 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    # dsd_logs = load_logs_from_csv("final_models/COVERAGE/high_level_DSD_kitchen.csv")
-    metra_logs = load_logs_from_csv("final_models/COVERAGE/high_level_METRA_kitchen.csv")
-    csd_logs = load_logs_from_csv("final_models/COVERAGE/high_level_CSD_kitchen.csv")
+    dsd_logs = load_logs_from_csv("final_models/COVERAGE/task_coverage_dsd_kitchen.csv")
+    dsd2_logs = load_logs_from_csv("final_models/COVERAGE/task_coverage_dsd2_kitchen.csv")
+    metra_logs = load_logs_from_csv("final_models/COVERAGE/task_coverage_metra_kitchen.csv")
+    csd_logs = load_logs_from_csv("final_models/COVERAGE/task_coverage_csd_kitchen.csv")
 
     logs_by_method = {
-        # "DSD": dsd_logs,
+        "DSD_Q": dsd_logs,
+        "DSD_NORM": dsd2_logs,
         "METRA": metra_logs,
         "CSD": csd_logs
     }
@@ -243,5 +245,5 @@ elif mode == "plot":
         logs_by_method,
         max_duration=1e4,
         dt=1.0,
-        save_path=f"final_models/COVERAGE/high_level_kitchen_comparison_ours.png"
+        save_path=f"final_models/COVERAGE/task_coverage_kitchen_comparison_ours.png"
     )
