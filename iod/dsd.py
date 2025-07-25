@@ -36,6 +36,7 @@ class DSD(IOD):
 
             pixel_shape=None,
             partition_points,
+            susd_mode,
 
             **kwargs,
     ):
@@ -74,6 +75,7 @@ class DSD(IOD):
         self.pixel_shape = pixel_shape
     
         self.partition_points = partition_points
+        self.susd_mode = susd_mode
 
         self.csd_logs = []
         self.do_print = False
@@ -175,10 +177,6 @@ class DSD(IOD):
     def _optimize_te(self, tensors, internal_vars, runner):
         self._update_loss_te(tensors, internal_vars, runner)
 
-        # self._gradient_descent(
-        #     tensors['LossTe'],
-        #     optimizer_keys=['traj_encoder'],
-        # )
         losses_te = tensors['LossTe']
         te_keys = [f'traj_encoder_{i}' for i in range(len(losses_te))]
         self._gradient_descent(losses_te, optimizer_keys=te_keys)
@@ -188,10 +186,7 @@ class DSD(IOD):
             losses_dual = tensors['LossDualLam']
             dual_keys = [f'dual_lam_{i}' for i in range(len(losses_dual))]
             self._gradient_descent(losses_dual, optimizer_keys=dual_keys)
-            # self._gradient_descent(
-            #     tensors['LossDualLam'],
-            #     optimizer_keys=['dual_lam'],
-            # )
+
             if self.dual_dist == 's2_from_s':
                 self._gradient_descent(
                     tensors['LossDp'],
@@ -238,14 +233,19 @@ class DSD(IOD):
                 rewards = (target_z * masks).sum(dim=1)
 
             else:
-                ### modify
-                rewards = []
-                for i in range(len(self.partition_points) - 1):
-                    start = i * self.dim_option
-                    end = (i+1) * self.dim_option
+                # rewards = []
+                # for i in range(len(self.partition_points) - 1):
+                #     start = i * self.dim_option
+                #     end = (i+1) * self.dim_option
                     
-                    rewards_i = (target_z[:, start:end] * v['options'][:, start:end]).sum(dim=1)
-                    rewards.append(rewards_i)
+                #     rewards_i = (target_z[:, start:end] * v['options'][:, start:end]).sum(dim=1)
+                #     rewards.append(rewards_i)
+
+                batch_size, total_dim = target_z.shape
+                num_segments = total_dim // self.dim_option
+                target_z_reshaped = target_z.view(batch_size, num_segments, self.dim_option)
+                options_reshaped = v['options'].view(batch_size, num_segments, self.dim_option)
+                rewards = (target_z_reshaped * options_reshaped).sum(dim=2)  # shape: [batch_size, num_segments]
 
                 ### original
                 # inner = (target_z * v['options']).sum(dim=1)
@@ -265,11 +265,6 @@ class DSD(IOD):
             else:
                 rewards = target_dists.log_prob(v['options'])
 
-        # tensors.update({
-        #     'PureRewardMean': rewards.mean(),
-        #     'PureRewardStd': rewards.std(),
-        # })
-
         v['rewards'] = rewards
 
     def _partition_dist_predictor(self, obs):
@@ -277,18 +272,21 @@ class DSD(IOD):
         s2_dist_mean = s2_dist.mean
         s2_dist_std = s2_dist.stddev
 
-        mean_partitions = []
-        std_partitions = []
+        # mean_partitions = []
+        # std_partitions = []
 
-        for i in range(len(self.partition_points) - 1):
-            start = self.partition_points[i]
-            end = self.partition_points[i + 1]
+        # for i in range(len(self.partition_points) - 1):
+        #     start = self.partition_points[i]
+        #     end = self.partition_points[i + 1]
 
-            mean_part = s2_dist_mean[:, start:end]
-            std_part = s2_dist_std[:, start:end]
+        #     mean_part = s2_dist_mean[:, start:end]
+        #     std_part = s2_dist_std[:, start:end]
 
-            mean_partitions.append(mean_part)
-            std_partitions.append(std_part)
+        #     mean_partitions.append(mean_part)
+        #     std_partitions.append(std_part)
+
+        mean_partitions = [s2_dist_mean[:, start:end] for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
+        std_partitions = [s2_dist_std[:, start:end] for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
 
         return mean_partitions, std_partitions
     
@@ -339,7 +337,6 @@ class DSD(IOD):
             })
 
         if self.dual_reg:
-            # dual_lam = self.dual_lam.param.exp()
             dual_lam = [dual.param.exp() for dual in self.dual_lam]
             x = obs
             y = next_obs
@@ -351,38 +348,49 @@ class DSD(IOD):
             elif self.dual_dist == 'one':
                 cst_dist = torch.ones_like(x[:, 0])
             elif self.dual_dist == 's2_from_s':
-                # s2_dist = self.dist_predictor(obs)
-                # s2_dist_mean = s2_dist.mean
-                # s2_dist_std = s2_dist.stddev
-
-                # scaling_factor = 1. / s2_dist_std
-                # geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-                # normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-                # cst_dist = torch.mean(torch.square((y - x) - s2_dist_mean) * normalized_scaling_factor, dim=1)
 
                 mean_partitions, std_partitions = self._partition_dist_predictor(obs)
 
-                # if self.do_print:
-                #     output = []
-                #     for i in range(len(self.partition_points) - 1):
-                #         output.append(f"Sigma for factor {i}: {std_partitions[i][0].tolist()}")
-                #     output.append(60 * '-')
-                #     print('\n'.join(output))
-
                 csd_distances = []
-                for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
-                    start = self.partition_points[i]
-                    end = self.partition_points[i + 1]
-                    obs_i = x[:, start:end]
-                    next_obs_i = y[:, start:end]
-                    csd_distance = self._csd_loss_normalize(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
-                    csd_distances.append(csd_distance)
+                if self.susd_mode == 1:
+                    # original
+                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
+                        start = self.partition_points[i]
+                        end = self.partition_points[i + 1]
+                        obs_i = x[:, start:end]
+                        next_obs_i = y[:, start:end]
+                        csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                        csd_distances.append(csd_distance)
+                    
+                elif self.susd_mode == 2:
+                    # normalize
+                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
+                        start = self.partition_points[i]
+                        end = self.partition_points[i + 1]
+                        obs_i = x[:, start:end]
+                        next_obs_i = y[:, start:end]
+                        csd_distance = self._csd_loss_normalize(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                        csd_distances.append(csd_distance)
+                elif self.susd_mode == 3:
+                    # clip
+                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
+                        start = self.partition_points[i]
+                        end = self.partition_points[i + 1]
+                        obs_i = x[:, start:end]
+                        next_obs_i = y[:, start:end]
+                        csd_distance = self._csd_loss_clip(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                        csd_distances.append(csd_distance)
+                elif self.susd_mode == 4:
+                    # 1 - q
+                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
+                        start = self.partition_points[i]
+                        end = self.partition_points[i + 1]
+                        obs_i = x[:, start:end]
+                        next_obs_i = y[:, start:end]
+                        csd_distance = self._calculate_one_minus_q(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                        csd_distances.append(csd_distance)
 
                 if self.do_print:
-                    # output = [f"CSD for factor {i}: {csd_distances[i][0]}" for i in range(len(self.partition_points) - 1)]
-                    # output.append(60 * '-')
-                    # print('\n'.join(output))
-                    # print(f"epoch number: {runner.step_itr}")
                     self.do_print = False
                     self.csd_logs.append((
                         runner.step_itr,
@@ -391,14 +399,11 @@ class DSD(IOD):
 
 
                 v.update({'csd_distances': csd_distances})
-                # tensors.update({
-                #     'ScalingFactor': scaling_factor.mean(dim=0),
-                #     'NormalizedScalingFactor': normalized_scaling_factor.mean(dim=0),
-                # })
 
             else:
                 raise NotImplementedError
 
+            #### it is a good place to become vectorized
             cst_penalty = []
             te_objs = []
             for i in range(len(self.partition_points) - 1):
@@ -406,18 +411,13 @@ class DSD(IOD):
                 end = (i+1) * self.dim_option
                 cst_penalty_i = torch.ones_like(x[:, 0]) - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
                 cst_penalty_i = torch.clamp(cst_penalty_i, max=self.dual_slack)
-                te_obj_i = csd_distances[i] * rewards[i] + dual_lam[i].detach() * cst_penalty_i
+                te_obj_i = csd_distances[i] * rewards[:, i] + dual_lam[i].detach() * cst_penalty_i
                 cst_penalty.append(cst_penalty_i)
                 te_objs.append(te_obj_i)
 
-
             v.update({
                 'cst_penalty': cst_penalty,
-                # 'te_objs': te_objs,
             })
-            # tensors.update({
-            #     'DualCstPenalty': cst_penalty.mean(),
-            # })
         else:
             te_obj = rewards
 
@@ -429,14 +429,6 @@ class DSD(IOD):
         tensors.update({
             'LossTe': loss_te
         })
-
-
-        # loss_te = -te_obj.mean()
-
-        # tensors.update({
-        #     'TeObjMean': te_obj.mean(),
-        #     'LossTe': loss_te,
-        # })
 
     def plot_csd_logs(self, runner, min_csd=None, max_csd=None):
         if len(self.csd_logs) == 0:
@@ -526,7 +518,7 @@ class DSD(IOD):
         rewards = 0
         if len(v['rewards']) > 1:
             for i in range(len(self.partition_points) - 1):
-                rewards = rewards + v['csd_distances'][i] * v['rewards'][i]
+                rewards = rewards + v['csd_distances'][i] * v['rewards'][:,i]
         else:
             rewards = v['rewards']
 

@@ -53,7 +53,7 @@ from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env
 from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
-from src.conf import METRAAntConfig, METRAKitchenConfig, DSDKitchenConfig, DSDFetchConfig
+from src.conf import METRAAntConfig, METRAKitchenConfig, DSDKitchenConfig, DSDFetchConfig, DSDAntConfig
 
 if os.environ.get('START_METHOD') is not None:
     START_METHOD = os.environ['START_METHOD']
@@ -62,8 +62,9 @@ else:
 
 # args = METRAAntConfig()
 # args = METRAKitchenConfig()
-args = DSDKitchenConfig()
+# args = DSDKitchenConfig()
 # args = DSDFetchConfig()
+args = DSDAntConfig()
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
 def run(ctxt=None):
@@ -79,7 +80,6 @@ def run(ctxt=None):
         torch.set_num_threads(args.n_thread)
 
     set_seed(args.seed)
-
     runner = OptionLocalRunner(ctxt)
 
     # args.resume = True
@@ -231,13 +231,6 @@ def run(ctxt=None):
 
     # dual_lam = ParameterModule(torch.Tensor([np.log(args.dual_lam)]))
 
-    # class ExpParameterModule(nn.Module):
-    #     def __init__(self, init_value):
-    #         super().__init__()
-    #         self.param = nn.Parameter(init_value)
-
-    #     def forward(self):
-    #         return self.param.exp()
     class LogDualParam(nn.Module):
         def __init__(self, init_log_val):
             super().__init__()
@@ -281,15 +274,7 @@ def run(ctxt=None):
         'option_policy': torch.optim.Adam([
             {'params': option_policy.parameters(), 'lr': _finalize_lr(args.lr_op)},
         ]),
-        # 'traj_encoder': torch.optim.Adam([
-        #     {'params': traj_encoder.parameters(), 'lr': _finalize_lr(args.lr_te)},
-        # ]),
-        # 'dual_lam': torch.optim.Adam([
-        #     {'params': dual_lam.parameters(), 'lr': _finalize_lr(args.dual_lr)},
-        # ]),
     }
-    # optimizers['dual_lam'] = [torch.optim.Adam([{'params': [dual.param], 'lr': _finalize_lr(args.dual_lr)}]) for dual in dual_lam]
-    # optimizers['traj_encoder'] = [torch.optim.Adam([{'params': encoder.parameters(), 'lr': _finalize_lr(args.lr_te)}]) for encoder in traj_encoder.encoders]
 
     for i, dual in enumerate(dual_lam):
         optimizers[f'dual_lam_{i}'] = torch.optim.Adam(
@@ -408,8 +393,8 @@ def run(ctxt=None):
         dual_dist=args.dual_dist,
 
         pixel_shape=pixel_shape,
-        partition_points=partition_points
-
+        partition_points=partition_points,
+        susd_mode = args.susd_mode
     )
 
     if args.algo == 'metra':

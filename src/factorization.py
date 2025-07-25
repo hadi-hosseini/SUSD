@@ -47,7 +47,7 @@ def get_gaussian_module_construction(args,
 
 def factorize_environment(args):
     if args.env == "ant":
-        state_factorization_points = [0, 3, 7, 15, 18, 21, 29]
+        state_factorization_points = [0, 7, 15, 21, 29]
     elif args.env == "kitchen_franka":
         state_factorization_points = [0, 18, 38, 44, 46, 59]
     elif args.env == "fetch":
@@ -75,7 +75,6 @@ class PartitionedTrajectoryEncoder(nn.Module):
             self.encoders.append(module_cls(**module_kwargs))
 
     def forward(self, obs):
-        # local_encodings = []
         outputs = []
         for i in range(len(self.partition_points) - 1):
             start, end = self.partition_points[i], self.partition_points[i + 1]
@@ -83,7 +82,6 @@ class PartitionedTrajectoryEncoder(nn.Module):
             dist = self.encoders[i](local_obs)
             local_encoded = dist.mean
             outputs.append(local_encoded)
-            # local_encodings.append(local_encoded)
 
         final_encoding = torch.cat(outputs, dim=-1)
         return final_encoding

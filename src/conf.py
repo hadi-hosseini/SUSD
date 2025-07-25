@@ -94,6 +94,7 @@ class DSDConfig:
     dual_slack: float = 1e-3  # Slack parameter for dual regularization
     dual_lr: Optional[float] = None  # Learning rate for dual regularization optimizer
     dual_dist: str = 'one'  # Distance metric choice; options: 'l2', 's2_from_s', 'one'
+    susd_mode: int = 4 # 1: original 2: normalize 3: clip 4: 1-q
 
 
 # --- Specific Configs ---
@@ -329,3 +330,29 @@ class DSDFetchConfig(DSDConfig):
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s'  # Distance metric choice; options: 'l2', 's2_from_s', 'one'
     trans_minibatch_size: int = 256  # should be deleted later
+
+
+@dataclass
+class DSDAntConfig(DSDConfig):
+    run_group: str = 'TEST'
+    env: str = 'ant'
+    max_path_length: int = 200
+    seed: int = 0
+    traj_batch_size: int = 8
+    n_parallel: int = 1 # 4
+    normalizer_type: str = 'preset'
+    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
+    trans_optimization_epochs: int = 100 # 100 (I change this)
+    n_epochs_per_log: int = 100
+    n_epochs_per_eval: int = 1000
+    n_epochs_per_save: int = 1000 # 10000 phi encoder
+    n_epochs_per_pt_save: int = 1000 # 1000 option policy 
+    n_epochs_per_pkl_update: 1000 # 1000 parameters save
+    sac_max_buffer_size: int = 1000000
+    algo: str = 'metra'
+    discrete: int = 0
+    dim_option: int = 2    
+    dual_dist: str = 's2_from_s' 
+    dual_lam: float = 3000
+    dual_slack: float =  1e-06 
+    susd_mode: int = 4 # 1: original 2: normalize 3: clip 4: 1-q
