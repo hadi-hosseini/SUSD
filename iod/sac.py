@@ -163,25 +163,34 @@ class SAC(IOD):
 
     def _update_loss_qf(self, tensors, v):
         if self.multitask > 0:
-            print(v['options'])
-            print(v['rewards'])
-            print(v['episode_task_completions'])
-            exit()
+            coeff_reward = torch.sum(v['options'] * v['episode_task_completions'], axis=1)
+            rewards = (coeff_reward >= 1).float()
+
             processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
             next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
+
+            sac_utils.update_loss_qf(
+                self, tensors, v,
+                obs=processed_cat_obs,
+                actions=v['actions'],
+                next_obs=next_processed_cat_obs,
+                dones=v['dones'],
+                rewards=rewards * self._reward_scale_factor,
+                policy=self.option_policy,
+            )
         else:
             processed_cat_obs = self.option_policy.process_observations(v['obs'])
             next_processed_cat_obs = self.option_policy.process_observations(v['next_obs'])
 
-        sac_utils.update_loss_qf(
-            self, tensors, v,
-            obs=processed_cat_obs,
-            actions=v['actions'],
-            next_obs=next_processed_cat_obs,
-            dones=v['dones'],
-            rewards=v['rewards'] * self._reward_scale_factor,
-            policy=self.option_policy,
-        )
+            sac_utils.update_loss_qf(
+                self, tensors, v,
+                obs=processed_cat_obs,
+                actions=v['actions'],
+                next_obs=next_processed_cat_obs,
+                dones=v['dones'],
+                rewards=v['rewards'] * self._reward_scale_factor,
+                policy=self.option_policy,
+            )
 
         v.update({
             'processed_cat_obs': processed_cat_obs,

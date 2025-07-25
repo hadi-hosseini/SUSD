@@ -39,6 +39,8 @@ class ChildPolicyEnv(gym.Wrapper):
 
         if self.cp_multitask > 0: # kitchen
             self.observation_space = env.observation_space.spaces['observation']
+            self.all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
+
         else:
             self.observation_space = self.env.observation_space
 
@@ -144,8 +146,11 @@ class ChildPolicyEnv(gym.Wrapper):
             infos[k] = v[-1]
         
         if self.cp_multitask:
-            last_val = acc_infos['episode_task_completions'][-1]
-            infos['episode_task_completions'] = infos['episode_task_completions'] = [last_val] * self.cp_multi_step
+            completed_tasks = acc_infos['episode_task_completions'][-1]
+            task_vector = np.array([1 if task in completed_tasks else 0 for task in self.all_tasks], dtype=np.float32)
+            infos['episode_task_completions'] = task_vector
+
+
         infos['cp_action_norm'] = cp_action_norm
 
         return next_obs, sum_rewards, done_final, infos
