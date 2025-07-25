@@ -466,7 +466,18 @@ class DSD(IOD):
         ax.grid(True)
         fig.tight_layout()
 
-        csd_plot_path = f'results/csd_logs_q/csd_plot_epoch_{runner.step_itr}.png'
+        if self.susd_mode == 1:
+            # original
+            csd_plot_path = f'results/csd_logs_orig/csd_plot_epoch_{runner.step_itr}.png'
+        elif self.susd_mode == 2:
+            # normalize 
+            csd_plot_path = f'results/csd_logs_norm/csd_plot_epoch_{runner.step_itr}.png'
+        elif self.susd_mode == 3:
+            # clip
+            csd_plot_path = f'results/csd_logs_clip/csd_plot_epoch_{runner.step_itr}.png'
+        elif self.susd_mode == 4:
+            # 1 - q
+            csd_plot_path = f'results/csd_logs_q/csd_plot_epoch_{runner.step_itr}.png'
         fig.savefig(csd_plot_path)
         plt.close(fig)
 
