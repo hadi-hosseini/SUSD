@@ -8,7 +8,7 @@ from iod import sac_utils
 from iod.iod import IOD
 import copy
 
-from iod.utils import to_np_object_arr, FigManager, get_option_colors, record_video, draw_2d_gaussians
+from iod.utils import to_np_object_arr, FigManager, get_option_colors, record_video, draw_2d_gaussians, get_torch_concat_obs
 
 
 class SAC(IOD):
@@ -24,6 +24,8 @@ class SAC(IOD):
 
             replay_buffer,
             min_buffer_size,
+
+            multitask,
 
             pixel_shape=None,
 
@@ -55,14 +57,28 @@ class SAC(IOD):
 
         self.pixel_shape = pixel_shape
 
+        self.multitask = multitask
+
     @property
     def policy(self):
         return {
             'option_policy': self.option_policy,
         }
+    
+
+    def _get_concat_obs(self, obs, option):
+        return get_torch_concat_obs(obs, option)
 
     def _get_train_trajectories_kwargs(self, runner):
-        extras = [{} for _ in range(runner._train_args.batch_size)]
+        if self.multitask > 0:
+            batch_size = runner._train_args.batch_size
+            random_indices = np.random.randint(0, self.multitask, size=(batch_size))
+            random_goals = np.eye(self.multitask)[random_indices] 
+            flat_random_goals = random_goals.reshape(batch_size, self.multitask)
+            extras = self._generate_option_extras(flat_random_goals)
+
+        else:  
+            extras = [{} for _ in range(runner._train_args.batch_size)]
 
         return dict(
             extras=extras,
@@ -96,7 +112,7 @@ class SAC(IOD):
             data[key] = torch.from_numpy(value).float().to(self.device)
         return data
 
-    def _train_once_inner(self, path_data):
+    def _train_once_inner(self, path_data, runner):
         self._update_replay_buffer(path_data)
 
         epoch_data = self._flatten_data(path_data)
@@ -119,6 +135,7 @@ class SAC(IOD):
 
             self._optimize_op(tensors, v)
 
+        print("Train Modules")
         return tensors
 
     def _optimize_op(self, tensors, internal_vars):
@@ -145,8 +162,16 @@ class SAC(IOD):
         sac_utils.update_targets(self)
 
     def _update_loss_qf(self, tensors, v):
-        processed_cat_obs = self.option_policy.process_observations(v['obs'])
-        next_processed_cat_obs = self.option_policy.process_observations(v['next_obs'])
+        if self.multitask > 0:
+            print(v['options'])
+            print(v['rewards'])
+            print(v['episode_task_completions'])
+            exit()
+            processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
+            next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
+        else:
+            processed_cat_obs = self.option_policy.process_observations(v['obs'])
+            next_processed_cat_obs = self.option_policy.process_observations(v['next_obs'])
 
         sac_utils.update_loss_qf(
             self, tensors, v,
@@ -164,7 +189,10 @@ class SAC(IOD):
         })
 
     def _update_loss_op(self, tensors, v):
-        processed_cat_obs = self.option_policy.process_observations(v['obs'])
+        if self.multitask > 0:
+            processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
+        else:
+            processed_cat_obs = self.option_policy.process_observations(v['obs'])
         sac_utils.update_loss_sacp(
             self, tensors, v,
             obs=processed_cat_obs,
@@ -177,17 +205,32 @@ class SAC(IOD):
         )
 
     def _evaluate_policy(self, runner, **kwargs):
-        random_trajectories = self._get_trajectories(
+        if self.multitask > 0:
+            random_indices = np.random.randint(0, self.multitask, size=(self.num_random_trajectories,))
+            flat_random_goals = np.eye(self.multitask)[random_indices].reshape(self.num_random_trajectories, self.multitask) # (batch, multitask_one_hot vector)
+
+            random_trajectories = self._get_trajectories(
             runner,
             sampler_key='option_policy',
-            extras=[{} for _ in range(self.num_random_trajectories)],
+            extras=self._generate_option_extras(flat_random_goals),
             worker_update=dict(
                 _render=False,
-                _deterministic_initial_state=False,
-                _deterministic_policy=self.eval_deterministic_traj,
+                _deterministic_policy=True,
             ),
-            env_update=dict(_action_noise_std=None),
-        )
+            env_update=dict(_action_noise_std=None),)
+
+        else:
+            random_trajectories = self._get_trajectories(
+                runner,
+                sampler_key='option_policy',
+                extras=[{} for _ in range(self.num_random_trajectories)],
+                worker_update=dict(
+                    _render=False,
+                    _deterministic_initial_state=False,
+                    _deterministic_policy=True,
+                ),
+                env_update=dict(_action_noise_std=None),
+            )
 
         with FigManager(runner, 'TrajPlot_RandomZ') as fm:
             runner._env.render_trajectories(

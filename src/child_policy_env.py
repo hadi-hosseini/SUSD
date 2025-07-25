@@ -21,6 +21,7 @@ class ChildPolicyEnv(gym.Wrapper):
             cp_multi_step,
             cp_num_truncate_obs,
             cp_omit_obs_idxs=None,
+            cp_multitask = False
     ):
         super().__init__(env)
 
@@ -33,9 +34,14 @@ class ChildPolicyEnv(gym.Wrapper):
         self.cp_multi_step = cp_multi_step
         self.cp_num_truncate_obs = cp_num_truncate_obs
         self.cp_omit_obs_idxs = cp_omit_obs_idxs
+        self.cp_multitask = cp_multitask
         self.cp_discrete = cp_dict['discrete']
 
-        self.observation_space = self.env.observation_space
+        if self.cp_multitask > 0: # kitchen
+            self.observation_space = env.observation_space.spaces['observation']
+        else:
+            self.observation_space = self.env.observation_space
+
         if 'discrete' in cp_dict and cp_dict['discrete']:
             self.action_space = akro.Discrete(n=cp_dict['dim_option'])
         else:
@@ -56,6 +62,11 @@ class ChildPolicyEnv(gym.Wrapper):
         self.first_obs = ret
 
         return ret
+    
+    def update_env(self, update):
+        if 'goal' in update:
+            self.goal = update['goal']
+        print(self.goal)
 
     def step(self, cp_action, **kwargs):
         cp_action_norm = np.linalg.norm(cp_action)
@@ -98,7 +109,11 @@ class ChildPolicyEnv(gym.Wrapper):
             action = lb + (action + 1) * (0.5 * (ub - lb))
             action = np.clip(action, lb, ub)
 
-            next_obs, reward, done, info = self.env.step(action, **kwargs)
+            if self.cp_multitask > 0:
+                next_obs, reward, terminated, truncated, info = self.env.step(action, **kwargs)
+                done = terminated or truncated
+            else:
+                next_obs, reward, done, info = self.env.step(action, **kwargs)
 
             self.last_obs = next_obs
 
@@ -127,6 +142,10 @@ class ChildPolicyEnv(gym.Wrapper):
             #     else:
             #         infos[k] = sum(v)
             infos[k] = v[-1]
+        
+        if self.cp_multitask:
+            last_val = acc_infos['episode_task_completions'][-1]
+            infos['episode_task_completions'] = infos['episode_task_completions'] = [last_val] * self.cp_multi_step
         infos['cp_action_norm'] = cp_action_norm
 
         return next_obs, sum_rewards, done_final, infos

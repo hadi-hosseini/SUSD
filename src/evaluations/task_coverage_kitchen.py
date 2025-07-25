@@ -34,29 +34,30 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
 
 mode = "plot" # ["plot", "eval"]
-algo = "dsd" # ["dsd", "metra"]
+algo = "dsd2" # ["dsd", "metra"]
+dsd_model = "dsd_norm"
 
-if algo == "dsd":
-    option_policy_checkpoint_path = 'final_models/DSD/option_policy6000.pt'
-    traj_encoder_checkpoint_path = 'final_models/DSD/traj_encoder6000.pt'
+if algo == "dsd2":
+    option_policy_checkpoint_path = f'final_models/kitchen/DSD/{dsd_model}/option_policy38000.pt'
+    traj_encoder_checkpoint_path = f'final_models/kitchen/DSD/{dsd_model}/traj_encoder38000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/METRA/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/METRA/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/kitchen/METRA/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/kitchen/METRA/traj_encoder40000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/CSD/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/CSD/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/kitchen/CSD/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/kitchen/CSD/traj_encoder40000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/LSD/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/LSD/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/kitchen/LSD/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/kitchen/LSD/traj_encoder40000.pt'
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/DIAYN/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/DIAYN/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/kitchen/DIAYN/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/kitchen/DIAYN/traj_encoder40000.pt'
 
-csv_path = f"final_models/COVERAGE/task_coverage_{algo}_kitchen.csv"
+csv_path = f"final_models/kitchen/COVERAGE/task_coverage_{algo}_kitchen.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -229,21 +230,28 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    dsd_logs = load_logs_from_csv("final_models/COVERAGE/task_coverage_dsd_kitchen.csv")
-    dsd2_logs = load_logs_from_csv("final_models/COVERAGE/task_coverage_dsd2_kitchen.csv")
-    metra_logs = load_logs_from_csv("final_models/COVERAGE/task_coverage_metra_kitchen.csv")
-    csd_logs = load_logs_from_csv("final_models/COVERAGE/task_coverage_csd_kitchen.csv")
+    dsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd_kitchen.csv")
+    dsd2_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd2_kitchen.csv")
+    dsd3_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd3_kitchen.csv")
+    dsd4_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd4_kitchen.csv")
+    metra_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_metra_kitchen.csv")
+    csd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_csd_kitchen.csv")
+    lsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_lsd_kitchen.csv")
+
 
     logs_by_method = {
         "DSD_Q": dsd_logs,
         "DSD_NORM": dsd2_logs,
+        "DSD_CLIP": dsd3_logs,
+        "DSD_ORIG": dsd4_logs,
         "METRA": metra_logs,
-        "CSD": csd_logs
+        "CSD": csd_logs,
+        "LSD": lsd_logs
     }
 
     plot_multiple_methods_cumulative_reward(
         logs_by_method,
         max_duration=1e4,
         dt=1.0,
-        save_path=f"final_models/COVERAGE/task_coverage_kitchen_comparison_ours.png"
+        save_path=f"final_models/kitchen/COVERAGE/task_coverage_kitchen_comparison_ours.png"
     )
