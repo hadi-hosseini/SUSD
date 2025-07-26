@@ -81,6 +81,7 @@ class DSD(IOD):
         self.csd_logs = []
         self.do_print = False
         self.csd_coeff = csd_coeff
+        self.early_stopping = []
 
         assert self._trans_optimization_epochs is not None
 
@@ -494,6 +495,7 @@ class DSD(IOD):
         elif self.susd_mode == 4:
             # 1 - q
             csd_plot_path = f'results/csd_logs_q/csd_plot_epoch_{runner.step_itr}.png'
+        os.makedirs(os.path.dirname(csd_plot_path), exist_ok=True)
         fig.savefig(csd_plot_path)
         plt.close(fig)
 
@@ -523,19 +525,6 @@ class DSD(IOD):
             'DualLam': torch.stack(dual_lams),               # shape: [N]
             'LossDualLam': torch.stack(loss_dual_lams),      # shape: [N]
         })
-
-
-
-
-        ### original
-        # log_dual_lam = self.dual_lam.param
-        # dual_lam = log_dual_lam.exp()
-        # loss_dual_lam = log_dual_lam * (v['cst_penalty'].detach()).mean()
-
-        # tensors.update({
-        #     'DualLam': dual_lam,
-        #     'LossDualLam': loss_dual_lam,
-        # })
 
     def _update_loss_qf(self, tensors, v):
         processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
@@ -579,6 +568,29 @@ class DSD(IOD):
             self, tensors, v,
         )
 
+
+    def plot_early_stopping(self, early_stopping):
+        unique_tasks, step_iters = zip(*early_stopping)
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(step_iters, unique_tasks, marker='o', linestyle='-')
+        plt.xlabel('Step Iteration')
+        plt.ylabel('Unique Completed Tasks')
+        plt.title('Unique Task Coverage over Time')
+        plt.grid(True)
+        plt.tight_layout()
+
+        save_path = "results/early"
+
+        if save_path:
+            import os
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            plt.savefig(save_path)
+            print(f"Early Stopping Plot Saved to: {save_path}")
+        else:
+            plt.show()
+
+        plt.close()
 
     def _evaluate_policy(self, runner):
 
@@ -727,3 +739,17 @@ class DSD(IOD):
         self._log_eval_metrics(runner)
 
         self.plot_csd_logs(runner, 0, 5000)
+
+
+        #### plot the task coverage for these trajectories
+        if self.env_name == "kitchen_franka":
+            task_coverage = set()
+            for arr in data['episode_task_completions']:
+                if arr.size > 0:
+                    task_coverage.update(arr.flatten())
+
+            unique_completed_tasks = len(task_coverage)
+            self.early_stopping.append((unique_completed_tasks, runner.step_itr))
+            self.plot_early_stopping(self.early_stopping)
+
+

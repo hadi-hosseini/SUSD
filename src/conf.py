@@ -73,6 +73,7 @@ class DSDConfig:
     # === Model architecture details ===
     spectral_normalization: int = 0  # 1: enable spectral norm, 0: disable
     model_master_dim: int = 1024  # Number of units per master network layer
+    te_master_dim: int = 1024
     model_master_num_layers: int = 2  # Number of master network layers
     model_master_nonlinearity: Optional[str] = None  # choices: ['relu', 'tanh', None]
 
@@ -99,197 +100,14 @@ class DSDConfig:
 
 # --- Specific Configs ---
 
-# METRA on state-based Ant (2-D skills)
-@dataclass
-class METRAAntConfig(DSDConfig):
-    run_group: str = 'Debug'
-    env: str = 'ant'
-    max_path_length: int = 200
-    seed: int = 0
-    traj_batch_size: int = 8
-    n_parallel: int = 1
-    normalizer_type: str = 'preset'
-    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
-    trans_optimization_epochs: int = 50
-    n_epochs_per_log: int = 100
-    n_epochs_per_eval: int = 1000
-    n_epochs_per_save: int = 1000 # 10000 phi encoder
-    n_epochs_per_pt_save: int = 1000 # 1000 option policy 
-    n_epochs_per_pkl_update: 1000 # 1000 parameters save
-    sac_max_buffer_size: int = 1000000
-    algo: str = 'metra'
-    discrete: int = 0
-    dim_option: int = 2
-
-# LSD on state-based Ant (2-D skills)
-@dataclass
-class LSDAntConfig(DSDConfig):
-    run_group: str = 'Debug'
-    env: str = 'ant'
-    max_path_length: int = 200
-    seed: int = 0
-    traj_batch_size: int = 8
-    n_parallel: int = 1
-    normalizer_type: str = 'preset'
-    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
-    trans_optimization_epochs: int = 50
-    n_epochs_per_log: int = 100
-    n_epochs_per_eval: int = 1000
-    n_epochs_per_save: int = 10000
-    sac_max_buffer_size: int = 1000000
-    algo: str = 'metra'
-    dual_reg: int = 0
-    spectral_normalization: int = 1
-    discrete: int = 0
-    dim_option: int = 2
-
-# DADS on state-based Ant (2-D skills)
-@dataclass
-class DADSAntConfig(DSDConfig):
-    run_group: str = 'Debug'
-    env: str = 'ant'
-    max_path_length: int = 200
-    seed: int = 0
-    traj_batch_size: int = 8
-    n_parallel: int = 1
-    normalizer_type: str = 'preset'
-    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
-    trans_optimization_epochs: int = 50
-    n_epochs_per_log: int = 100
-    n_epochs_per_eval: int = 1000
-    n_epochs_per_save: int = 10000
-    sac_max_buffer_size: int = 1000000
-    algo: str = 'dads'
-    inner: int = 0
-    unit_length: int = 0
-    dual_reg: int = 0
-    discrete: int = 0
-    dim_option: int = 2
-
-# DIAYN on state-based Ant (2-D skills)
-@dataclass
-class DIAYNAntConfig(DSDConfig):
-    run_group: str = 'Debug'
-    env: str = 'ant'
-    max_path_length: int = 200
-    seed: int = 0
-    traj_batch_size: int = 8
-    n_parallel: int = 1
-    normalizer_type: str = 'preset'
-    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
-    trans_optimization_epochs: int = 50
-    n_epochs_per_log: int = 100
-    n_epochs_per_eval: int = 1000
-    n_epochs_per_save: int = 10000
-    sac_max_buffer_size: int = 1000000
-    algo: str = 'metra'
-    inner: int = 0
-    unit_length: int = 0
-    dual_reg: int = 0
-    discrete: int = 0
-    dim_option: int = 2
-
-# METRA on state-based HalfCheetah (16 skills)
-@dataclass
-class METRAHalfCheetahConfig(DSDConfig):
-    run_group: str = 'Debug'
-    env: str = 'half_cheetah'
-    max_path_length: int = 200
-    seed: int = 0
-    traj_batch_size: int = 8
-    n_parallel: int = 1
-    normalizer_type: str = 'preset'
-    trans_optimization_epochs: int = 50
-    n_epochs_per_log: int = 100
-    n_epochs_per_eval: int = 1000
-    n_epochs_per_save: int = 10000
-    sac_max_buffer_size: int = 1000000
-    algo: str = 'metra'
-    discrete: int = 1
-    dim_option: int = 16
-
-
-# METRA on pixel-based Quadruped (4-D skills)
-@dataclass
-class METRADmcQuadrupedConfig(DSDConfig):
-    run_group: str = 'Debug'
-    env: str = 'dmc_quadruped'
-    max_path_length: int = 200
-    seed: int = 0
-    traj_batch_size: int = 8
-    n_parallel: int = 4
-    normalizer_type: str = 'off'
-    video_skip_frames: int = 2
-    frame_stack: Optional[int] = 3
-    sac_max_buffer_size: int = 300000
-    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-15, 15, -15, 15])
-    algo: str = 'metra'
-    trans_optimization_epochs: int = 200
-    n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 125
-    n_epochs_per_save: int = 1000
-    n_epochs_per_pt_save: int = 1000
-    discrete: int = 0
-    dim_option: int = 4
-    encoder: int = 1
-    sample_cpu: int = 0
-
-# METRA on pixel-based Humanoid (2-D skills)
-@dataclass
-class METRADmcHumanoidConfig(DSDConfig):
-    run_group: str = 'Debug'
-    env: str = 'dmc_humanoid'
-    max_path_length: int = 200
-    seed: int = 0
-    traj_batch_size: int = 8
-    n_parallel: int = 4
-    normalizer_type: str = 'off'
-    video_skip_frames: int = 2
-    frame_stack: Optional[int] = 3
-    sac_max_buffer_size: int = 300000
-    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-15, 15, -15, 15])
-    algo: str = 'metra'
-    trans_optimization_epochs: int = 200
-    n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 125
-    n_epochs_per_save: int = 1000
-    n_epochs_per_pt_save: int = 1000
-    discrete: int = 0
-    dim_option: int = 2
-    encoder: int = 1
-    sample_cpu: int = 0
-
-# METRA on pixel-based Kitchen (24 skills)
-@dataclass
-class METRAKitchenConfig(DSDConfig):
-    run_group: str = 'Debug'
-    env: str = 'kitchen_franka'
-    max_path_length: int = 150
-    seed: int = 0
-    traj_batch_size: int = 8
-    n_parallel: int = 2
-    normalizer_type: str = 'off'
-    num_video_repeats: int = 1
-    sac_max_buffer_size: int = 100000
-    algo: str = 'metra'
-    trans_optimization_epochs: int = 100
-    n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 250
-    n_epochs_per_save: int = 1000
-    n_epochs_per_pt_save: int = 1000
-    discrete: int = 0
-    dim_option: int = 5 # 24
-    sample_cpu: int = 0
-
-
 @dataclass
 class DSDKitchenConfig(DSDConfig):
-    run_group: str = 'SUSD_D'
+    run_group: str = 'TEST'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 4 # 8 
+    n_parallel: int = 2 # 8 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 100000
@@ -300,13 +118,14 @@ class DSDKitchenConfig(DSDConfig):
     n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 5 # 2 
+    dim_option: int = 2 # 2 
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
     susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q
     csd_coeff: bool = 0 # 1: apply csd value, 0: don't apply it
+    te_master_dim: int = 1024 # 1024
 
     
 @dataclass

@@ -53,7 +53,7 @@ from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env
 from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
-from src.conf import METRAAntConfig, METRAKitchenConfig, DSDKitchenConfig, DSDFetchConfig, DSDAntConfig
+from src.conf import DSDKitchenConfig, DSDFetchConfig, DSDAntConfig
 
 if os.environ.get('START_METHOD') is not None:
     START_METHOD = os.environ['START_METHOD']
@@ -200,7 +200,7 @@ def run(ctxt=None):
     traj_encoder = PartitionedTrajectoryEncoder(
         args=args,
         partition_points=partition_points,
-        master_dims=master_dims,
+        master_dims = [args.te_master_dim] * args.model_master_num_layers,
         nonlinearity=nonlinearity,
         output_dim=output_dim,
         module_cls_factory=module_cls_factory
