@@ -32,13 +32,13 @@ class AkroWrapperTrait:
         # kitchen env
         # print("Action space type:", type(self.action_space))
         # print("Observation space type:", type(self.observation_space))
-        # gym_action_space = gymnasium_to_gym_space(self.action_space)
-        # gym_obs_space = gymnasium_to_gym_space(self.observation_space)
+        gym_action_space = gymnasium_to_gym_space(self.action_space)
+        gym_obs_space = gymnasium_to_gym_space(self.observation_space)
 
 
         # ant env
-        gym_action_space = self.action_space
-        gym_obs_space = self.observation_space
+        # gym_action_space = self.action_space
+        # gym_obs_space = self.observation_space
         # exit()
         return EnvSpec(action_space=akro.from_gym(gym_action_space),
                        observation_space=akro.from_gym(gym_obs_space))

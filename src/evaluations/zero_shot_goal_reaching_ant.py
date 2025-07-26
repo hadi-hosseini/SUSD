@@ -17,23 +17,36 @@ from iod.utils import get_normalizer_preset
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # variables 
-algo = "dsd" # ["dsd", "metra", "lsd", "csd", "diayn"]
+algo = "csd" # ["dsd", "metra", "lsd", "csd", "diayn"]
 num_runs = 8
 max_duration = 50
 max_steps = 200
+dsd_model = "dsd_clip"
+mode = "plot" # ["eval", "plot"]
 
 if algo == "dsd":
-    option_policy_checkpoint_path = 'exp/Debug/sd000_1752248887_ant_metra/option_policy19000.pt'
-    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752248887_ant_metra/traj_encoder19000.pt'
-    csv_path = "results/dsd.csv"
+    option_policy_checkpoint_path = f'final_models/ant/DSD/{dsd_model}/option_policy38000.pt'
+    traj_encoder_checkpoint_path = f'final_models/ant/DSD/{dsd_model}/traj_encoder38000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
-    traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
-    csv_path = "results/metra.csv"
+    option_policy_checkpoint_path = 'final_models/ant/METRA/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/METRA/traj_encoder40000.pt'
+
+elif algo == "csd":
+    option_policy_checkpoint_path = 'final_models/ant/CSD/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/CSD/traj_encoder40000.pt'
+
+elif algo == "lsd":
+    option_policy_checkpoint_path = 'final_models/ant/LSD/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/LSD/traj_encoder40000.pt'
+
+elif algo == "diayn":
+    option_policy_checkpoint_path = 'final_models/ant/DIAYN/option_policy40000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/DIAYN/traj_encoder40000.pt'
 
 
 # Load pretrained option_policy
+csv_path = f"final_models/ant/COVERAGE/zero_shot_{algo}_ant.csv"
 checkpoint = torch.load(option_policy_checkpoint_path)
 option_policy = checkpoint['policy']
 option_policy.to(device)
@@ -204,22 +217,32 @@ def load_logs_from_csv(csv_path):
     return all_logs
 
 
-## train the methods
-# all_logs = run_multiple_seeds(num_runs, max_duration, max_steps)
+
+if mode == "eval":
+    run_multiple_seeds(num_runs=1, max_duration=max_duration, max_steps=200)
+elif mode == "plot":
+    # dsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd_kitchen.csv")
+    # dsd2_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd2_kitchen.csv")
+    # dsd3_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd3_kitchen.csv")
+    # dsd4_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd4_kitchen.csv")
+    # metra_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_metra_kitchen.csv")
+    csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_csd_ant.csv")
+    # lsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_lsd_kitchen.csv")
 
 
-# plot the results
-# metra_logs = load_logs_from_csv("results/metra.csv")
-# dsd_logs = load_logs_from_csv("results/dsd.csv")
+    logs_by_method = {
+        # "DSD_Q": dsd_logs,
+        # "DSD_NORM": dsd2_logs,
+        # "DSD_CLIP": dsd3_logs,
+        # "DSD_ORIG": dsd4_logs,
+        # "METRA": metra_logs,
+        "CSD": csd_logs,
+        # "LSD": lsd_logs
+    }
 
-# logs_by_method = {
-#     "METRA": metra_logs,
-#     "DSD": dsd_logs
-# }
-
-# plot_multiple_methods_cumulative_reward(
-#     logs_by_method,
-#     max_duration=max_duration,
-#     dt=1.0,
-#     save_path="results/zero_shot_comparison.png"
-# )
+    plot_multiple_methods_cumulative_reward(
+        logs_by_method,
+        max_duration=50,
+        dt=1.0,
+        save_path=f"final_models/ant/COVERAGE/zero_shot_ant_comparison_ours.png"
+    )

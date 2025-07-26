@@ -284,27 +284,29 @@ class METRAKitchenConfig(DSDConfig):
 
 @dataclass
 class DSDKitchenConfig(DSDConfig):
-    run_group: str = 'DSD_Q'
+    run_group: str = 'SUSD_D'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 8 # 8 
+    n_parallel: int = 4 # 8 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 100000
     sac_min_buffer_size: int = 10000 
     algo: str = 'metra'
-    trans_optimization_epochs: int = 20 # 100 (I change this)
+    trans_optimization_epochs: int = 50 # 100 (I change this)
     n_epochs_per_log: int = 25
     n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 2 
+    dim_option: int = 5 # 2 
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
+    susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q
+    csd_coeff: bool = 0 # 1: apply csd value, 0: don't apply it
 
     
 @dataclass
@@ -334,7 +336,7 @@ class DSDFetchConfig(DSDConfig):
 
 @dataclass
 class DSDAntConfig(DSDConfig):
-    run_group: str = 'TEST'
+    run_group: str = 'SUSD_ANT'
     env: str = 'ant'
     max_path_length: int = 200
     seed: int = 0
@@ -355,4 +357,5 @@ class DSDAntConfig(DSDConfig):
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_mode: int = 4 # 1: original 2: normalize 3: clip 4: 1-q
+    susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q
+    csd_coeff: bool = 1 # 1: apply csd value, 0: don't apply it

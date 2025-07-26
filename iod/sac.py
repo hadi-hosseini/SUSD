@@ -6,6 +6,7 @@ from garage import TrajectoryBatch
 from garagei import log_performance_ex
 from iod import sac_utils
 from iod.iod import IOD
+from garage.misc import tensor_utils
 import copy
 
 from iod.utils import to_np_object_arr, FigManager, get_option_colors, record_video, draw_2d_gaussians, get_torch_concat_obs
@@ -168,6 +169,12 @@ class SAC(IOD):
 
             processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
             next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
+
+            print(rewards)
+            print(v['returns'])
+            print(tensor_utils.discount_cumsum(rewards, self.discount))
+            print(rewards.shape)
+            exit()
 
             sac_utils.update_loss_qf(
                 self, tensors, v,

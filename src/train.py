@@ -57,7 +57,7 @@ class METRAHighLevelKitchenConfig(DSDHighLevelConfig):
     run_group: str = "HIGH_LEVEL_CSD"
     max_path_length: int = 28 # 8 (original value)
     dim_option: int = 2
-    n_parallel: int = 8 # 4 is better
+    n_parallel: int = 4 # 4 is better
     algo: str = "sac"
     n_epochs_per_eval: int = 100
     n_epochs_per_save: int = 0
@@ -77,7 +77,7 @@ class METRAHighLevelKitchenConfig(DSDHighLevelConfig):
     cp_multi_step: int = 10 # 25 (original value)
     downstream_reward_type: str = "esparse"
     downstream_num_goal_steps: int = 50
-    cp_path: str = "/home/hadi/RL/LDG/DSD/final_models/kitchen/CSD/option_policy40000.pt" # this should be corrected 
+    cp_path: str = "/home/hadi/RL/LDG/SUSD/final_models/kitchen/CSD/option_policy40000.pt" # this should be corrected 
     cp_path_idx: int = 0
     cp_unit_length: int = 1
 

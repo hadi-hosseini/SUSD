@@ -37,6 +37,7 @@ class DSD(IOD):
             pixel_shape=None,
             partition_points,
             susd_mode,
+            csd_coeff,
 
             **kwargs,
     ):
@@ -79,6 +80,7 @@ class DSD(IOD):
 
         self.csd_logs = []
         self.do_print = False
+        self.csd_coeff = csd_coeff
 
         assert self._trans_optimization_epochs is not None
 
@@ -306,6 +308,16 @@ class DSD(IOD):
         return one_minus_q
         
 
+    def _csd_reward(self, obs, next_obs):
+        s2_dist = self.dist_predictor(obs)
+        s2_dist_mean = s2_dist.mean
+        s2_dist_std = s2_dist.stddev
+        scaling_factor = 1. / s2_dist_std
+        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+        return cst_dist
+
     def _csd_loss_normalize(self, obs, next_obs, s2_dist_mean, s2_dist_std):
         scaling_factor = 1. / s2_dist_std
         geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
@@ -348,6 +360,10 @@ class DSD(IOD):
             elif self.dual_dist == 'one':
                 cst_dist = torch.ones_like(x[:, 0])
             elif self.dual_dist == 's2_from_s':
+
+                if self.csd_coeff:
+                    csd_rewards = self._csd_reward(obs=obs, next_obs=next_obs)
+                    v.update({'csd_rewards': csd_rewards})
 
                 mean_partitions, std_partitions = self._partition_dist_predictor(obs)
 
@@ -526,10 +542,12 @@ class DSD(IOD):
         next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
 
         #### define the reward of the low-level policy 
-        rewards = 0
+        rewards = torch.zeros((v['rewards'].shape[0], 1), device=self.device)
         if len(v['rewards']) > 1:
             for i in range(len(self.partition_points) - 1):
                 rewards = rewards + v['csd_distances'][i] * v['rewards'][:,i]
+            if self.csd_coeff:
+                rewards = rewards * v['csd_rewards']
         else:
             rewards = v['rewards']
 

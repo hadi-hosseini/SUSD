@@ -62,9 +62,9 @@ else:
 
 # args = METRAAntConfig()
 # args = METRAKitchenConfig()
-# args = DSDKitchenConfig()
+args = DSDKitchenConfig()
 # args = DSDFetchConfig()
-args = DSDAntConfig()
+# args = DSDAntConfig()
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
 def run(ctxt=None):
@@ -394,7 +394,8 @@ def run(ctxt=None):
 
         pixel_shape=pixel_shape,
         partition_points=partition_points,
-        susd_mode = args.susd_mode
+        susd_mode = args.susd_mode,
+        csd_coeff = args.csd_coeff
     )
 
     if args.algo == 'metra':
