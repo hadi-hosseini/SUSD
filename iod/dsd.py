@@ -790,15 +790,13 @@ class DSD(IOD):
         self.plot_csd_logs(runner, 0, 5000)
 
 
-        #### plot the task coverage for these trajectories
+        #### plot the task coverage for franka kitchen
         if self.env_name == "kitchen_franka":
-            task_coverage = set()
+            task_coverage = 0.0
             for arr in data['episode_task_completions']:
-                if arr.size > 0:
-                    task_coverage.update(arr.flatten())
+                task_coverage = max(task_coverage, arr[-1].sum())
 
-            unique_completed_tasks = len(task_coverage)
-            self.early_stopping.append((unique_completed_tasks, runner.step_itr))
+            self.early_stopping.append((task_coverage, runner.step_itr))
             self.plot_early_stopping(self.early_stopping)
 
 
