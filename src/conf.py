@@ -96,17 +96,18 @@ class SUSDConfig:
     dual_lr: Optional[float] = None  # Learning rate for dual regularization optimizer
     dual_dist: str = 'one'  # Distance metric choice; options: 'l2', 's2_from_s', 'one'
     susd_mode: int = 4 # 1: original 2: normalize 3: clip 4: 1-q
+    susd_temperature: float = 1.0 # temperature for softmax
 
 
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'SUSD_EARLY'
+    run_group: str = 'SUSD_NORM'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 4 # 8 
+    n_parallel: int = 5 # 8 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 100000
@@ -122,10 +123,11 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q
-    csd_coeff: bool = 0 # 1: apply csd value, 0: don't apply it
+    susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax
+    csd_coeff: bool = 1 # 1: apply csd value, 0: don't apply it
     te_master_dim: int = 1024 # 1024
-    sac_scale_reward: float = 500.0 # 1.0 is default 
+    sac_scale_reward: float = 1000.0 # the reward that we multiply with intrinsic rewrad 
+    susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):

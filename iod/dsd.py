@@ -38,6 +38,8 @@ class DSD(IOD):
             partition_points,
             susd_mode,
             csd_coeff,
+            susd_temperature,
+            exp_name,
 
             **kwargs,
     ):
@@ -82,6 +84,9 @@ class DSD(IOD):
         self.do_print = False
         self.csd_coeff = csd_coeff
         self.early_stopping = []
+        self.susd_temperature = susd_temperature
+        self.exp_name = exp_name
+        self.counter = 0
 
         assert self._trans_optimization_epochs is not None
 
@@ -319,13 +324,23 @@ class DSD(IOD):
         cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
         return cst_dist
 
-    def _csd_loss_normalize(self, obs, next_obs, s2_dist_mean, s2_dist_std):
-        scaling_factor = 1. / s2_dist_std
-        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
-        csd_dist = cst_dist / cst_dist.sum()
-        return csd_dist
+    # def _csd_loss_normalize(self, obs, next_obs, s2_dist_mean, s2_dist_std):
+    #     scaling_factor = 1. / s2_dist_std
+    #     geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+    #     normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+    #     cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+    #     csd_dist = cst_dist / cst_dist.sum()
+    #     return csd_dist
+    
+
+    # def _csd_loss_softmax(self, obs, next_obs, s2_dist_mean, s2_dist_std, temperature=1.0):
+    #     scaling_factor = 1. / s2_dist_std
+    #     geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+    #     normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+    #     cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+    #     csd_dist = torch.softmax(cst_dist / temperature, dim=1)
+    #     return csd_dist
+    
     
     def _csd_loss_clip(self, obs, next_obs, s2_dist_mean, s2_dist_std):
         scaling_factor = 1. / s2_dist_std
@@ -378,7 +393,8 @@ class DSD(IOD):
                         next_obs_i = y[:, start:end]
                         csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
                         csd_distances.append(csd_distance)
-                    
+                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
+ 
                 elif self.susd_mode == 2:
                     # normalize
                     for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
@@ -386,8 +402,11 @@ class DSD(IOD):
                         end = self.partition_points[i + 1]
                         obs_i = x[:, start:end]
                         next_obs_i = y[:, start:end]
-                        csd_distance = self._csd_loss_normalize(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
-                        csd_distances.append(csd_distance)
+                        csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                        csd_distances.append(csd_distance) # each element is (batch_size)
+                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
+                    csd_distances = csd_distances / csd_distances.sum(dim=1, keepdim=True) # (batch_size, N)
+                    
                 elif self.susd_mode == 3:
                     # clip
                     for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
@@ -397,6 +416,8 @@ class DSD(IOD):
                         next_obs_i = y[:, start:end]
                         csd_distance = self._csd_loss_clip(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
                         csd_distances.append(csd_distance)
+                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
+
                 elif self.susd_mode == 4:
                     # 1 - q
                     for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
@@ -406,6 +427,20 @@ class DSD(IOD):
                         next_obs_i = y[:, start:end]
                         csd_distance = self._calculate_one_minus_q(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
                         csd_distances.append(csd_distance)
+                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
+
+                elif self.susd_mode == 5:
+                    # softmax with temperature
+                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
+                        start = self.partition_points[i]
+                        end = self.partition_points[i + 1]
+                        obs_i = x[:, start:end]
+                        next_obs_i = y[:, start:end]
+                        csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                        csd_distances.append(csd_distance)
+                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
+                    csd_distances = torch.softmax(csd_distances / self.susd_temperature, dim=1) # (batch_size, N)
+
 
                 if self.do_print:
                     self.do_print = False
@@ -428,7 +463,7 @@ class DSD(IOD):
                 end = (i+1) * self.dim_option
                 cst_penalty_i = torch.ones_like(x[:, 0]) - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
                 cst_penalty_i = torch.clamp(cst_penalty_i, max=self.dual_slack)
-                te_obj_i = csd_distances[i] * rewards[:, i] + dual_lam[i].detach() * cst_penalty_i
+                te_obj_i = csd_distances[:, i] * rewards[:, i] + dual_lam[i].detach() * cst_penalty_i
                 cst_penalty.append(cst_penalty_i)
                 te_objs.append(te_obj_i)
 
@@ -485,16 +520,20 @@ class DSD(IOD):
 
         if self.susd_mode == 1:
             # original
-            csd_plot_path = f'results/csd_logs_orig/csd_plot_epoch_{runner.step_itr}.png'
+            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
         elif self.susd_mode == 2:
             # normalize 
-            csd_plot_path = f'results/csd_logs_norm_early/csd_plot_epoch_{runner.step_itr}.png'
+            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
         elif self.susd_mode == 3:
             # clip
-            csd_plot_path = f'results/csd_logs_clip/csd_plot_epoch_{runner.step_itr}.png'
+            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
         elif self.susd_mode == 4:
             # 1 - q
-            csd_plot_path = f'results/csd_logs_q/csd_plot_epoch_{runner.step_itr}.png'
+            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
+        elif self.susd_mode == 5:
+            # softmax
+            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
+
         os.makedirs(os.path.dirname(csd_plot_path), exist_ok=True)
         fig.savefig(csd_plot_path)
         plt.close(fig)
@@ -534,7 +573,7 @@ class DSD(IOD):
         rewards = torch.zeros((v['rewards'].shape[0], 1), device=self.device)
         if len(v['rewards']) > 1:
             for i in range(len(self.partition_points) - 1):
-                rewards = rewards + v['csd_distances'][i] * v['rewards'][:,i]
+                rewards = rewards + v['csd_distances'][:, i] * v['rewards'][:,i]
             if self.csd_coeff:
                 rewards = rewards * v['csd_rewards']
             else:
@@ -582,7 +621,7 @@ class DSD(IOD):
         plt.grid(True)
         plt.tight_layout()
 
-        save_path = "results/early"
+        save_path = f"results/{self.exp_name}"
 
         if save_path:
             import os
@@ -632,8 +671,16 @@ class DSD(IOD):
             #     random_options.append(new_random_option)
             
             # random_options = np.vstack(random_options)
-           
+
+            #### just one factor activate for z
+            # activate_factor = self.counter % self.N
+            # self.counter += 1
+            # random_options = np.zeros((self.num_random_trajectoriesrajectories, self.N, self.dim_option))
+            # random_options[:, activate_factor, :] = np.random.randn(self.num_random_trajectories, self.dim_option)
+
+           #### main code 
             random_options = np.random.randn(self.num_random_trajectories, self.N, self.dim_option)
+
             if self.unit_length:
                 random_options /= np.linalg.norm(random_options, axis=-1, keepdims=True)
             
@@ -744,7 +791,6 @@ class DSD(IOD):
 
 
         #### plot the task coverage for these trajectories
-        # print(data['episode_task_completions'])
         if self.env_name == "kitchen_franka":
             task_coverage = set()
             for arr in data['episode_task_completions']:

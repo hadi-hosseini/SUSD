@@ -394,7 +394,9 @@ def run(ctxt=None):
         pixel_shape=pixel_shape,
         partition_points=partition_points,
         susd_mode = args.susd_mode,
-        csd_coeff = args.csd_coeff
+        csd_coeff = args.csd_coeff,
+        susd_temperature = args.susd_temperature,
+        exp_name = get_exp_name(args)[0]
     )
 
     if args.algo == 'metra':
