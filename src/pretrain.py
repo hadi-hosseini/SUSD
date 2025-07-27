@@ -53,16 +53,15 @@ from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env
 from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
-from src.conf import DSDKitchenConfig, DSDFetchConfig, DSDAntConfig
+from src.conf import SUSDFrankaKitchenConfig
 
 if os.environ.get('START_METHOD') is not None:
     START_METHOD = os.environ['START_METHOD']
 else:
     START_METHOD = 'spawn'
 
-# args = METRAAntConfig()
-# args = METRAKitchenConfig()
-args = DSDKitchenConfig()
+
+args = SUSDFrankaKitchenConfig()
 # args = DSDFetchConfig()
 # args = DSDAntConfig()
 

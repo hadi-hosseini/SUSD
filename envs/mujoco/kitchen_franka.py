@@ -23,6 +23,7 @@ from gymnasium_robotics.envs.franka_kitchen import KitchenEnv
 import os
 os.environ["MUJOCO_GL"] = "egl"
 
+
 class KitchenFranka(gym.Wrapper, MujocoTrait, mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self, *args, custom_order=None, **kwargs):        
         super().__init__(*args, **kwargs)
@@ -31,6 +32,7 @@ class KitchenFranka(gym.Wrapper, MujocoTrait, mujoco_env.MujocoEnv, utils.EzPick
         self.reward_range = (-np.inf, np.inf)
         self.metadata = {}
         self.custom_order = custom_order
+        self.all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
         self.ob_info = dict(
             type='state',
             shape=(59,),  # hardcode shape, don't rely on observation_space property
@@ -73,6 +75,13 @@ class KitchenFranka(gym.Wrapper, MujocoTrait, mujoco_env.MujocoEnv, utils.EzPick
 
         done = terminated or truncated
         ob = self.get_state(next_state['observation'])
+
+        completed_tasks = info.pop('episode_task_completions', [])
+        del info['step_task_completions']
+        del info['tasks_to_complete']
+        task_vector = np.array([1 if task in completed_tasks else 0 for task in self.all_tasks], dtype=np.float32)
+        info['episode_task_completions'] = task_vector
+
 
         coords = self.last_state['observation'][:2].copy()
         next_coords = next_state['observation'][:2].copy()

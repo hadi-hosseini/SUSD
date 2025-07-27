@@ -2,13 +2,13 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 
 @dataclass
-class DSDConfig:
+class SUSDConfig:
     # === Run and environment configuration ===
     run_group: str = 'Debug'  # Name for grouping runs (e.g., experiment name)
     normalizer_type: str = 'off'  # choices: ['off', 'preset']
     encoder: int = 0  # 0: no encoder, non-zero: pixel encoder enabled
 
-    env: str = 'maze'  # choices: ['maze', 'half_cheetah', 'ant', 'dmc_cheetah', 'dmc_quadruped', 'dmc_humanoid', 'kitchen']
+    env: str = 'maze'  # choices: ['maze', 'half_cheetah', 'ant', 'dmc_cheetah', 'dmc_quadruped', 'dmc_humanoid', 'kitchen_franka']
     frame_stack: Optional[int] = None  # Number of frames stacked for pixel obs
 
     max_path_length: int = 200  # Max trajectory length per episode
@@ -99,26 +99,25 @@ class DSDConfig:
 
 
 # --- Specific Configs ---
-
 @dataclass
-class DSDKitchenConfig(DSDConfig):
-    run_group: str = 'TEST'
+class SUSDFrankaKitchenConfig(SUSDConfig):
+    run_group: str = 'SUSD_EARLY'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 2 # 8 
+    n_parallel: int = 4 # 8 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 100000
-    sac_min_buffer_size: int = 10000 
+    sac_min_buffer_size: int = 10000
     algo: str = 'metra'
-    trans_optimization_epochs: int = 50 # 100 (I change this)
+    trans_optimization_epochs: int = 20 # 100 (I change this)
     n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 250
+    n_epochs_per_eval: int = 250 # 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 2 # 2 
+    dim_option: int = 2 
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
@@ -126,10 +125,10 @@ class DSDKitchenConfig(DSDConfig):
     susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q
     csd_coeff: bool = 0 # 1: apply csd value, 0: don't apply it
     te_master_dim: int = 1024 # 1024
+    sac_scale_reward: float = 500.0 # 1.0 is default 
 
-    
 @dataclass
-class DSDFetchConfig(DSDConfig):
+class SUSDFetchConfig(SUSDConfig):
     run_group: str = 'Debug'
     env: str = 'fetch'
     max_path_length: int = 150
@@ -154,7 +153,7 @@ class DSDFetchConfig(DSDConfig):
 
 
 @dataclass
-class DSDAntConfig(DSDConfig):
+class SUSDAntConfig(SUSDConfig):
     run_group: str = 'SUSD_ANT'
     env: str = 'ant'
     max_path_length: int = 200

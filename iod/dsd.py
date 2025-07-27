@@ -488,7 +488,7 @@ class DSD(IOD):
             csd_plot_path = f'results/csd_logs_orig/csd_plot_epoch_{runner.step_itr}.png'
         elif self.susd_mode == 2:
             # normalize 
-            csd_plot_path = f'results/csd_logs_norm/csd_plot_epoch_{runner.step_itr}.png'
+            csd_plot_path = f'results/csd_logs_norm_early/csd_plot_epoch_{runner.step_itr}.png'
         elif self.susd_mode == 3:
             # clip
             csd_plot_path = f'results/csd_logs_clip/csd_plot_epoch_{runner.step_itr}.png'
@@ -537,6 +537,8 @@ class DSD(IOD):
                 rewards = rewards + v['csd_distances'][i] * v['rewards'][:,i]
             if self.csd_coeff:
                 rewards = rewards * v['csd_rewards']
+            else:
+                rewards = rewards
         else:
             rewards = v['rewards']
 
@@ -742,6 +744,7 @@ class DSD(IOD):
 
 
         #### plot the task coverage for these trajectories
+        # print(data['episode_task_completions'])
         if self.env_name == "kitchen_franka":
             task_coverage = set()
             for arr in data['episode_task_completions']:

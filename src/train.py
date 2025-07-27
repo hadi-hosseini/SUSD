@@ -54,10 +54,10 @@ class DSDHighLevelConfig(DSDConfig):
 
 @dataclass
 class METRAHighLevelKitchenConfig(DSDHighLevelConfig):
-    run_group: str = "HIGH_LEVEL_CSD"
+    run_group: str = "TEST"
     max_path_length: int = 28 # 8 (original value)
     dim_option: int = 2
-    n_parallel: int = 4 # 4 is better
+    n_parallel: int = 1 # 4 is better
     algo: str = "sac"
     n_epochs_per_eval: int = 100
     n_epochs_per_save: int = 0
