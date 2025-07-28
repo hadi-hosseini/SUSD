@@ -11,13 +11,6 @@ import dowel_wrapper
 assert dowel_wrapper is not None
 import dowel
 
-from iod.sac import SAC
-from iod.ppo import PPO
-from src.child_policy_env import ChildPolicyEnv
-from src.conf import DSDConfig
-from src.utils import get_exp_name, get_log_dir
-from downstream_tasks.downstream_kitchen import DownstreamKitchen
-
 from garagei.experiment.option_local_runner import OptionLocalRunner
 from garage.experiment.deterministic import set_seed
 from garage import wrap_experiment
@@ -32,6 +25,13 @@ from garagei.torch.utils import xavier_normal_ex
 from garage.torch.distributions import TanhNormal
 from garagei.torch.policies.policy_ex import PolicyEx
 
+from iod.sac import SAC
+from iod.ppo import PPO
+from src.child_policy_env import ChildPolicyEnv
+from src.conf import SUSDConfig
+from src.utils import get_exp_name, get_log_dir
+from downstream_tasks.downstream_kitchen import DownstreamKitchen
+
 
 
 if os.environ.get('START_METHOD') is not None:
@@ -40,7 +40,7 @@ else:
     START_METHOD = 'spawn'
 
 @dataclass
-class DSDHighLevelConfig(DSDConfig):
+class SUSDHighLevelConfig(SUSDConfig):
     cp_path: Optional[str] = None
     cp_path_idx: Optional[int] = None  # For exp name
     cp_multi_step: int = 1
@@ -53,11 +53,11 @@ class DSDHighLevelConfig(DSDConfig):
     goal_range: float = 50.0
 
 @dataclass
-class METRAHighLevelKitchenConfig(DSDHighLevelConfig):
+class SUSDHighLevelKitchenConfig(SUSDHighLevelConfig):
     run_group: str = "TEST"
     max_path_length: int = 28 # 8 (original value)
     dim_option: int = 2
-    n_parallel: int = 1 # 4 is better
+    n_parallel: int = 8 # 4 is better
     algo: str = "sac"
     n_epochs_per_eval: int = 100
     n_epochs_per_save: int = 0
@@ -65,11 +65,11 @@ class METRAHighLevelKitchenConfig(DSDHighLevelConfig):
     n_epochs_per_pkl_update: int = 0
     n_epochs: int = 200001 # 16000 is better
     eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
-    trans_optimization_epochs: int = 50
+    trans_optimization_epochs: int = 50 # 50
     te_trans_optimization_epochs: int = 50
     sac_replay_buffer: int = 1
     sac_max_buffer_size: int = 1000000
-    sac_min_buffer_size: int = 1 # 512
+    sac_min_buffer_size: int = 1 # 1000
     joint_train: int = 1
     te_only_last_frame: int  = 0
     goal_range: float = 7.5
@@ -77,16 +77,14 @@ class METRAHighLevelKitchenConfig(DSDHighLevelConfig):
     cp_multi_step: int = 10 # 25 (original value)
     downstream_reward_type: str = "esparse"
     downstream_num_goal_steps: int = 50
-    cp_path: str = "/home/hadi/RL/LDG/SUSD/final_models/kitchen/CSD/option_policy40000.pt" # this should be corrected 
+    cp_path: str = "final_models/kitchen/CSD/option_policy40000.pt" # the path of skill policy
     cp_path_idx: int = 0
     cp_unit_length: int = 1
 
-    env: str = "test_kitchen"
-    cp_multitask: int = 7
-
-
-all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
-custom_order = [
+    env: str = "kitchen_franka"
+    cp_multitask: int = 7 # the number of tasks
+    all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
+    custom_order = [
                     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,     # Panda Arm and Gripper States
                     18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Burners and Overhead Light
                     29, 30, 31, 49, 50, 51,                                           # Cabinets (Slide + Left + Right Hinge)
@@ -95,20 +93,16 @@ custom_order = [
         ]
 
 
+args = SUSDHighLevelKitchenConfig()
+
 def make_env(max_path_length):
-    from gymnasium.wrappers import TimeLimit
-    env =  DownstreamKitchen(
-    tasks_to_complete=all_tasks,
-    terminate_on_tasks_completed=True,
-    render_mode="rgb_array",
-    custom_order=custom_order)
+    env =  DownstreamKitchen(tasks_to_complete=args.all_tasks, terminate_on_tasks_completed=True, render_mode="rgb_array", custom_order=args.custom_order)
 
     if args.cp_path is not None:
-        cp_path = args.cp_path
-        if not os.path.exists(cp_path):
+        if not os.path.exists(args.cp_path):
             import glob
-            cp_path = glob.glob(cp_path)[0]
-        cp_dict = torch.load(cp_path, map_location='cpu')
+            args.cp_path = glob.glob(args.cp_path)[0]
+        cp_dict = torch.load(args.cp_path, map_location='cpu')
 
 
     env = ChildPolicyEnv(
@@ -118,12 +112,9 @@ def make_env(max_path_length):
             cp_unit_length=args.cp_unit_length,
             cp_multi_step=args.cp_multi_step,
             cp_num_truncate_obs=0,
-            cp_multitask=len(all_tasks)
+            cp_multitask=len(args.all_tasks)
         )
     return env
-
-
-args = METRAHighLevelKitchenConfig()
 
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
@@ -153,30 +144,10 @@ def run(ctxt=None):
     contextualized_make_env = functools.partial(make_env, max_path_length=max_path_length)
     env = contextualized_make_env()
 
-
-    # if args.cp_path is not None:
-    #     cp_path = args.cp_path
-    #     if not os.path.exists(cp_path):
-    #         import glob
-    #         cp_path = glob.glob(cp_path)[0]
-    #     cp_dict = torch.load(cp_path, map_location='cpu')
-
-        # env = ChildPolicyEnv(
-        #     env,
-        #     cp_dict,
-        #     cp_action_range=1.5,
-        #     cp_unit_length=args.cp_unit_length,
-        #     cp_multi_step=args.cp_multi_step,
-        #     cp_num_truncate_obs=0,
-        #     cp_multitask=len(all_tasks)
-        # )
-
-
     if args.algo in ['sac', 'ppo']:
-        if args.env == "test_kitchen":
+        if args.env == "kitchen_franka": # solve as multitask
             policy_q_input_dim = env.observation_space.shape[0] + args.cp_multitask
             action_dim = env.action_space.shape[0]
-
 
     device = torch.device('cuda' if args.use_gpu else 'cpu')
     master_dims = [args.model_master_dim] * args.model_master_num_layers
@@ -326,7 +297,8 @@ def run(ctxt=None):
         replay_buffer=replay_buffer,
         min_buffer_size=args.sac_min_buffer_size,
         pixel_shape=None,
-        multitask=args.cp_multitask
+        multitask=args.cp_multitask,
+        exp_name= get_exp_name(args)[0]
     )
 
     if args.algo == "sac":

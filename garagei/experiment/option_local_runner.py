@@ -125,11 +125,13 @@ class OptionLocalRunner(LocalRunner):
                 'discrete': self._algo.discrete,
                 'dim_option': self._algo.dim_option,
                 'policy': self._algo.option_policy,
+                'N': getattr(self._algo, 'N', 1),
             }, file_name)
             file_name = os.path.join(self._snapshotter._snapshot_dir, f'traj_encoder{epoch}.pt')
             torch.save({
                 'discrete': self._algo.discrete,
                 'dim_option': self._algo.dim_option,
+                'N': getattr(self._algo, 'N', 1),
                 'traj_encoder': self._algo.traj_encoder,
             }, file_name)
             if self._algo.dist_predictor:
@@ -137,6 +139,7 @@ class OptionLocalRunner(LocalRunner):
                 torch.save({
                     'discrete': self._algo.discrete,
                     'dim_option': self._algo.dim_option,
+                    'N': getattr(self._algo, 'N', 1),
                     'dist_predictor': self._algo.dist_predictor,
                 }, file_name)
                 file_name = os.path.join(self._snapshotter._snapshot_dir, f'csd_logs.npy')
@@ -148,6 +151,7 @@ class OptionLocalRunner(LocalRunner):
             torch.save({
                 'discrete': self._algo.discrete,
                 'dim_option': self._algo.dim_option,
+                'N': getattr(self._algo, 'N', 1),
                 'policy': self._algo.option_policy,
             }, file_name)
 

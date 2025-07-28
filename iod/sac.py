@@ -27,6 +27,7 @@ class SAC(IOD):
             min_buffer_size,
 
             multitask,
+            exp_name,
 
             pixel_shape=None,
 
@@ -59,6 +60,7 @@ class SAC(IOD):
         self.pixel_shape = pixel_shape
 
         self.multitask = multitask
+        self.exp_name = exp_name
 
     @property
     def policy(self):
@@ -71,14 +73,14 @@ class SAC(IOD):
         return get_torch_concat_obs(obs, option)
 
     def _get_train_trajectories_kwargs(self, runner):
-        if self.multitask > 0:
+        if self.multitask > 0: # make one-hot vectors as goals
             batch_size = runner._train_args.batch_size
             random_indices = np.random.randint(0, self.multitask, size=(batch_size))
             random_goals = np.eye(self.multitask)[random_indices] 
             flat_random_goals = random_goals.reshape(batch_size, self.multitask)
             extras = self._generate_option_extras(flat_random_goals)
 
-        else:  
+        else:  # single task
             extras = [{} for _ in range(runner._train_args.batch_size)]
 
         return dict(
@@ -88,8 +90,12 @@ class SAC(IOD):
 
     def _flatten_data(self, data):
         epoch_data = {}
+        print(len(data['rewards']))
+        print(data['rewards'])
         for key, value in data.items():
             epoch_data[key] = torch.tensor(np.concatenate(value, axis=0), dtype=torch.float32, device=self.device)
+        print(epoch_data['rewards'].shape)
+        print(epoch_data['rewards'])
         return epoch_data
 
     def _update_replay_buffer(self, data):
@@ -111,6 +117,8 @@ class SAC(IOD):
             if value.shape[1] == 1 and 'option' not in key:
                 value = np.squeeze(value, axis=1)
             data[key] = torch.from_numpy(value).float().to(self.device)
+        print(data['rewards'])
+        print(data['rewards'].shape)
         return data
 
     def _train_once_inner(self, path_data, runner):
@@ -163,18 +171,24 @@ class SAC(IOD):
         sac_utils.update_targets(self)
 
     def _update_loss_qf(self, tensors, v):
-        if self.multitask > 0:
-            coeff_reward = torch.sum(v['options'] * v['episode_task_completions'], axis=1)
+        if self.multitask > 0: # rectify rewards based on the tasks that have been solved
+            coeff_reward = torch.sum(v['options'] * v['episode_task_completions'], axis=1) # kitchen_franka
             rewards = (coeff_reward >= 1).float()
+
+            # for i in range(rewards.shape[0]):
+            #     print(f"goal: {v['options'][i]}")
+            #     print(f"completed tasks: {v['episode_task_completions'][i]}")
+            #     print(f"coeff reward: {coeff_reward[i]}")
+            #     print(60*'-')
+            # print(rewards)
+            print(v['returns'])
+            print(v['rewards'].shape)
+            print(v['rewards'])
+            print(tensor_utils.discount_cumsum(rewards, self.discount))
+            exit()
 
             processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
             next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
-
-            print(rewards)
-            print(v['returns'])
-            print(tensor_utils.discount_cumsum(rewards, self.discount))
-            print(rewards.shape)
-            exit()
 
             sac_utils.update_loss_qf(
                 self, tensors, v,

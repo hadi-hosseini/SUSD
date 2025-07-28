@@ -309,7 +309,7 @@ class IOD(RLAlgorithm):
             if 'option' in path['agent_infos']:
                 data['options'].append(path['agent_infos']['option'])
                 data['next_options'].append(np.concatenate([path['agent_infos']['option'][1:], path['agent_infos']['option'][-1:]], axis=0))
-            if 'episode_task_completions' in path['env_infos']:
+            if 'episode_task_completions' in path['env_infos']: # kitchen_franka
                 data['episode_task_completions'].append(path['env_infos']['episode_task_completions'])
         return data
 

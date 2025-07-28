@@ -29,6 +29,7 @@ class ChildPolicyEnv(gym.Wrapper):
         self.child_policy.eval()
 
         self.cp_dim_action = cp_dict['dim_option']
+        self.cp_N = getattr(cp_dict, 'N', 1)
         self.cp_action_range = cp_action_range
         self.cp_unit_length = cp_unit_length
         self.cp_multi_step = cp_multi_step
@@ -37,7 +38,7 @@ class ChildPolicyEnv(gym.Wrapper):
         self.cp_multitask = cp_multitask
         self.cp_discrete = cp_dict['discrete']
 
-        if self.cp_multitask > 0: # kitchen
+        if self.cp_multitask > 0: # kitchen_franka
             self.observation_space = env.observation_space.spaces['observation']
             self.all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
 
@@ -47,7 +48,7 @@ class ChildPolicyEnv(gym.Wrapper):
         if 'discrete' in cp_dict and cp_dict['discrete']:
             self.action_space = akro.Discrete(n=cp_dict['dim_option'])
         else:
-            self.action_space = akro.Box(low=-1., high=1., shape=(self.cp_dim_action,))
+            self.action_space = akro.Box(low=-1., high=1., shape=(self.cp_dim_action * self.cp_N, ))
 
         self.last_obs = None
         self.first_obs = None
@@ -64,11 +65,6 @@ class ChildPolicyEnv(gym.Wrapper):
         self.first_obs = ret
 
         return ret
-    
-    def update_env(self, update):
-        if 'goal' in update:
-            self.goal = update['goal']
-        print(self.goal)
 
     def step(self, cp_action, **kwargs):
         cp_action_norm = np.linalg.norm(cp_action)
@@ -92,7 +88,6 @@ class ChildPolicyEnv(gym.Wrapper):
                 cp_obs[self.cp_omit_obs_idxs] = 0
 
             cp_action = torch.as_tensor(cp_action)
-
             cp_input = get_torch_concat_obs(cp_obs, cp_action, dim=0).float()
 
             # XXX: Hacky
