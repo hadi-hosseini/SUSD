@@ -396,7 +396,8 @@ def run(ctxt=None):
         susd_mode = args.susd_mode,
         csd_coeff = args.csd_coeff,
         susd_temperature = args.susd_temperature,
-        exp_name = get_exp_name(args)[0]
+        exp_name = get_exp_name(args)[0],
+        susd_dist_norm=args.susd_dist_norm
     )
 
     if args.algo == 'metra':

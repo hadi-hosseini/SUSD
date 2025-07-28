@@ -40,6 +40,7 @@ class DSD(IOD):
             csd_coeff,
             susd_temperature,
             exp_name,
+            susd_dist_norm,
 
             **kwargs,
     ):
@@ -87,6 +88,7 @@ class DSD(IOD):
         self.susd_temperature = susd_temperature
         self.exp_name = exp_name
         self.counter = 0
+        self.susd_dist_norm = susd_dist_norm
 
         assert self._trans_optimization_epochs is not None
 
@@ -403,6 +405,8 @@ class DSD(IOD):
                         obs_i = x[:, start:end]
                         next_obs_i = y[:, start:end]
                         csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                        if self.susd_dist_norm:
+                            csd_distance = csd_distance / (end - start)
                         csd_distances.append(csd_distance) # each element is (batch_size)
                     csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
                     csd_distances = csd_distances / csd_distances.sum(dim=1, keepdim=True) # (batch_size, N)
