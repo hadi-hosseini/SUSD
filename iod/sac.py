@@ -90,12 +90,8 @@ class SAC(IOD):
 
     def _flatten_data(self, data):
         epoch_data = {}
-        print(len(data['rewards']))
-        print(data['rewards'])
         for key, value in data.items():
             epoch_data[key] = torch.tensor(np.concatenate(value, axis=0), dtype=torch.float32, device=self.device)
-        print(epoch_data['rewards'].shape)
-        print(epoch_data['rewards'])
         return epoch_data
 
     def _update_replay_buffer(self, data):
@@ -117,11 +113,10 @@ class SAC(IOD):
             if value.shape[1] == 1 and 'option' not in key:
                 value = np.squeeze(value, axis=1)
             data[key] = torch.from_numpy(value).float().to(self.device)
-        print(data['rewards'])
-        print(data['rewards'].shape)
         return data
 
     def _train_once_inner(self, path_data, runner):
+
         self._update_replay_buffer(path_data)
 
         epoch_data = self._flatten_data(path_data)
@@ -174,18 +169,6 @@ class SAC(IOD):
         if self.multitask > 0: # rectify rewards based on the tasks that have been solved
             coeff_reward = torch.sum(v['options'] * v['episode_task_completions'], axis=1) # kitchen_franka
             rewards = (coeff_reward >= 1).float()
-
-            # for i in range(rewards.shape[0]):
-            #     print(f"goal: {v['options'][i]}")
-            #     print(f"completed tasks: {v['episode_task_completions'][i]}")
-            #     print(f"coeff reward: {coeff_reward[i]}")
-            #     print(60*'-')
-            # print(rewards)
-            print(v['returns'])
-            print(v['rewards'].shape)
-            print(v['rewards'])
-            print(tensor_utils.discount_cumsum(rewards, self.discount))
-            exit()
 
             processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
             next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
@@ -249,6 +232,18 @@ class SAC(IOD):
             ),
             env_update=dict(_action_noise_std=None),)
 
+            for i in range(len(random_trajectories)): # franka kitchen
+                rewards_i = []
+                for j in range(len(random_trajectories[i]['rewards'])):
+                    reward_ij = (flat_random_goals[i] * random_trajectories[i]['env_infos']['episode_task_completions'][j]).sum()
+                    rewards_i.append(reward_ij)
+                    if np.isclose(reward_ij, 1.0):
+                        break
+
+                pad_len = len(random_trajectories[i]['rewards']) - len(rewards_i)
+                rewards_i.extend([0.0] * pad_len)
+                random_trajectories[i]['rewards'] = np.array(rewards_i)
+
         else:
             random_trajectories = self._get_trajectories(
                 runner,
@@ -262,10 +257,10 @@ class SAC(IOD):
                 env_update=dict(_action_noise_std=None),
             )
 
-        with FigManager(runner, 'TrajPlot_RandomZ') as fm:
-            runner._env.render_trajectories(
-                random_trajectories, np.zeros((self.num_random_trajectories, 3)), self.eval_plot_axis, fm.ax
-            )
+        # with FigManager(runner, 'TrajPlot_RandomZ') as fm:
+        #     runner._env.render_trajectories(
+        #         random_trajectories, np.zeros((self.num_random_trajectories, 3)), self.eval_plot_axis, fm.ax
+        #     )
 
         eval_option_metrics = {}
         eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
