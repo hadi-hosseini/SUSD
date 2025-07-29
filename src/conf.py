@@ -116,7 +116,7 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     algo: str = 'metra'
     trans_optimization_epochs: int = 20 # 100 (I change this)
     n_epochs_per_log: int = 25
-    n_epochs_per_evaCl: int = 250 # 250
+    n_epochs_per_eval: int = 250 # 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
     dim_option: int = 5 
