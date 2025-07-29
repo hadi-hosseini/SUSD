@@ -116,20 +116,20 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     algo: str = 'metra'
     trans_optimization_epochs: int = 20 # 100 (I change this)
     n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_evaCl: int = 250 # 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 2 
+    dim_option: int = 5 
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
     susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax
-    csd_coeff: bool = 1 # 1: apply csd value, 0: don't apply it
+    csd_coeff: bool = 0 # 1: apply csd value, 0: don't apply it
     te_master_dim: int = 1024 # 1024
-    sac_scale_reward: float = 1000.0 # the reward that we multiply with intrinsic rewrad 
+    sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
-    susd_dist_norm: int = 1
+    susd_dist_norm: int = 0
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):

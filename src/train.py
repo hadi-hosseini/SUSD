@@ -70,6 +70,10 @@ class SUSDHighLevelKitchenConfig(SUSDHighLevelConfig):
     sac_replay_buffer: int = 1
     sac_max_buffer_size: int = 1000000
     sac_min_buffer_size: int = 1 # 1000
+    n_epochs_per_log: int = 25
+    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_save: int = 1000 # 1000
+    n_epochs_per_pt_save: int = 1000 # 1000
     joint_train: int = 1
     te_only_last_frame: int  = 0
     goal_range: float = 7.5

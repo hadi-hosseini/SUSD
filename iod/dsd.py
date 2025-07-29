@@ -281,20 +281,7 @@ class DSD(IOD):
         s2_dist = self.dist_predictor(obs)
         s2_dist_mean = s2_dist.mean
         s2_dist_std = s2_dist.stddev
-
-        # mean_partitions = []
-        # std_partitions = []
-
-        # for i in range(len(self.partition_points) - 1):
-        #     start = self.partition_points[i]
-        #     end = self.partition_points[i + 1]
-
-        #     mean_part = s2_dist_mean[:, start:end]
-        #     std_part = s2_dist_std[:, start:end]
-
-        #     mean_partitions.append(mean_part)
-        #     std_partitions.append(std_part)
-
+        
         mean_partitions = [s2_dist_mean[:, start:end] for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
         std_partitions = [s2_dist_std[:, start:end] for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
 
@@ -325,23 +312,6 @@ class DSD(IOD):
         normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
         cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
         return cst_dist
-
-    # def _csd_loss_normalize(self, obs, next_obs, s2_dist_mean, s2_dist_std):
-    #     scaling_factor = 1. / s2_dist_std
-    #     geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-    #     normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-    #     cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
-    #     csd_dist = cst_dist / cst_dist.sum()
-    #     return csd_dist
-    
-
-    # def _csd_loss_softmax(self, obs, next_obs, s2_dist_mean, s2_dist_std, temperature=1.0):
-    #     scaling_factor = 1. / s2_dist_std
-    #     geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-    #     normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-    #     cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
-    #     csd_dist = torch.softmax(cst_dist / temperature, dim=1)
-    #     return csd_dist
     
     
     def _csd_loss_clip(self, obs, next_obs, s2_dist_mean, s2_dist_std):
@@ -492,7 +462,7 @@ class DSD(IOD):
 
         epochs, csd_values = zip(*self.csd_logs)
         epochs = np.array(epochs)
-        csd_values = 1e5 * np.array(csd_values)  # Scale if desired
+        csd_values = np.array(csd_values)  # Scale if desired
 
         # Clip values if bounds are provided
         if min_csd is not None or max_csd is not None:
@@ -516,7 +486,7 @@ class DSD(IOD):
             )
 
         ax.set_xlabel('Epoch')
-        ax.set_ylabel('CSD Value (x1e5)')
+        ax.set_ylabel('CSD Value')
         ax.set_title('CSD per Factor over Epochs (Clipped)')
         ax.legend()
         ax.grid(True)
