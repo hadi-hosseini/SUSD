@@ -243,23 +243,10 @@ class DSD(IOD):
                 rewards = (target_z * masks).sum(dim=1)
 
             else:
-                # rewards = []
-                # for i in range(len(self.partition_points) - 1):
-                #     start = i * self.dim_option
-                #     end = (i+1) * self.dim_option
-                    
-                #     rewards_i = (target_z[:, start:end] * v['options'][:, start:end]).sum(dim=1)
-                #     rewards.append(rewards_i)
-
-                batch_size, total_dim = target_z.shape
-                num_segments = total_dim // self.dim_option
-                target_z_reshaped = target_z.view(batch_size, num_segments, self.dim_option)
-                options_reshaped = v['options'].view(batch_size, num_segments, self.dim_option)
-                rewards = (target_z_reshaped * options_reshaped).sum(dim=2)  # shape: [batch_size, num_segments]
-
-                ### original
-                # inner = (target_z * v['options']).sum(dim=1)
-                # rewards = inner
+                batch_size, _ = target_z.shape
+                target_z_reshaped = target_z.view(batch_size, self.N, self.dim_option)
+                options_reshaped = v['options'].view(batch_size, self.N, self.dim_option)
+                rewards = (target_z_reshaped * options_reshaped).sum(dim=2)  # shape: [batch_size, N]
 
             # For dual objectives
             v.update({
@@ -420,9 +407,8 @@ class DSD(IOD):
                     self.do_print = False
                     self.csd_logs.append((
                         runner.step_itr,
-                        [csd_distances[i][0].detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]
+                        [csd_distances[0][i].detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]
                     ))
-
 
                 v.update({'csd_distances': csd_distances})
 

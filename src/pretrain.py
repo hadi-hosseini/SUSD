@@ -48,7 +48,7 @@ from garagei.torch.policies.policy_ex import PolicyEx
 from garagei.torch.q_functions.continuous_mlp_q_function_ex import ContinuousMLPQFunctionEx
 from garagei.torch.optimizers.optimizer_group_wrapper import OptimizerGroupWrapper
 from garagei.torch.utils import xavier_normal_ex
-from iod.dsd import DSD
+from iod.susd import DSD
 from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env
@@ -60,10 +60,7 @@ if os.environ.get('START_METHOD') is not None:
 else:
     START_METHOD = 'spawn'
 
-
 args = SUSDFrankaKitchenConfig()
-# args = DSDFetchConfig()
-# args = DSDAntConfig()
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
 def run(ctxt=None):
