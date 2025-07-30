@@ -402,6 +402,10 @@ class DSD(IOD):
                     csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
                     csd_distances = torch.softmax(csd_distances / self.susd_temperature, dim=1) # (batch_size, N)
 
+                elif self.susd_mode == 6:
+                    # without csd_j reward
+                    csd_distances = torch.ones_like(x)
+ 
 
                 if self.do_print:
                     self.do_print = False
@@ -473,27 +477,12 @@ class DSD(IOD):
 
         ax.set_xlabel('Epoch')
         ax.set_ylabel('CSD Value')
-        ax.set_title('CSD per Factor over Epochs (Clipped)')
+        ax.set_title('CSD per Factor over Epochs')
         ax.legend()
         ax.grid(True)
         fig.tight_layout()
 
-        if self.susd_mode == 1:
-            # original
-            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
-        elif self.susd_mode == 2:
-            # normalize 
-            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
-        elif self.susd_mode == 3:
-            # clip
-            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
-        elif self.susd_mode == 4:
-            # 1 - q
-            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
-        elif self.susd_mode == 5:
-            # softmax
-            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
-
+        csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
         os.makedirs(os.path.dirname(csd_plot_path), exist_ok=True)
         fig.savefig(csd_plot_path)
         plt.close(fig)

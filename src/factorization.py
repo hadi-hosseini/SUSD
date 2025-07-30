@@ -49,7 +49,8 @@ def factorize_environment(args):
     if args.env == "ant":
         state_factorization_points = [0, 7, 15, 21, 29]
     elif args.env == "kitchen_franka":
-        state_factorization_points = [0, 18, 38, 44, 46, 59]
+        # state_factorization_points = [0, 18, 38, 44, 46, 59]
+        state_factorization_points = [0, 59]
     elif args.env == "fetch":
         state_factorization_points = [0, 11, 25]
 

@@ -103,12 +103,12 @@ class SUSDConfig:
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'TEST'
+    run_group: str = 'TEST_N_1'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 1 # 8 
+    n_parallel: int = 4 # 8 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 100000
@@ -119,12 +119,12 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     n_epochs_per_eval: int = 250 # 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 5 
+    dim_option: int = 2 
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax
+    susd_mode: int = 6 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: without_csd_i rewards
     csd_coeff: bool = 1 # 1: apply csd value, 0: don't apply it
     te_master_dim: int = 1024 # 1024
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
