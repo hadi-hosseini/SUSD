@@ -103,7 +103,7 @@ class SUSDConfig:
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'TEST5'
+    run_group: str = 'TEST'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
