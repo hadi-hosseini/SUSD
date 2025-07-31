@@ -225,8 +225,6 @@ def run(ctxt=None):
     else:
         dist_predictor = None
 
-    # dual_lam = ParameterModule(torch.Tensor([np.log(args.dual_lam)]))
-
     class LogDualParam(nn.Module):
         def __init__(self, init_log_val):
             super().__init__()
@@ -234,6 +232,7 @@ def run(ctxt=None):
 
         def forward(self):
             return self.param
+        
     dual_lam = nn.ModuleList([LogDualParam(torch.tensor(np.log(args.dual_lam), dtype=torch.float32))for _ in range(args.N)])
 
     # Skill dynamics do not support pixel obs
@@ -391,7 +390,6 @@ def run(ctxt=None):
         pixel_shape=pixel_shape,
         partition_points=partition_points,
         susd_mode = args.susd_mode,
-        csd_coeff = args.csd_coeff,
         susd_temperature = args.susd_temperature,
         exp_name = get_exp_name(args)[0],
         susd_dist_norm=args.susd_dist_norm

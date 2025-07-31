@@ -95,7 +95,7 @@ class SUSDConfig:
     dual_slack: float = 1e-3  # Slack parameter for dual regularization
     dual_lr: Optional[float] = None  # Learning rate for dual regularization optimizer
     dual_dist: str = 'one'  # Distance metric choice; options: 'l2', 's2_from_s', 'one'
-    susd_mode: int = 4 # 1: original 2: normalize 3: clip 4: 1-q
+    susd_mode: int = 1 # 1: original 2: normalize 3: clip 4: 1-q
     susd_temperature: float = 1.0 # temperature for softmax
     susd_dist_norm: int = 0 # to normalize each distribution 
 
@@ -103,29 +103,27 @@ class SUSDConfig:
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'TEST_N_1'
+    run_group: str = 'TEST5'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 4 # 8 
+    n_parallel: int = 8 # 8 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
-    sac_max_buffer_size: int = 100000
-    sac_min_buffer_size: int = 10000
+    sac_max_buffer_size: int = 1000000
     algo: str = 'metra'
-    trans_optimization_epochs: int = 20 # 100 (I change this)
+    trans_optimization_epochs: int = 50
     n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 2 
+    dim_option: int = 2
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_mode: int = 6 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: without_csd_i rewards
-    csd_coeff: bool = 1 # 1: apply csd value, 0: don't apply it
+    susd_mode: int = 1 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: susd (without csd_i rewards)
     te_master_dim: int = 1024 # 1024
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
@@ -141,7 +139,7 @@ class SUSDFetchConfig(SUSDConfig):
     n_parallel: int = 4 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
-    sac_max_buffer_size: int = 100000
+    sac_max_buffer_size: int = 1000000
     sac_min_buffer_size: int = 10000 
     algo: str = 'metra'
     trans_optimization_epochs: int = 100
@@ -166,7 +164,7 @@ class SUSDAntConfig(SUSDConfig):
     n_parallel: int = 1 # 4
     normalizer_type: str = 'preset'
     eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
-    trans_optimization_epochs: int = 100 # 100 (I change this)
+    trans_optimization_epochs: int = 50 # 100 (I change this)
     n_epochs_per_log: int = 100
     n_epochs_per_eval: int = 1000
     n_epochs_per_save: int = 1000 # 10000 phi encoder

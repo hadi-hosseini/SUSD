@@ -108,11 +108,6 @@ def make_env(args, max_path_length):
                 33, 34, 35, 36, 37, 38, 39, 53, 54, 55, 56, 57, 58               # Kettle
         ]
         
-        # base_env = KitchenEnv(
-        #     tasks_to_complete=[],
-        #     terminate_on_tasks_completed=False,
-        #     render_mode="rgb_array"
-        # )
         base_env = KitchenEnv(
             tasks_to_complete=all_tasks,
             terminate_on_tasks_completed=False,

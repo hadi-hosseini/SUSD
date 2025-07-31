@@ -12,7 +12,6 @@ import os
 
 from iod.utils import get_torch_concat_obs, FigManager, get_option_colors, record_video, draw_2d_gaussians
 
-
 class DSD(IOD):
     def __init__(
             self,
@@ -37,7 +36,6 @@ class DSD(IOD):
             pixel_shape=None,
             partition_points,
             susd_mode,
-            csd_coeff,
             susd_temperature,
             exp_name,
             susd_dist_norm,
@@ -83,7 +81,6 @@ class DSD(IOD):
 
         self.csd_logs = []
         self.do_print = False
-        self.csd_coeff = csd_coeff
         self.early_stopping = []
         self.susd_temperature = susd_temperature
         self.exp_name = exp_name
@@ -103,21 +100,15 @@ class DSD(IOD):
 
     def _get_train_trajectories_kwargs(self, runner):
         batch_size = runner._train_args.batch_size
-        N = self.N 
-        dim_option = self.dim_option
 
         if self.discrete:
-            random_indices = np.random.randint(0, dim_option, size=(batch_size, N))
-            random_options = np.eye(dim_option)[random_indices]  # Shape: (batch_size, N, dim_option)
+            random_indices = np.random.randint(0, self.dim_option, size=(batch_size, self.N))
+            random_options = np.eye(self.dim_option)[random_indices]  # Shape: (batch_size, N, dim_option)
         else:
-            # Sample continuous options: shape (batch_size, N, dim_option)
-            random_options = np.random.randn(batch_size, N, dim_option)
+            random_options = np.random.randn(batch_size, self.N * self.dim_option)
             if self.unit_length:
-                random_options /= np.linalg.norm(random_options, axis=-1, keepdims=True)
-
-        # Flatten to shape (batch_size, N * dim_option) to match the policy input
-        flat_random_options = random_options.reshape(batch_size, N * dim_option)
-        extras = self._generate_option_extras(flat_random_options)
+                random_options /= np.linalg.norm(random_options, axis=-1, keepdims=True) 
+            extras = self._generate_option_extras(random_options)
 
         return dict(
             extras=extras,
@@ -187,21 +178,18 @@ class DSD(IOD):
     def _optimize_te(self, tensors, internal_vars, runner):
         self._update_loss_te(tensors, internal_vars, runner)
 
-        losses_te = tensors['LossTe']
-        te_keys = [f'traj_encoder_{i}' for i in range(len(losses_te))]
-        self._gradient_descent(losses_te, optimizer_keys=te_keys)
+        for i, loss_te in enumerate(tensors['LossTe']):
+            self._gradient_descent(loss_te, optimizer_keys=[f'traj_encoder_{i}'])
 
         if self.dual_reg:
             self._update_loss_dual_lam(tensors, internal_vars)
-            losses_dual = tensors['LossDualLam']
-            dual_keys = [f'dual_lam_{i}' for i in range(len(losses_dual))]
-            self._gradient_descent(losses_dual, optimizer_keys=dual_keys)
+            for i in range(len(self.dual_lam)):
+                self._gradient_descent(tensors[f'LossDualLam_{i}'], optimizer_keys=[f'dual_lam_{i}'])
 
             if self.dual_dist == 's2_from_s':
                 self._gradient_descent(
                     tensors['LossDp'],
-                    optimizer_keys=['dist_predictor'],
-                )
+                    optimizer_keys=['dist_predictor'],)
 
     def _optimize_op(self, tensors, internal_vars):
         self._update_loss_qf(tensors, internal_vars)
@@ -247,6 +235,8 @@ class DSD(IOD):
                 target_z_reshaped = target_z.view(batch_size, self.N, self.dim_option)
                 options_reshaped = v['options'].view(batch_size, self.N, self.dim_option)
                 rewards = (target_z_reshaped * options_reshaped).sum(dim=2)  # shape: [batch_size, N]
+            
+                # rewards = (target_z * v['options']).sum(dim=1)
 
             # For dual objectives
             v.update({
@@ -262,6 +252,7 @@ class DSD(IOD):
             else:
                 rewards = target_dists.log_prob(v['options'])
 
+
         v['rewards'] = rewards
 
     def _partition_dist_predictor(self, obs):
@@ -274,8 +265,6 @@ class DSD(IOD):
 
         return mean_partitions, std_partitions
     
-
-    # the original
     def _csd_loss(self, obs, next_obs, s2_dist_mean, s2_dist_std):
         scaling_factor = 1. / s2_dist_std
         geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
@@ -287,19 +276,7 @@ class DSD(IOD):
         csd_loss = self._csd_loss(obs, next_obs, s2_dist_mean, s2_dist_std)
         q = torch.exp(-csd_loss)
         one_minus_q = 1 - q
-        return one_minus_q
-        
-
-    def _csd_reward(self, obs, next_obs):
-        s2_dist = self.dist_predictor(obs)
-        s2_dist_mean = s2_dist.mean
-        s2_dist_std = s2_dist.stddev
-        scaling_factor = 1. / s2_dist_std
-        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
-        return cst_dist
-    
+        return one_minus_q      
     
     def _csd_loss_clip(self, obs, next_obs, s2_dist_mean, s2_dist_std):
         scaling_factor = 1. / s2_dist_std
@@ -335,10 +312,6 @@ class DSD(IOD):
             elif self.dual_dist == 'one':
                 cst_dist = torch.ones_like(x[:, 0])
             elif self.dual_dist == 's2_from_s':
-
-                if self.csd_coeff:
-                    csd_rewards = self._csd_reward(obs=obs, next_obs=next_obs)
-                    v.update({'csd_rewards': csd_rewards})
 
                 mean_partitions, std_partitions = self._partition_dist_predictor(obs)
 
@@ -402,35 +375,47 @@ class DSD(IOD):
                     csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
                     csd_distances = torch.softmax(csd_distances / self.susd_temperature, dim=1) # (batch_size, N)
 
-                elif self.susd_mode == 6:
-                    # without csd_j reward
-                    csd_distances = torch.ones_like(x)
- 
 
                 if self.do_print:
                     self.do_print = False
-                    self.csd_logs.append((
-                        runner.step_itr,
-                        [csd_distances[0][i].detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]
-                    ))
+                    self.csd_logs.append((runner.step_itr, 
+                                          [csd_distances[0][i].detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
 
                 v.update({'csd_distances': csd_distances})
 
             else:
                 raise NotImplementedError
 
-            #### it is a good place to become vectorized
+
+            ### pure csd 
+            # s2_dist = self.dist_predictor(obs)
+            # s2_dist_mean = s2_dist.mean
+            # s2_dist_std = s2_dist.stddev
+            # scaling_factor = 1. / s2_dist_std
+            # geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+            # normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+            # cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+
+            # cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
+            # cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
+            # te_obj = rewards + dual_lam[0].detach() * cst_penalty
+            # te_objs = [te_obj]
+            # cst_penalty = [cst_penalty]
+
+            #### me
             cst_penalty = []
             te_objs = []
+
             for i in range(len(self.partition_points) - 1):
                 start = i * self.dim_option
                 end = (i+1) * self.dim_option
-                cst_penalty_i = torch.ones_like(x[:, 0]) - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
+                cst_penalty_i = csd_distances[:, i] - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
                 cst_penalty_i = torch.clamp(cst_penalty_i, max=self.dual_slack)
-                te_obj_i = csd_distances[:, i] * rewards[:, i] + dual_lam[i].detach() * cst_penalty_i
+                te_obj_i = rewards[:, i] + dual_lam[i].detach() * cst_penalty_i
                 cst_penalty.append(cst_penalty_i)
-                te_objs.append(te_obj_i)
+                te_objs.append(te_obj_i) 
 
+            
             v.update({
                 'cst_penalty': cst_penalty,
             })
@@ -445,6 +430,7 @@ class DSD(IOD):
         tensors.update({
             'LossTe': loss_te
         })
+
 
     def plot_csd_logs(self, runner, min_csd=None, max_csd=None):
         if len(self.csd_logs) == 0:
@@ -487,7 +473,6 @@ class DSD(IOD):
         fig.savefig(csd_plot_path)
         plt.close(fig)
 
-
     def _update_loss_dual_lam(self, tensors, v):
         assert len(v['cst_penalty']) == len(self.dual_lam)
 
@@ -508,27 +493,12 @@ class DSD(IOD):
                 f'LossDualLam_{i}': loss_dual_lam_i,
             })
 
-        # Optionally store them as a tensor list
-        tensors.update({
-            'DualLam': torch.stack(dual_lams),               # shape: [N]
-            'LossDualLam': torch.stack(loss_dual_lams),      # shape: [N]
-        })
-
     def _update_loss_qf(self, tensors, v):
         processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
         next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
 
         #### define the reward of the low-level policy 
-        rewards = torch.zeros((v['rewards'].shape[0], 1), device=self.device)
-        if len(v['rewards']) > 1:
-            for i in range(len(self.partition_points) - 1):
-                rewards = rewards + v['csd_distances'][:, i] * v['rewards'][:,i]
-            if self.csd_coeff:
-                rewards = rewards * v['csd_rewards']
-            else:
-                rewards = rewards
-        else:
-            rewards = v['rewards']
+        rewards = v['rewards'].sum(dim=1)
 
         sac_utils.update_loss_qf(
             self, tensors, v,
@@ -557,7 +527,6 @@ class DSD(IOD):
         sac_utils.update_loss_alpha(
             self, tensors, v,
         )
-
 
     def plot_early_stopping(self, early_stopping):
         unique_tasks, step_iters = zip(*early_stopping)
@@ -628,10 +597,10 @@ class DSD(IOD):
             # random_options[:, activate_factor, :] = np.random.randn(self.num_random_trajectories, self.dim_option)
 
            #### main code 
-            random_options = np.random.randn(self.num_random_trajectories, self.N, self.dim_option)
+            random_options = np.random.randn(self.num_random_trajectories, self.N * self.dim_option)
 
             if self.unit_length:
-                random_options /= np.linalg.norm(random_options, axis=-1, keepdims=True)
+                random_options /= np.linalg.norm(random_options, axis=1, keepdims=True)
             
             random_option_colors = get_option_colors(random_options.reshape(self.num_random_trajectories, -1) * 4)
 
@@ -685,14 +654,19 @@ class DSD(IOD):
                 video_options = video_options.repeat(self.num_video_repeats, axis=0)
             else:
                 if self.dim_option * self.N == 2:
-                    radius = 1. if self.unit_length else 1.5
-                    video_options = []
-                    for angle in [3, 2, 1, 4]:
-                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-                    video_options.append([0, 0])
-                    for angle in [0, 5, 6, 7]:
-                        video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-                    video_options = np.array(video_options)
+                    # radius = 1. if self.unit_length else 1.5
+                    # video_options = []
+                    # for angle in [3, 2, 1, 4]:
+                    #     video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+                    # video_options.append([0, 0])
+                    # for angle in [0, 5, 6, 7]:
+                    #     video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
+                    # video_options = np.array(video_options)
+
+                    video_options = np.random.randn(9, self.N * self.dim_option)
+                    if self.unit_length:
+                        video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
+                    flat_random_options = video_options.reshape(9, self.N * self.dim_option)
                 else:
                     # random_option = np.random.randn(1, self.N, self.dim_option)
                     # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
@@ -709,7 +683,7 @@ class DSD(IOD):
                     # random_options = np.vstack(random_options)
                     # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
 
-                    video_options = np.random.randn(9, self.N, self.dim_option)
+                    video_options = np.random.randn(9, self.N * self.dim_option)
                     if self.unit_length:
                         video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
                     flat_random_options = video_options.reshape(9, self.N * self.dim_option)
@@ -741,10 +715,11 @@ class DSD(IOD):
 
         #### plot the task coverage for franka kitchen
         if self.env_name == "kitchen_franka":
-            task_coverage = 0.0
+            done_tasks = np.zeros_like(data['episode_task_completions'][-1][0])
             for arr in data['episode_task_completions']:
-                task_coverage = max(task_coverage, arr[-1].sum())
+                done_tasks = np.maximum(done_tasks, arr[-1])
 
+            task_coverage = done_tasks.sum()
             self.early_stopping.append((task_coverage, runner.step_itr))
             self.plot_early_stopping(self.early_stopping)
 
