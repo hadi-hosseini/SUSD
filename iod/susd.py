@@ -82,6 +82,7 @@ class DSD(IOD):
         self.csd_logs = []
         self.do_print = False
         self.early_stopping = []
+        self.early_stopping_with_names = []
         self.susd_temperature = susd_temperature
         self.exp_name = exp_name
         self.counter = 0
@@ -554,6 +555,45 @@ class DSD(IOD):
 
         plt.close()
 
+    def get_completed_task_names(self, mask):
+        task_names = ['BB', 'TB', 'LS', 'SC', 'HC', 'MI', 'KE']
+        return [name for done, name in zip(mask, task_names) if done == 1]
+
+    def plot_early_stopping_with_names(self, early_stopping_with_names):
+        unique_tasks = [entry[0] for entry in early_stopping_with_names]
+        task_names = [entry[1] for entry in early_stopping_with_names]
+        step_iters = [entry[2] for entry in early_stopping_with_names]
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(step_iters, unique_tasks, marker='o', linestyle='-', color='steelblue')
+
+        for i, (step, count, names) in enumerate(zip(step_iters, unique_tasks, task_names)):
+            label = "\n".join(names)  
+            offset = 15 if i % 2 == 0 else -25 
+            plt.annotate(
+                label,
+                (step, count),
+                textcoords="offset points",
+                xytext=(0, offset),
+                ha='center',
+                fontsize=9,
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.7)
+            )
+
+        plt.xlabel('Step Iteration')
+        plt.ylabel('Completed Tasks')
+        plt.title('Task Coverage Over Time')
+        plt.grid(True)
+        plt.xticks(step_iters)
+        plt.tight_layout()
+
+        save_path = f"results/{self.exp_name}_with_names"
+        plt.savefig(save_path)
+        print(f"Early Stopping Plot Saved to: {save_path}")
+
+        plt.close()
+
+
     def _evaluate_policy(self, runner):
 
         if self.discrete:
@@ -722,8 +762,10 @@ class DSD(IOD):
             for arr in data['episode_task_completions']:
                 done_tasks = np.maximum(done_tasks, arr[-1])
 
+            task_names = self.get_completed_task_names(done_tasks)
             task_coverage = done_tasks.sum()
             self.early_stopping.append((task_coverage, runner.step_itr))
+            self.early_stopping_with_names((task_coverage, task_names, runner.step_itr))
             self.plot_early_stopping(self.early_stopping)
-
+            self.plot_early_stopping_with_names(self.early_stopping_with_names)
 
