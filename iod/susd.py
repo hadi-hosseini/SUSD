@@ -178,11 +178,14 @@ class DSD(IOD):
     def _optimize_te(self, tensors, internal_vars, runner):
         self._update_loss_te(tensors, internal_vars, runner)
 
-        for i, loss_te in enumerate(tensors['LossTe']):
-            self._gradient_descent(loss_te, optimizer_keys=[f'traj_encoder_{i}'])
+
+        losses_te = tensors['LossTe']
+        te_keys = [f'traj_encoder_{i}' for i in range(len(losses_te))]
+        self._gradient_descent(losses_te, optimizer_keys=te_keys)
 
         if self.dual_reg:
             self._update_loss_dual_lam(tensors, internal_vars)
+
             for i in range(len(self.dual_lam)):
                 self._gradient_descent(tensors[f'LossDualLam_{i}'], optimizer_keys=[f'dual_lam_{i}'])
 
