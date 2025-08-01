@@ -98,12 +98,13 @@ class SUSDConfig:
     susd_mode: int = 1 # 1: original 2: normalize 3: clip 4: 1-q
     susd_temperature: float = 1.0 # temperature for softmax
     susd_dist_norm: int = 0 # to normalize each distribution 
+    susd_csd: int = 0 # use csd coeff as scaling factor
 
 
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'SUSD_Q'
+    run_group: str = 'SUSD_NORM_CSD'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
@@ -123,11 +124,12 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_mode: int = 4 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: susd (without csd_i rewards)
+    susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: susd (without csd_i rewards)
     te_master_dim: int = 1024 # 1024
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
     susd_dist_norm: int = 0
+    susd_csd: int = 1 # csd scaling factor as intrinsic reward
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):

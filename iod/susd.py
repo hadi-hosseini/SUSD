@@ -39,6 +39,7 @@ class DSD(IOD):
             susd_temperature,
             exp_name,
             susd_dist_norm,
+            susd_csd,
 
             **kwargs,
     ):
@@ -87,6 +88,7 @@ class DSD(IOD):
         self.exp_name = exp_name
         self.counter = 0
         self.susd_dist_norm = susd_dist_norm
+        self.susd_csd = susd_csd
 
         assert self._trans_optimization_epochs is not None
 
@@ -392,19 +394,21 @@ class DSD(IOD):
 
 
             ### pure csd 
-            # s2_dist = self.dist_predictor(obs)
-            # s2_dist_mean = s2_dist.mean
-            # s2_dist_std = s2_dist.stddev
-            # scaling_factor = 1. / s2_dist_std
-            # geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-            # normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-            # cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+            if self.susd_csd:
+                s2_dist = self.dist_predictor(obs)
+                s2_dist_mean = s2_dist.mean
+                s2_dist_std = s2_dist.stddev
+                scaling_factor = 1. / s2_dist_std
+                geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+                normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+                cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
+                v['csd_reward'] = cst_dist
 
-            # cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
-            # cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
-            # te_obj = rewards + dual_lam[0].detach() * cst_penalty
-            # te_objs = [te_obj]
-            # cst_penalty = [cst_penalty]
+                # cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
+                # cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
+                # te_obj = rewards + dual_lam[0].detach() * cst_penalty
+                # te_objs = [te_obj]
+                # cst_penalty = [cst_penalty]
 
             #### me
             cst_penalty = []
@@ -502,7 +506,10 @@ class DSD(IOD):
         next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
 
         #### define the reward of the low-level policy 
-        rewards = v['rewards'].sum(dim=1)
+        if self.susd_csd:
+            rewards = v['rewards'].sum(dim=1) * v['csd_reward']
+        else:
+            rewards = v['rewards'].sum(dim=1)
 
         sac_utils.update_loss_qf(
             self, tensors, v,
@@ -592,7 +599,6 @@ class DSD(IOD):
         print(f"Early Stopping Plot Saved to: {save_path}")
 
         plt.close()
-
 
     def _evaluate_policy(self, runner):
 
@@ -765,7 +771,7 @@ class DSD(IOD):
             task_names = self.get_completed_task_names(done_tasks)
             task_coverage = done_tasks.sum()
             self.early_stopping.append((task_coverage, runner.step_itr))
-            self.early_stopping_with_names((task_coverage, task_names, runner.step_itr))
+            self.early_stopping_with_names.append((task_coverage, task_names, runner.step_itr))
             self.plot_early_stopping(self.early_stopping)
             self.plot_early_stopping_with_names(self.early_stopping_with_names)
 
