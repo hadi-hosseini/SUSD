@@ -446,7 +446,7 @@ class DSD(IOD):
 
         epochs, csd_values = zip(*self.csd_logs)
         epochs = np.array(epochs)
-        csd_values = np.array(csd_values)  # Scale if desired
+        csd_values = 1000 * np.array(csd_values)  # Scale if desired
 
         # Clip values if bounds are provided
         if min_csd is not None or max_csd is not None:
@@ -470,7 +470,7 @@ class DSD(IOD):
             )
 
         ax.set_xlabel('Epoch')
-        ax.set_ylabel('CSD Value')
+        ax.set_ylabel('CSD Value (×1e3)')
         ax.set_title('CSD per Factor over Epochs')
         ax.legend()
         ax.grid(True)
@@ -544,7 +544,7 @@ class DSD(IOD):
 
         plt.figure(figsize=(8, 5))
         plt.plot(step_iters, unique_tasks, marker='o', linestyle='-')
-        plt.xlabel('Step Iteration')
+        plt.xlabel('Epochs')
         plt.ylabel('Unique Completed Tasks')
         plt.title('Unique Task Coverage over Time')
         plt.grid(True)
@@ -587,7 +587,7 @@ class DSD(IOD):
                 bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.7)
             )
 
-        plt.xlabel('Step Iteration')
+        plt.xlabel('Epochs')
         plt.ylabel('Completed Tasks')
         plt.title('Task Coverage Over Time')
         plt.grid(True)

@@ -34,7 +34,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
 
 mode = "plot" # ["plot", "eval"]
-algo = "dsd" # ["dsd", "metra"]
+algo = "csd4" # ["dsd", "metra"]
 dsd_model = "without_ir"
 
 if algo == "dsd":
@@ -45,9 +45,9 @@ elif algo == "metra":
     option_policy_checkpoint_path = 'final_models/kitchen/METRA/option_policy40000.pt'    
     traj_encoder_checkpoint_path = 'final_models/kitchen/METRA/traj_encoder40000.pt'
 
-elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/kitchen/CSD/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/kitchen/CSD/traj_encoder40000.pt'
+elif algo == "csd4":
+    option_policy_checkpoint_path = 'final_models/kitchen/CSD/option_policy30000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/kitchen/CSD/traj_encoder30000.pt'
 
 elif algo == "lsd":
     option_policy_checkpoint_path = 'final_models/kitchen/LSD/option_policy40000.pt'    
@@ -57,7 +57,11 @@ elif algo == "diayn":
     option_policy_checkpoint_path = 'final_models/kitchen/DIAYN/option_policy40000.pt'    
     traj_encoder_checkpoint_path = 'final_models/kitchen/DIAYN/traj_encoder40000.pt'
 
-csv_path = f"final_models/kitchen/COVERAGE/task_coverage_{dsd_model}_kitchen.csv"
+if algo.startswith("dsd"):
+    csv_path = f"final_models/kitchen/COVERAGE/task_coverage_{dsd_model}_kitchen.csv"
+else:
+    csv_path = f"final_models/kitchen/COVERAGE/task_coverage_{algo}_kitchen.csv"
+
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -73,17 +77,25 @@ env = KitchenEnv(
 max_steps = 200  # Set your max steps per episode here
 env = TimeLimit(env, max_episode_steps=max_steps)
 
-skill_dim = 25 # N=5, d=5
+skill_dim = 2 # N=5, d=5
 
+### past order 
+# custom_order = [
+#                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,     # Panda Arm and Gripper States
+#                 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Burners and Overhead Light
+#                 29, 30, 31, 49, 50, 51,                                           # Cabinets (Slide + Left + Right Hinge)
+#                 32, 52,                                                          # Microwave Door
+#                 33, 34, 35, 36, 37, 38, 39, 53, 54, 55, 56, 57, 58               # Kettle
+#         ]
 
+### new order
 custom_order = [
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,     # Panda Arm and Gripper States
-                18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Burners and Overhead Light
-                29, 30, 31, 49, 50, 51,                                           # Cabinets (Slide + Left + Right Hinge)
-                32, 52,                                                          # Microwave Door
-                33, 34, 35, 36, 37, 38, 39, 53, 54, 55, 56, 57, 58               # Kettle
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,     # Robot
+                18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Switches
+                28, 29, 30, 49, 50, 51,                                           # Cabinets
+                31, 52,                                                          # Microwave
+                32, 33, 34, 35, 36, 37, 38, 53, 54, 55, 56, 57, 58               # Kettle
         ]
-
 
 def rearrange_vector(vec, custom_order):
     if isinstance(vec, torch.Tensor):
@@ -236,15 +248,11 @@ elif mode == "plot":
     # dsd4_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd4_kitchen.csv")
     # metra_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_metra_kitchen.csv")
     csd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_csd_kitchen.csv")
+    csd2_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_csd2_kitchen.csv")
+    csd3_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_csd3_kitchen.csv")
+    csd4_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_csd4_kitchen.csv")
     # lsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_lsd_kitchen.csv")
     # diayn_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_diayn_kitchen.csv")
-
-    dsd1_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_ir_1000_with_csd_kitchen.csv")
-    dsd2_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_ir_d_2_kitchen.csv")
-    dsd3_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_ir_phi_512_kitchen.csv")
-    dsd4_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_ir_without_csd_kitchen.csv")
-    dsd5_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_without_ir_kitchen.csv")
-
 
     logs_by_method = {
         # "DSD_Q": dsd_logs,
@@ -252,15 +260,12 @@ elif mode == "plot":
         # "DSD_CLIP": dsd3_logs,
         # "DSD_ORIG": dsd4_logs,
         # "METRA": metra_logs,
-        "CSD": csd_logs,
+        "CSD(BASELINE)": csd_logs,
+        "CSD2(5000)": csd2_logs,
+        "CSD3(30000)": csd3_logs,
+        "CSD(5000,BASELINE)": csd4_logs,
         # "LSD": lsd_logs,
         # "DIAYN": diayn_logs,
-        "ir_with_csd": dsd1_logs,
-        "ir_d_2": dsd2_logs,
-        "ir_phi_512": dsd3_logs,
-        "ir": dsd4_logs,
-        "wthout_ir": dsd5_logs,
-
     }
 
     plot_multiple_methods_cumulative_reward(

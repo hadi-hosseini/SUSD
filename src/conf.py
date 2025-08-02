@@ -104,12 +104,12 @@ class SUSDConfig:
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'SUSD_NORM_CSD'
+    run_group: str = 'SUSD_ORIGINAL_DIST_NORM_DIM_5_IR_1000'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 8 # 8 
+    n_parallel: int = 7 # 8 
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 1000000
@@ -119,17 +119,17 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 2
+    dim_option: int = 5
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: susd (without csd_i rewards)
+    susd_mode: int = 1 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: susd (without csd_i rewards)
     te_master_dim: int = 1024 # 1024
-    sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
+    sac_scale_reward: float = 1000.0 # the reward that we multiply with intrinsic rewrad 
     susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
-    susd_dist_norm: int = 0
-    susd_csd: int = 1 # csd scaling factor as intrinsic reward
+    susd_dist_norm: int = 1 # 1.0 use dist normalization 
+    susd_csd: int = 0 # csd scaling factor as intrinsic reward
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):
