@@ -57,6 +57,53 @@ def factorize_environment(args):
     return state_factorization_points
 
 
+
+class PartitionedTrajectoryEncoderWithInputFactor0(nn.Module):
+    def __init__(self, args, partition_points, master_dims, nonlinearity, output_dim, module_cls_factory):
+        super().__init__()
+        self.partition_points = partition_points
+        self.encoders = nn.ModuleList()
+
+        for i in range(len(partition_points) - 1):
+            start, end = partition_points[i], partition_points[i + 1]
+            local_input_dim = end - start
+
+            if i >= 1:
+                factor0_dim = partition_points[1] - partition_points[0]
+                module_cls, module_kwargs = module_cls_factory(args=args, 
+                                                            master_dims=master_dims, 
+                                                            nonlinearity=nonlinearity, 
+                                                            input_dim=local_input_dim + factor0_dim,
+                                                            output_dim=output_dim)
+            else:
+                module_cls, module_kwargs = module_cls_factory(args=args, 
+                                                            master_dims=master_dims, 
+                                                            nonlinearity=nonlinearity, 
+                                                            input_dim=local_input_dim,
+                                                            output_dim=output_dim)
+
+            self.encoders.append(module_cls(**module_kwargs))
+
+
+    def forward(self, obs):
+        outputs = []
+        for i in range(len(self.partition_points) - 1):
+            start, end = self.partition_points[i], self.partition_points[i + 1]
+            if i >= 1:
+                factor0_obs = obs[:, self.partition_points[0]: self.partition_points[1]]
+                local_obs = obs[:, start:end]
+                combined_obs = torch.cat([factor0_obs, local_obs], dim=1)
+                dist = self.encoders[i](combined_obs)
+            else:
+                local_obs = obs[:, start:end]
+                dist = self.encoders[i](local_obs)
+            local_encoded = dist.mean
+            outputs.append(local_encoded)
+
+        final_encoding = torch.cat(outputs, dim=-1)
+        return final_encoding
+
+
 class PartitionedTrajectoryEncoder(nn.Module):
     def __init__(self, args, partition_points, master_dims, nonlinearity, output_dim, module_cls_factory):
         super().__init__()

@@ -99,18 +99,20 @@ class SUSDConfig:
     susd_temperature: float = 1.0 # temperature for softmax
     susd_dist_norm: int = 0 # to normalize each distribution 
     susd_csd: int = 0 # use csd coeff as scaling factor
-    susd_agg: int = 0 # aggregate all constraints in one or not
+    susd_input_factor0: int = 0 # input factor 0 (robot) to other phi functions.
+    susd_agg: int = 0 # aggregate all constraints into one constraint.
+
 
 
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'SUSD_AGGREGATE_PHI_FUNCTIONS'
+    run_group: str = 'SUSD_ORIGINAL_DIM_2_IR_1000_DIST_ONE_CONSTRAINT'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 7 # 8 
+    n_parallel: int = 7 # 8
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 1000000
@@ -129,9 +131,10 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     te_master_dim: int = 1024 # 1024
     sac_scale_reward: float = 1000.0 # the reward that we multiply with intrinsic rewrad 
     susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
-    susd_dist_norm: int = 1 # 1.0 use dist normalization 
+    susd_dist_norm: int = 1 # using normalization for marginal distribution
     susd_csd: int = 0 # csd scaling factor as intrinsic reward
-    susd_agg: int = 1 # aggregate all constraints into one constraint.
+    susd_input_factor0: int = 0 # input factor zero (robot) to the other phi functions
+    susd_agg: int = 1 # aggregate all contraints into one constraint and use one dual variable
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):

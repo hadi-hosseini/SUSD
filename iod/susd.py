@@ -41,6 +41,7 @@ class DSD(IOD):
             susd_dist_norm,
             susd_csd,
             susd_agg,
+            susd_input_factor0,
 
             **kwargs,
     ):
@@ -91,6 +92,7 @@ class DSD(IOD):
         self.susd_dist_norm = susd_dist_norm
         self.susd_csd = susd_csd
         self.susd_agg = susd_agg
+        self.susd_input_factor0 = susd_input_factor0
 
         assert self._trans_optimization_epochs is not None
 
@@ -179,7 +181,6 @@ class DSD(IOD):
         print("Train Modules")
         return tensors
 
-
     def _optimize_te(self, tensors, internal_vars, runner):
         self._update_loss_te(tensors, internal_vars, runner)
 
@@ -191,11 +192,9 @@ class DSD(IOD):
         if self.dual_reg:
             self._update_loss_dual_lam(tensors, internal_vars)
 
+
             if self.susd_agg:
-                self._gradient_descent(
-                    tensors['LossDualLam'],
-                    optimizer_keys=['dual_lam'],
-                )
+                self._gradient_descent(tensors['LossDualLam'], optimizer_keys=['dual_lam'],)
 
             else:
                 for i in range(len(self.dual_lam)):
@@ -320,6 +319,7 @@ class DSD(IOD):
                 dual_lam = self.dual_lam.param.exp()
             else:
                 dual_lam = [dual.param.exp() for dual in self.dual_lam]
+
             x = obs
             y = next_obs
             phi_x = v['cur_z']
@@ -342,6 +342,8 @@ class DSD(IOD):
                         obs_i = x[:, start:end]
                         next_obs_i = y[:, start:end]
                         csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
+                        if self.susd_dist_norm:
+                            csd_distance = csd_distance / (end - start)
                         csd_distances.append(csd_distance)
                     csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
  
@@ -394,6 +396,7 @@ class DSD(IOD):
                     csd_distances = torch.softmax(csd_distances / self.susd_temperature, dim=1) # (batch_size, N)
 
 
+
                 if self.do_print:
                     self.do_print = False
                     self.csd_logs.append((runner.step_itr, 
@@ -416,16 +419,9 @@ class DSD(IOD):
                 cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
                 v['csd_reward'] = cst_dist
 
-                # cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
-                # cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
-                # te_obj = rewards + dual_lam[0].detach() * cst_penalty
-                # te_objs = [te_obj]
-                # cst_penalty = [cst_penalty]
-
             #### me
             cst_penalty = []
             te_objs = []
-
 
             if self.susd_agg:
                 s2_dist = self.dist_predictor(obs)
@@ -434,12 +430,14 @@ class DSD(IOD):
                 scaling_factor = 1. / s2_dist_std
                 geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
                 normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-                cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)                
+                cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)  
+
                 cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
                 cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
                 te_obj = rewards.sum(dim=1) + dual_lam.detach() * cst_penalty
                 te_objs = [te_obj for _ in range(len(self.partition_points) - 1)]
                 cst_penalty = [cst_penalty]
+
             else:
                 for i in range(len(self.partition_points) - 1):
                     start = i * self.dim_option
@@ -465,7 +463,6 @@ class DSD(IOD):
         tensors.update({
             'LossTe': loss_te
         })
-
 
     def plot_csd_logs(self, runner, min_csd=None, max_csd=None):
         if len(self.csd_logs) == 0:
@@ -509,8 +506,6 @@ class DSD(IOD):
         plt.close(fig)
 
     def _update_loss_dual_lam(self, tensors, v):
-        # assert len(v['cst_penalty']) == len(self.dual_lam)
-
         if self.susd_agg:
             log_dual_lam = self.dual_lam.param
             dual_lam = log_dual_lam.exp()
@@ -543,11 +538,13 @@ class DSD(IOD):
         processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
         next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
 
-        #### define the reward of the low-level policy 
+        ### define the reward of the low-level policy 
         if self.susd_csd:
             rewards = v['rewards'].sum(dim=1) * v['csd_reward']
         else:
             rewards = v['rewards'].sum(dim=1)
+
+        # rewards = v['rewards']
 
         sac_utils.update_loss_qf(
             self, tensors, v,
@@ -797,7 +794,7 @@ class DSD(IOD):
             )
         self._log_eval_metrics(runner)
 
-        self.plot_csd_logs(runner, 0, 4)
+        self.plot_csd_logs(runner, 0, 5000)
 
 
         #### plot the task coverage for franka kitchen
@@ -812,4 +809,3 @@ class DSD(IOD):
             self.early_stopping_with_names.append((task_coverage, task_names, runner.step_itr))
             self.plot_early_stopping(self.early_stopping)
             self.plot_early_stopping_with_names(self.early_stopping_with_names)
-

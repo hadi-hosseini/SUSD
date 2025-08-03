@@ -52,7 +52,7 @@ from iod.susd import DSD
 from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env
-from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory
+from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory, PartitionedTrajectoryEncoderWithInputFactor0
 from src.conf import SUSDFrankaKitchenConfig
 
 if os.environ.get('START_METHOD') is not None:
@@ -193,14 +193,26 @@ def run(ctxt=None):
     option_policy = PolicyEx(**policy_kwargs) #  π(a∣s,z), O + Nd -> A
 
     output_dim = args.dim_option
-    traj_encoder = PartitionedTrajectoryEncoder(
-        args=args,
-        partition_points=partition_points,
-        master_dims = [args.te_master_dim] * args.model_master_num_layers,
-        nonlinearity=nonlinearity,
-        output_dim=output_dim,
-        module_cls_factory=module_cls_factory
-    ) # π(z | s), O -> Nd
+    
+    if args.susd_input_factor0:
+        traj_encoder = PartitionedTrajectoryEncoderWithInputFactor0(
+            args=args,
+            partition_points=partition_points,
+            master_dims = [args.te_master_dim] * args.model_master_num_layers,
+            nonlinearity=nonlinearity,
+            output_dim=output_dim,
+            module_cls_factory=module_cls_factory
+        ) # π(z | s), O -> Nd
+
+    else:
+        traj_encoder = PartitionedTrajectoryEncoder(
+            args=args,
+            partition_points=partition_points,
+            master_dims = [args.te_master_dim] * args.model_master_num_layers,
+            nonlinearity=nonlinearity,
+            output_dim=output_dim,
+            module_cls_factory=module_cls_factory
+        ) # π(z | s), O -> Nd
 
     if args.encoder:
         if args.spectral_normalization:
@@ -274,6 +286,7 @@ def run(ctxt=None):
             {'params': option_policy.parameters(), 'lr': _finalize_lr(args.lr_op)},
         ]),
     }
+
 
     if args.susd_agg:
         optimizers['dual_lam'] = torch.optim.Adam([{'params': dual_lam.parameters(), 'lr': _finalize_lr(args.dual_lr)}])
@@ -402,6 +415,7 @@ def run(ctxt=None):
         exp_name = get_exp_name(args)[0],
         susd_dist_norm=args.susd_dist_norm,
         susd_csd = args.susd_csd,
+        susd_input_factor0 = args.susd_input_factor0,
         susd_agg = args.susd_agg
     )
 
