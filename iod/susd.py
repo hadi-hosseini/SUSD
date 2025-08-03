@@ -40,6 +40,7 @@ class DSD(IOD):
             exp_name,
             susd_dist_norm,
             susd_csd,
+            susd_agg,
 
             **kwargs,
     ):
@@ -89,6 +90,7 @@ class DSD(IOD):
         self.counter = 0
         self.susd_dist_norm = susd_dist_norm
         self.susd_csd = susd_csd
+        self.susd_agg = susd_agg
 
         assert self._trans_optimization_epochs is not None
 
@@ -189,8 +191,15 @@ class DSD(IOD):
         if self.dual_reg:
             self._update_loss_dual_lam(tensors, internal_vars)
 
-            for i in range(len(self.dual_lam)):
-                self._gradient_descent(tensors[f'LossDualLam_{i}'], optimizer_keys=[f'dual_lam_{i}'])
+            if self.susd_agg:
+                self._gradient_descent(
+                    tensors['LossDualLam'],
+                    optimizer_keys=['dual_lam'],
+                )
+
+            else:
+                for i in range(len(self.dual_lam)):
+                    self._gradient_descent(tensors[f'LossDualLam_{i}'], optimizer_keys=[f'dual_lam_{i}'])
 
             if self.dual_dist == 's2_from_s':
                 self._gradient_descent(
@@ -307,7 +316,10 @@ class DSD(IOD):
             })
 
         if self.dual_reg:
-            dual_lam = [dual.param.exp() for dual in self.dual_lam]
+            if self.susd_agg:
+                dual_lam = self.dual_lam.param.exp()
+            else:
+                dual_lam = [dual.param.exp() for dual in self.dual_lam]
             x = obs
             y = next_obs
             phi_x = v['cur_z']
@@ -414,14 +426,29 @@ class DSD(IOD):
             cst_penalty = []
             te_objs = []
 
-            for i in range(len(self.partition_points) - 1):
-                start = i * self.dim_option
-                end = (i+1) * self.dim_option
-                cst_penalty_i = csd_distances[:, i] - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
-                cst_penalty_i = torch.clamp(cst_penalty_i, max=self.dual_slack)
-                te_obj_i = rewards[:, i] + dual_lam[i].detach() * cst_penalty_i
-                cst_penalty.append(cst_penalty_i)
-                te_objs.append(te_obj_i) 
+
+            if self.susd_agg:
+                s2_dist = self.dist_predictor(obs)
+                s2_dist_mean = s2_dist.mean
+                s2_dist_std = s2_dist.stddev
+                scaling_factor = 1. / s2_dist_std
+                geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+                normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+                cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)                
+                cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
+                cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
+                te_obj = rewards.sum(dim=1) + dual_lam.detach() * cst_penalty
+                te_objs = [te_obj for _ in range(len(self.partition_points) - 1)]
+                cst_penalty = [cst_penalty]
+            else:
+                for i in range(len(self.partition_points) - 1):
+                    start = i * self.dim_option
+                    end = (i+1) * self.dim_option
+                    cst_penalty_i = csd_distances[:, i] - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
+                    cst_penalty_i = torch.clamp(cst_penalty_i, max=self.dual_slack)
+                    te_obj_i = rewards[:, i] + dual_lam[i].detach() * cst_penalty_i
+                    cst_penalty.append(cst_penalty_i)
+                    te_objs.append(te_obj_i) 
 
             
             v.update({
@@ -482,24 +509,35 @@ class DSD(IOD):
         plt.close(fig)
 
     def _update_loss_dual_lam(self, tensors, v):
-        assert len(v['cst_penalty']) == len(self.dual_lam)
+        # assert len(v['cst_penalty']) == len(self.dual_lam)
 
-        dual_lams = []
-        loss_dual_lams = []
+        if self.susd_agg:
+            log_dual_lam = self.dual_lam.param
+            dual_lam = log_dual_lam.exp()
+            cst_penalty = v['cst_penalty'][0]
+            loss_dual_lam = log_dual_lam * (cst_penalty.detach()).mean()
 
-        for i, (dual_lam_module, cst_penalty_i) in enumerate(zip(self.dual_lam, v['cst_penalty'])):
-            log_dual_lam_i = dual_lam_module()                           # log(λ_i)
-            dual_lam_i = log_dual_lam_i.exp()                            # λ_i
-            loss_dual_lam_i = log_dual_lam_i * cst_penalty_i.detach().mean()  # λ_i * E[cst]
-
-            dual_lams.append(dual_lam_i)
-            loss_dual_lams.append(loss_dual_lam_i)
-
-            # Save each one individually
             tensors.update({
-                f'DualLam_{i}': dual_lam_i,
-                f'LossDualLam_{i}': loss_dual_lam_i,
+                'DualLam': dual_lam,
+                'LossDualLam': loss_dual_lam,
             })
+        else:
+            dual_lams = []
+            loss_dual_lams = []
+
+            for i, (dual_lam_module, cst_penalty_i) in enumerate(zip(self.dual_lam, v['cst_penalty'])):
+                log_dual_lam_i = dual_lam_module()                           # log(λ_i)
+                dual_lam_i = log_dual_lam_i.exp()                            # λ_i
+                loss_dual_lam_i = log_dual_lam_i * cst_penalty_i.detach().mean()  # λ_i * E[cst]
+
+                dual_lams.append(dual_lam_i)
+                loss_dual_lams.append(loss_dual_lam_i)
+
+                # Save each one individually
+                tensors.update({
+                    f'DualLam_{i}': dual_lam_i,
+                    f'LossDualLam_{i}': loss_dual_lam_i,
+                })
 
     def _update_loss_qf(self, tensors, v):
         processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
@@ -759,7 +797,7 @@ class DSD(IOD):
             )
         self._log_eval_metrics(runner)
 
-        self.plot_csd_logs(runner, 0, 5000)
+        self.plot_csd_logs(runner, 0, 4)
 
 
         #### plot the task coverage for franka kitchen

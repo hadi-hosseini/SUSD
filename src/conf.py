@@ -99,12 +99,13 @@ class SUSDConfig:
     susd_temperature: float = 1.0 # temperature for softmax
     susd_dist_norm: int = 0 # to normalize each distribution 
     susd_csd: int = 0 # use csd coeff as scaling factor
+    susd_agg: int = 0 # aggregate all constraints in one or not
 
 
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'SUSD_ORIGINAL_DIST_NORM_DIM_5_IR_1000'
+    run_group: str = 'SUSD_AGGREGATE_PHI_FUNCTIONS'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
@@ -119,7 +120,7 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
     discrete: int = 0
-    dim_option: int = 5
+    dim_option: int = 2
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
@@ -130,6 +131,7 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
     susd_dist_norm: int = 1 # 1.0 use dist normalization 
     susd_csd: int = 0 # csd scaling factor as intrinsic reward
+    susd_agg: int = 1 # aggregate all constraints into one constraint.
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):

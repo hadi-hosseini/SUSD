@@ -225,15 +225,19 @@ def run(ctxt=None):
     else:
         dist_predictor = None
 
-    class LogDualParam(nn.Module):
-        def __init__(self, init_log_val):
-            super().__init__()
-            self.param = nn.Parameter(init_log_val)
+    if args.susd_agg:
+        dual_lam = ParameterModule(torch.Tensor([np.log(args.dual_lam)]))
 
-        def forward(self):
-            return self.param
-        
-    dual_lam = nn.ModuleList([LogDualParam(torch.tensor(np.log(args.dual_lam), dtype=torch.float32))for _ in range(args.N)])
+    else:
+        class LogDualParam(nn.Module):
+            def __init__(self, init_log_val):
+                super().__init__()
+                self.param = nn.Parameter(init_log_val)
+
+            def forward(self):
+                return self.param
+            
+        dual_lam = nn.ModuleList([LogDualParam(torch.tensor(np.log(args.dual_lam), dtype=torch.float32))for _ in range(args.N)])
 
     # Skill dynamics do not support pixel obs
     sd_dim_option = args.dim_option
@@ -271,10 +275,14 @@ def run(ctxt=None):
         ]),
     }
 
-    for i, dual in enumerate(dual_lam):
-        optimizers[f'dual_lam_{i}'] = torch.optim.Adam(
-            [dual.param], lr=_finalize_lr(args.dual_lr)
-        )
+    if args.susd_agg:
+        optimizers['dual_lam'] = torch.optim.Adam([{'params': dual_lam.parameters(), 'lr': _finalize_lr(args.dual_lr)}])
+
+    else:
+        for i, dual in enumerate(dual_lam):
+            optimizers[f'dual_lam_{i}'] = torch.optim.Adam(
+                [dual.param], lr=_finalize_lr(args.dual_lr)
+            )
 
     # Add each traj_encoder optimizer with a unique key
     for i, encoder in enumerate(traj_encoder.encoders):
@@ -393,7 +401,8 @@ def run(ctxt=None):
         susd_temperature = args.susd_temperature,
         exp_name = get_exp_name(args)[0],
         susd_dist_norm=args.susd_dist_norm,
-        susd_csd = args.susd_csd
+        susd_csd = args.susd_csd,
+        susd_agg = args.susd_agg
     )
 
     if args.algo == 'metra':
