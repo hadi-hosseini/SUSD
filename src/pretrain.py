@@ -416,7 +416,8 @@ def run(ctxt=None):
         susd_dist_norm=args.susd_dist_norm,
         susd_csd = args.susd_csd,
         susd_input_factor0 = args.susd_input_factor0,
-        susd_agg = args.susd_agg
+        susd_agg = args.susd_agg,
+        susd_use_distance_as_reward = args.susd_use_distance_as_reward
     )
 
     if args.algo == 'metra':

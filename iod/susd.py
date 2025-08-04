@@ -42,6 +42,7 @@ class DSD(IOD):
             susd_csd,
             susd_agg,
             susd_input_factor0,
+            susd_use_distance_as_reward,
 
             **kwargs,
     ):
@@ -93,6 +94,7 @@ class DSD(IOD):
         self.susd_csd = susd_csd
         self.susd_agg = susd_agg
         self.susd_input_factor0 = susd_input_factor0
+        self.susd_use_distance_as_reward = susd_use_distance_as_reward
 
         assert self._trans_optimization_epochs is not None
 
@@ -180,6 +182,7 @@ class DSD(IOD):
         
         print("Train Modules")
         return tensors
+
 
     def _optimize_te(self, tensors, internal_vars, runner):
         self._update_loss_te(tensors, internal_vars, runner)
@@ -424,15 +427,18 @@ class DSD(IOD):
             te_objs = []
 
             if self.susd_agg:
-                s2_dist = self.dist_predictor(obs)
-                s2_dist_mean = s2_dist.mean
-                s2_dist_std = s2_dist.stddev
-                scaling_factor = 1. / s2_dist_std
-                geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-                normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-                cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)  
+                if not self.susd_use_distance_as_reward:
+                    s2_dist = self.dist_predictor(obs)
+                    s2_dist_mean = s2_dist.mean
+                    s2_dist_std = s2_dist.stddev
+                    scaling_factor = 1. / s2_dist_std
+                    geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+                    normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+                    cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)  
+                    cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
 
-                cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
+                else:
+                    cst_penalty = torch.ones_like(x[:, 0]) - torch.square(phi_y - phi_x).mean(dim=1)
                 cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
                 te_obj = rewards.sum(dim=1) + dual_lam.detach() * cst_penalty
                 te_objs = [te_obj for _ in range(len(self.partition_points) - 1)]
@@ -463,6 +469,7 @@ class DSD(IOD):
         tensors.update({
             'LossTe': loss_te
         })
+
 
     def plot_csd_logs(self, runner, min_csd=None, max_csd=None):
         if len(self.csd_logs) == 0:
@@ -539,12 +546,14 @@ class DSD(IOD):
         next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
 
         ### define the reward of the low-level policy 
-        if self.susd_csd:
-            rewards = v['rewards'].sum(dim=1) * v['csd_reward']
+        if self.susd_use_distance_as_reward:
+            rewards = v['rewards'] * v['csd_distances']
+            rewards = rewards.sum(dim=1)
         else:
-            rewards = v['rewards'].sum(dim=1)
-
-        # rewards = v['rewards']
+            if self.susd_csd:
+                rewards = v['rewards'].sum(dim=1) * v['csd_reward']
+            else:
+                rewards = v['rewards'].sum(dim=1)
 
         sac_utils.update_loss_qf(
             self, tensors, v,
@@ -626,7 +635,7 @@ class DSD(IOD):
         plt.ylabel('Completed Tasks')
         plt.title('Task Coverage Over Time')
         plt.grid(True)
-        plt.xticks(step_iters)
+        plt.xticks(step_iters, rotation='vertical')
         plt.tight_layout()
 
         save_path = f"results/{self.exp_name}_with_names"
@@ -809,3 +818,5 @@ class DSD(IOD):
             self.early_stopping_with_names.append((task_coverage, task_names, runner.step_itr))
             self.plot_early_stopping(self.early_stopping)
             self.plot_early_stopping_with_names(self.early_stopping_with_names)
+
+

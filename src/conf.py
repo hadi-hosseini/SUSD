@@ -101,13 +101,14 @@ class SUSDConfig:
     susd_csd: int = 0 # use csd coeff as scaling factor
     susd_input_factor0: int = 0 # input factor 0 (robot) to other phi functions.
     susd_agg: int = 0 # aggregate all constraints into one constraint.
+    susd_use_distance_as_reward: int = 0 # use distance as reward no constraint
 
 
 
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'SUSD_ORIGINAL_DIM_2_IR_1000_DIST_ONE_CONSTRAINT'
+    run_group: str = 'SUSD_ORIGINAL_PHI_FEED_1024_DIM_2_DIST_ONE_CONST_CSD_DISTANCE_EACH'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
@@ -129,12 +130,13 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     dual_slack: float =  1e-06 
     susd_mode: int = 1 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: susd (without csd_i rewards)
     te_master_dim: int = 1024 # 1024
-    sac_scale_reward: float = 1000.0 # the reward that we multiply with intrinsic rewrad 
+    sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
     susd_dist_norm: int = 1 # using normalization for marginal distribution
     susd_csd: int = 0 # csd scaling factor as intrinsic reward
-    susd_input_factor0: int = 0 # input factor zero (robot) to the other phi functions
+    susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
     susd_agg: int = 1 # aggregate all contraints into one constraint and use one dual variable
+    susd_use_distance_as_reward: int = 1 # use distance as reward no constraint
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):
