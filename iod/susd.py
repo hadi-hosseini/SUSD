@@ -669,7 +669,8 @@ class SUSD(IOD):
         plt.xticks(step_iters, rotation='vertical')
         plt.tight_layout()
 
-        save_path = f"results/{self.exp_name}_with_names"
+        save_path = f"results/{self.exp_name}/task_coverage_with_names.png"
+
         plt.savefig(save_path)
         print(f"Early Stopping Plot Saved to: {save_path}")
 

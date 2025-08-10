@@ -101,12 +101,12 @@ class SUSDConfig:
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'TEST'
+    run_group: str = 'SUSD_WITH_Q_FUNCTION'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 7 # 8
+    n_parallel: int = 8 # 8
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 1000000
@@ -124,7 +124,7 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_dist_norm: int = 1 # using normalization for marginal distribution
     susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
-    susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
+    susd_q_function: int = 1 # 1: use q-function for reward estimation 0: off
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):

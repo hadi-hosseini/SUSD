@@ -47,7 +47,6 @@ def update_loss_qf_N(algo, tensors, v, actions, next_obs, dones, rewards, policy
         with torch.no_grad():
             q_target = rewards[:, i] + target_q_values * (1. - dones[i])
 
-        # critic loss weight: 0.5
         loss_qf1 = F.mse_loss(q1_pred, q_target) * 0.5
 
         tensors.update({
