@@ -39,8 +39,9 @@ class SUSD(IOD):
             susd_dist_norm,
             susd_input_factor0,
             q1_list,
-            log_alpha_list,
+            # log_alpha_list,
             susd_q_function,
+            susd_q_function_alpha,
 
             **kwargs,
     ):
@@ -57,8 +58,9 @@ class SUSD(IOD):
         self.susd_q_function = susd_q_function
         if self.susd_q_function:
             self.qf1_list = [qf1.to(self.device) for qf1 in q1_list]
-            self.log_alpha_list = [log_alpha.to(self.device) for log_alpha in log_alpha_list]
+            # self.log_alpha_list = [log_alpha.to(self.device) for log_alpha in log_alpha_list]
             self.target_qf1_list = [copy.deepcopy(qf1) for qf1 in self.qf1_list]
+            self.susd_q_function_alpha = susd_q_function_alpha
 
         self.param_modules.update(
             qf1=self.qf1,
@@ -226,14 +228,14 @@ class SUSD(IOD):
             optimizer_keys=['log_alpha'],
         )
 
-        if self.susd_q_function:
-            self._update_loss_alpha_N(tensors, internal_vars)
-            for i in range(self.N):
-                self._gradient_descent(
-                    tensors[f'LossAlpha_{i}'],
-                    optimizer_keys=[f'log_alpha_{i}'],
-                )
-            sac_utils.update_targets_N(self)
+        # if self.susd_q_function:
+        #     self._update_loss_alpha_N(tensors, internal_vars)
+        #     for i in range(self.N):
+        #         self._gradient_descent(
+        #             tensors[f'LossAlpha_{i}'],
+        #             optimizer_keys=[f'log_alpha_{i}'],
+        #         )
+        #     sac_utils.update_targets_N(self)
 
         sac_utils.update_targets(self)
 
@@ -506,10 +508,10 @@ class SUSD(IOD):
             self, tensors, v,
         )
 
-    def _update_loss_alpha_N(self, tensors, v):
-        sac_utils.update_loss_alpha_N(
-            self, tensors, v,
-        )   
+    # def _update_loss_alpha_N(self, tensors, v):
+        # sac_utils.update_loss_alpha_N(
+        #     self, tensors, v,
+        # )   
 
     def plot_early_stopping(self, early_stopping):
         unique_tasks, step_iters = zip(*early_stopping)

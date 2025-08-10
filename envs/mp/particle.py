@@ -49,7 +49,7 @@ class Particle(MujocoTrait, CentralizedWrapper):
         else:
             raise TypeError("Unsupported type for vec. Must be torch.Tensor, numpy.ndarray, or list.")
 
-    def reset(self, seed=None):
+    def reset(self, seed=0): # seed=None
         obs = self.env.reset(seed)
         obs = self.permute_state(obs)
         self.last_obs = obs
