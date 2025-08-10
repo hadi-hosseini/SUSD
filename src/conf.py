@@ -8,7 +8,7 @@ class SUSDConfig:
     normalizer_type: str = 'off'  # choices: ['off', 'preset']
     encoder: int = 0  # 0: no encoder, non-zero: pixel encoder enabled
 
-    env: str = 'maze'  # choices: ['maze', 'half_cheetah', 'ant', 'dmc_cheetah', 'dmc_quadruped', 'dmc_humanoid', 'kitchen_franka']
+    env: str = 'maze'  # choices: ['maze', 'half_cheetah', 'ant', 'dmc_cheetah', 'dmc_quadruped', 'dmc_humanoid', 'kitchen_franka', 'particle']
     frame_stack: Optional[int] = None  # Number of frames stacked for pixel obs
 
     max_path_length: int = 200  # Max trajectory length per episode
@@ -73,7 +73,6 @@ class SUSDConfig:
     # === Model architecture details ===
     spectral_normalization: int = 0  # 1: enable spectral norm, 0: disable
     model_master_dim: int = 1024  # Number of units per master network layer
-    te_master_dim: int = 1024
     model_master_num_layers: int = 2  # Number of master network layers
     model_master_nonlinearity: Optional[str] = None  # choices: ['relu', 'tanh', None]
 
@@ -95,20 +94,14 @@ class SUSDConfig:
     dual_slack: float = 1e-3  # Slack parameter for dual regularization
     dual_lr: Optional[float] = None  # Learning rate for dual regularization optimizer
     dual_dist: str = 'one'  # Distance metric choice; options: 'l2', 's2_from_s', 'one'
-    susd_mode: int = 1 # 1: original 2: normalize 3: clip 4: 1-q
-    susd_temperature: float = 1.0 # temperature for softmax
     susd_dist_norm: int = 0 # to normalize each distribution 
-    susd_csd: int = 0 # use csd coeff as scaling factor
     susd_input_factor0: int = 0 # input factor 0 (robot) to other phi functions.
-    susd_agg: int = 0 # aggregate all constraints into one constraint.
-    susd_use_distance_as_reward: int = 0 # use distance as reward no constraint
-
 
 
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'SUSD_ORIGINAL_PHI_FEED_1024_DIM_2_DIST_ONE_CONST_CSD_DISTANCE_EACH'
+    run_group: str = 'TEST'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
@@ -128,15 +121,10 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_mode: int = 1 # 1: original 2: normalize 3: clip 4: 1-q 5:softmax 6: susd (without csd_i rewards)
-    te_master_dim: int = 1024 # 1024
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
-    susd_temperature: float = 1.0 # 1.0 is default (for normalizing the rewards)
     susd_dist_norm: int = 1 # using normalization for marginal distribution
-    susd_csd: int = 0 # csd scaling factor as intrinsic reward
     susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
-    susd_agg: int = 1 # aggregate all contraints into one constraint and use one dual variable
-    susd_use_distance_as_reward: int = 1 # use distance as reward no constraint
+    susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):
@@ -186,5 +174,32 @@ class SUSDAntConfig(SUSDConfig):
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_mode: int = 2 # 1: original 2: normalize 3: clip 4: 1-q
     csd_coeff: bool = 1 # 1: apply csd value, 0: don't apply it
+
+
+
+@dataclass
+class SUSDParticle(SUSDConfig):
+    run_group: str = 'TEST'
+    env: str = 'particle'
+    max_path_length: int = 50
+    seed: int = 0
+    traj_batch_size: int = 8
+    n_parallel: int = 7 # 8
+    normalizer_type: str = 'off'
+    num_video_repeats: int = 1
+    sac_max_buffer_size: int = 1000000
+    algo: str = 'metra'
+    trans_optimization_epochs: int = 50
+    n_epochs_per_log: int = 25
+    n_epochs_per_eval: int = 250
+    n_epochs_per_save: int = 1000
+    discrete: int = 0
+    dim_option: int = 2
+    sample_cpu: int = 0
+    dual_dist: str = 's2_from_s' 
+    dual_lam: float = 3000
+    dual_slack: float =  1e-06 
+    sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
+    susd_dist_norm: int = 1 # using normalization for marginal distribution
+    susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions

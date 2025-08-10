@@ -201,7 +201,6 @@ class IOD(RLAlgorithm):
 
         return np.mean(undiscounted_returns)
 
-
     # Execute the main training loop over multiple epochs, including evaluation, sampling, and model updates.
     def train(self, runner):
         last_return = None
@@ -326,7 +325,7 @@ class IOD(RLAlgorithm):
         return [{'option': option} for option in options]
 
     def _gradient_descent(self, losses, optimizer_keys):
-        if isinstance(optimizer_keys, list) and any(k.startswith("traj_encoder_") for k in optimizer_keys):
+        if isinstance(optimizer_keys, list) and any(k.startswith("traj_encoder_") or k.startswith("qf_") for k in optimizer_keys):
             for loss, optimizer_key in zip(losses, optimizer_keys):
                 self._optimizer.zero_grad(keys=[optimizer_key])
                 loss.backward(retain_graph=True) 

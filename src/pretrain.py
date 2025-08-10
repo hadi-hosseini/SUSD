@@ -48,19 +48,23 @@ from garagei.torch.policies.policy_ex import PolicyEx
 from garagei.torch.q_functions.continuous_mlp_q_function_ex import ContinuousMLPQFunctionEx
 from garagei.torch.optimizers.optimizer_group_wrapper import OptimizerGroupWrapper
 from garagei.torch.utils import xavier_normal_ex
-from iod.susd import DSD
+from iod.susd import SUSD
 from iod.dads import DADS
 
-from src.utils import get_exp_name, get_log_dir, make_env
+from src.utils import get_exp_name, get_log_dir, make_env, make_q_function
 from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory, PartitionedTrajectoryEncoderWithInputFactor0
-from src.conf import SUSDFrankaKitchenConfig
+from src.conf import SUSDFrankaKitchenConfig, SUSDParticle
+
 
 if os.environ.get('START_METHOD') is not None:
     START_METHOD = os.environ['START_METHOD']
 else:
     START_METHOD = 'spawn'
 
+
 args = SUSDFrankaKitchenConfig()
+# args = SUSDParticle()
+
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
 def run(ctxt=None):
@@ -198,7 +202,7 @@ def run(ctxt=None):
         traj_encoder = PartitionedTrajectoryEncoderWithInputFactor0(
             args=args,
             partition_points=partition_points,
-            master_dims = [args.te_master_dim] * args.model_master_num_layers,
+            master_dims = master_dims,
             nonlinearity=nonlinearity,
             output_dim=output_dim,
             module_cls_factory=module_cls_factory
@@ -208,7 +212,7 @@ def run(ctxt=None):
         traj_encoder = PartitionedTrajectoryEncoder(
             args=args,
             partition_points=partition_points,
-            master_dims = [args.te_master_dim] * args.model_master_num_layers,
+            master_dims = master_dims,
             nonlinearity=nonlinearity,
             output_dim=output_dim,
             module_cls_factory=module_cls_factory
@@ -237,21 +241,9 @@ def run(ctxt=None):
     else:
         dist_predictor = None
 
-    if args.susd_agg:
-        dual_lam = ParameterModule(torch.Tensor([np.log(args.dual_lam)]))
+    dual_lam = ParameterModule(torch.Tensor([np.log(args.dual_lam)]))
 
-    else:
-        class LogDualParam(nn.Module):
-            def __init__(self, init_log_val):
-                super().__init__()
-                self.param = nn.Parameter(init_log_val)
 
-            def forward(self):
-                return self.param
-            
-        dual_lam = nn.ModuleList([LogDualParam(torch.tensor(np.log(args.dual_lam), dtype=torch.float32))for _ in range(args.N)])
-
-    # Skill dynamics do not support pixel obs
     sd_dim_option = args.dim_option
     skill_dynamics_obs_dim = obs_dim
     skill_dynamics_input_dim = skill_dynamics_obs_dim + sd_dim_option
@@ -288,20 +280,14 @@ def run(ctxt=None):
     }
 
 
-    if args.susd_agg:
-        optimizers['dual_lam'] = torch.optim.Adam([{'params': dual_lam.parameters(), 'lr': _finalize_lr(args.dual_lr)}])
+    optimizers['dual_lam'] = torch.optim.Adam([{'params': dual_lam.parameters(), 'lr': _finalize_lr(args.dual_lr)}])
 
-    else:
-        for i, dual in enumerate(dual_lam):
-            optimizers[f'dual_lam_{i}'] = torch.optim.Adam(
-                [dual.param], lr=_finalize_lr(args.dual_lr)
-            )
 
-    # Add each traj_encoder optimizer with a unique key
     for i, encoder in enumerate(traj_encoder.encoders):
         optimizers[f'traj_encoder_{i}'] = torch.optim.Adam(
             encoder.parameters(), lr=_finalize_lr(args.lr_te)
         )
+
 
     if skill_dynamics is not None:
         optimizers.update({
@@ -320,6 +306,27 @@ def run(ctxt=None):
     replay_buffer = PathBufferEx(capacity_in_transitions=int(args.sac_max_buffer_size), pixel_shape=pixel_shape)
 
     if args.algo in ['metra', 'dads']:
+        if args.susd_q_function:
+            q1_list = []
+            log_alpha_list = []
+            for i in range(args.N):
+                start = partition_points[i]
+                end = partition_points[i + 1]
+                input_dim = end - start + args.dim_option
+                q1_i, log_alpha_i = make_q_function(input_dim, action_dim, master_dims, nonlinearity, args.alpha)
+
+                optimizers.update({
+                    f'qf_{i}': torch.optim.Adam([
+                        {'params': list(q1_i.parameters()), 'lr': _finalize_lr(args.sac_lr_q)},
+                    ]),
+                    f'log_alpha_{i}': torch.optim.Adam([
+                        {'params': log_alpha_i.parameters(), 'lr': _finalize_lr(args.sac_lr_a)},
+                    ])
+                })
+                q1_list.append(q1_i)
+                log_alpha_list.append(log_alpha_i)
+
+
         qf1 = ContinuousMLPQFunctionEx(
             obs_dim=policy_q_input_dim,
             action_dim=action_dim,
@@ -337,6 +344,7 @@ def run(ctxt=None):
         if args.encoder:
             qf2 = with_encoder(qf2)
         log_alpha = ParameterModule(torch.Tensor([np.log(args.alpha)]))
+
         optimizers.update({
             'qf': torch.optim.Adam([
                 {'params': list(qf1.parameters()) + list(qf2.parameters()), 'lr': _finalize_lr(args.sac_lr_q)},
@@ -392,6 +400,8 @@ def run(ctxt=None):
     skill_common_args = dict(
         qf1=qf1,
         qf2=qf2,
+        q1_list = q1_list if args.susd_q_function else [],
+        log_alpha_list = log_alpha_list if args.susd_q_function else [],
         log_alpha=log_alpha,
         tau=args.sac_tau,
         scale_reward=args.sac_scale_reward,
@@ -410,18 +420,14 @@ def run(ctxt=None):
 
         pixel_shape=pixel_shape,
         partition_points=partition_points,
-        susd_mode = args.susd_mode,
-        susd_temperature = args.susd_temperature,
         exp_name = get_exp_name(args)[0],
         susd_dist_norm=args.susd_dist_norm,
-        susd_csd = args.susd_csd,
         susd_input_factor0 = args.susd_input_factor0,
-        susd_agg = args.susd_agg,
-        susd_use_distance_as_reward = args.susd_use_distance_as_reward
+        susd_q_function = args.susd_q_function
     )
 
     if args.algo == 'metra':
-        algo = DSD(
+        algo = SUSD(
             **algo_kwargs,
             **skill_common_args,
         )

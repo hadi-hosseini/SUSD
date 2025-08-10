@@ -12,7 +12,7 @@ import os
 
 from iod.utils import get_torch_concat_obs, FigManager, get_option_colors, record_video, draw_2d_gaussians
 
-class DSD(IOD):
+class SUSD(IOD):
     def __init__(
             self,
             *,
@@ -35,14 +35,12 @@ class DSD(IOD):
 
             pixel_shape=None,
             partition_points,
-            susd_mode,
-            susd_temperature,
             exp_name,
             susd_dist_norm,
-            susd_csd,
-            susd_agg,
             susd_input_factor0,
-            susd_use_distance_as_reward,
+            q1_list,
+            log_alpha_list,
+            susd_q_function,
 
             **kwargs,
     ):
@@ -55,6 +53,12 @@ class DSD(IOD):
         self.target_qf2 = copy.deepcopy(self.qf2)
 
         self.log_alpha = log_alpha.to(self.device)
+
+        self.susd_q_function = susd_q_function
+        if self.susd_q_function:
+            self.qf1_list = [qf1.to(self.device) for qf1 in q1_list]
+            self.log_alpha_list = [log_alpha.to(self.device) for log_alpha in log_alpha_list]
+            self.target_qf1_list = [copy.deepcopy(qf1) for qf1 in self.qf1_list]
 
         self.param_modules.update(
             qf1=self.qf1,
@@ -81,20 +85,18 @@ class DSD(IOD):
         self.pixel_shape = pixel_shape
     
         self.partition_points = partition_points
-        self.susd_mode = susd_mode
 
+        self.csd_reward_logs = []
+        self.te_losses = []
+        self.mus = []
         self.csd_logs = []
         self.do_print = False
         self.early_stopping = []
         self.early_stopping_with_names = []
-        self.susd_temperature = susd_temperature
+
         self.exp_name = exp_name
-        self.counter = 0
         self.susd_dist_norm = susd_dist_norm
-        self.susd_csd = susd_csd
-        self.susd_agg = susd_agg
         self.susd_input_factor0 = susd_input_factor0
-        self.susd_use_distance_as_reward = susd_use_distance_as_reward
 
         assert self._trans_optimization_epochs is not None
 
@@ -183,10 +185,8 @@ class DSD(IOD):
         print("Train Modules")
         return tensors
 
-
     def _optimize_te(self, tensors, internal_vars, runner):
         self._update_loss_te(tensors, internal_vars, runner)
-
 
         losses_te = tensors['LossTe']
         te_keys = [f'traj_encoder_{i}' for i in range(len(losses_te))]
@@ -194,19 +194,17 @@ class DSD(IOD):
 
         if self.dual_reg:
             self._update_loss_dual_lam(tensors, internal_vars)
-
-
-            if self.susd_agg:
-                self._gradient_descent(tensors['LossDualLam'], optimizer_keys=['dual_lam'],)
-
-            else:
-                for i in range(len(self.dual_lam)):
-                    self._gradient_descent(tensors[f'LossDualLam_{i}'], optimizer_keys=[f'dual_lam_{i}'])
+            self._gradient_descent(tensors['LossDualLam'], optimizer_keys=['dual_lam'],)
 
             if self.dual_dist == 's2_from_s':
                 self._gradient_descent(
                     tensors['LossDp'],
                     optimizer_keys=['dist_predictor'],)
+                
+        if self.susd_q_function:
+            loss_qfn = [tensors[f'LossQf1_{i}'] for i in range(self.N)]
+            qfn_keys = [f'qf_{i}' for i in range(self.N)]
+            self._gradient_descent(loss_qfn, optimizer_keys=qfn_keys)
 
     def _optimize_op(self, tensors, internal_vars):
         self._update_loss_qf(tensors, internal_vars)
@@ -227,6 +225,15 @@ class DSD(IOD):
             tensors['LossAlpha'],
             optimizer_keys=['log_alpha'],
         )
+
+        if self.susd_q_function:
+            self._update_loss_alpha_N(tensors, internal_vars)
+            for i in range(self.N):
+                self._gradient_descent(
+                    tensors[f'LossAlpha_{i}'],
+                    optimizer_keys=[f'log_alpha_{i}'],
+                )
+            sac_utils.update_targets_N(self)
 
         sac_utils.update_targets(self)
 
@@ -281,27 +288,6 @@ class DSD(IOD):
         std_partitions = [s2_dist_std[:, start:end] for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
 
         return mean_partitions, std_partitions
-    
-    def _csd_loss(self, obs, next_obs, s2_dist_mean, s2_dist_std):
-        scaling_factor = 1. / s2_dist_std
-        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
-        return cst_dist
-    
-    def _calculate_one_minus_q(self, obs, next_obs, s2_dist_mean, s2_dist_std):
-        csd_loss = self._csd_loss(obs, next_obs, s2_dist_mean, s2_dist_std)
-        q = torch.exp(-csd_loss)
-        one_minus_q = 1 - q
-        return one_minus_q      
-    
-    def _csd_loss_clip(self, obs, next_obs, s2_dist_mean, s2_dist_std):
-        scaling_factor = 1. / s2_dist_std
-        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-        cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
-        cst_dist_clipped = torch.clamp(cst_dist, min=0.0, max=0.05)
-        return cst_dist_clipped
 
     def _update_loss_te(self, tensors, v, runner):
         self._update_rewards(tensors, v)
@@ -318,10 +304,7 @@ class DSD(IOD):
             })
 
         if self.dual_reg:
-            if self.susd_agg:
-                dual_lam = self.dual_lam.param.exp()
-            else:
-                dual_lam = [dual.param.exp() for dual in self.dual_lam]
+            dual_lam = self.dual_lam.param.exp()
 
             x = obs
             y = next_obs
@@ -334,127 +317,41 @@ class DSD(IOD):
                 cst_dist = torch.ones_like(x[:, 0])
             elif self.dual_dist == 's2_from_s':
 
-                mean_partitions, std_partitions = self._partition_dist_predictor(obs)
+                s2_dist = self.dist_predictor(obs)
+                s2_dist_mean = s2_dist.mean
 
-                csd_distances = []
-                if self.susd_mode == 1:
-                    # original
-                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
-                        start = self.partition_points[i]
-                        end = self.partition_points[i + 1]
-                        obs_i = x[:, start:end]
-                        next_obs_i = y[:, start:end]
-                        csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
-                        if self.susd_dist_norm:
-                            csd_distance = csd_distance / (end - start)
-                        csd_distances.append(csd_distance)
-                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
- 
-                elif self.susd_mode == 2:
-                    # normalize
-                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
-                        start = self.partition_points[i]
-                        end = self.partition_points[i + 1]
-                        obs_i = x[:, start:end]
-                        next_obs_i = y[:, start:end]
-                        csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
-                        if self.susd_dist_norm:
-                            csd_distance = csd_distance / (end - start)
-                        csd_distances.append(csd_distance) # each element is (batch_size)
-                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
-                    csd_distances = csd_distances / csd_distances.sum(dim=1, keepdim=True) # (batch_size, N)
-                    
-                elif self.susd_mode == 3:
-                    # clip
-                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
-                        start = self.partition_points[i]
-                        end = self.partition_points[i + 1]
-                        obs_i = x[:, start:end]
-                        next_obs_i = y[:, start:end]
-                        csd_distance = self._csd_loss_clip(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
-                        csd_distances.append(csd_distance)
-                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
+                if self.do_print:
+                    mean_partitions, _ = self._partition_dist_predictor(obs)
+                    self.mus.append((runner.step_itr, [mean_partitions[i].norm(p=2, dim=1).mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
 
-                elif self.susd_mode == 4:
-                    # 1 - q
-                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
-                        start = self.partition_points[i]
-                        end = self.partition_points[i + 1]
-                        obs_i = x[:, start:end]
-                        next_obs_i = y[:, start:end]
-                        csd_distance = self._calculate_one_minus_q(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
-                        csd_distances.append(csd_distance)
-                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
-
-                elif self.susd_mode == 5:
-                    # softmax with temperature
-                    for i, (s2_dist_mean, s2_dist_std) in enumerate(zip(mean_partitions, std_partitions)):
-                        start = self.partition_points[i]
-                        end = self.partition_points[i + 1]
-                        obs_i = x[:, start:end]
-                        next_obs_i = y[:, start:end]
-                        csd_distance = self._csd_loss(obs=obs_i, next_obs=next_obs_i, s2_dist_mean=s2_dist_mean, s2_dist_std=s2_dist_std)
-                        csd_distances.append(csd_distance)
-                    csd_distances = torch.stack(csd_distances, dim=1) # (batch_size, N)
-                    csd_distances = torch.softmax(csd_distances / self.susd_temperature, dim=1) # (batch_size, N)
-
+                s2_dist_std = s2_dist.stddev
+                scaling_factor = 1. / s2_dist_std
+                geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+                normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+                normalized_csd = torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor
+                if self.susd_dist_norm:
+                    if self.env_name == "kitchen_franka":
+                        csd_distances = [(59.0 * normalized_csd[:, start:end])/(end - start) for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
+                else:
+                    csd_distances = [normalized_csd[:, start:end] for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
+                csd_distances = [torch.sum(csd_distance, dim=1)/normalized_csd.shape[1] for csd_distance in csd_distances]
+                csd_distances = torch.stack(csd_distances, dim=1)
 
 
                 if self.do_print:
-                    self.do_print = False
-                    self.csd_logs.append((runner.step_itr, 
-                                          [csd_distances[0][i].detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
+                    self.csd_logs.append((runner.step_itr, [csd_distances[:, i].mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
 
                 v.update({'csd_distances': csd_distances})
 
             else:
                 raise NotImplementedError
 
+            cst_penalty = torch.ones_like(x[:, 0]) - torch.square(phi_y - phi_x).mean(dim=1)
+            cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
+            te_obj = rewards.sum(dim=1) + dual_lam.detach() * cst_penalty
+            te_objs = [te_obj for _ in range(len(self.partition_points) - 1)]
+            cst_penalty = [cst_penalty]
 
-            ### pure csd 
-            if self.susd_csd:
-                s2_dist = self.dist_predictor(obs)
-                s2_dist_mean = s2_dist.mean
-                s2_dist_std = s2_dist.stddev
-                scaling_factor = 1. / s2_dist_std
-                geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-                normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-                cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)
-                v['csd_reward'] = cst_dist
-
-            #### me
-            cst_penalty = []
-            te_objs = []
-
-            if self.susd_agg:
-                if not self.susd_use_distance_as_reward:
-                    s2_dist = self.dist_predictor(obs)
-                    s2_dist_mean = s2_dist.mean
-                    s2_dist_std = s2_dist.stddev
-                    scaling_factor = 1. / s2_dist_std
-                    geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
-                    normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
-                    cst_dist = torch.mean(torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor, dim=1)  
-                    cst_penalty = cst_dist - torch.square(phi_y - phi_x).mean(dim=1)
-
-                else:
-                    cst_penalty = torch.ones_like(x[:, 0]) - torch.square(phi_y - phi_x).mean(dim=1)
-                cst_penalty = torch.clamp(cst_penalty, max=self.dual_slack)
-                te_obj = rewards.sum(dim=1) + dual_lam.detach() * cst_penalty
-                te_objs = [te_obj for _ in range(len(self.partition_points) - 1)]
-                cst_penalty = [cst_penalty]
-
-            else:
-                for i in range(len(self.partition_points) - 1):
-                    start = i * self.dim_option
-                    end = (i+1) * self.dim_option
-                    cst_penalty_i = csd_distances[:, i] - torch.square(phi_y[:, start:end] - phi_x[:, start:end]).mean(dim=1)
-                    cst_penalty_i = torch.clamp(cst_penalty_i, max=self.dual_slack)
-                    te_obj_i = rewards[:, i] + dual_lam[i].detach() * cst_penalty_i
-                    cst_penalty.append(cst_penalty_i)
-                    te_objs.append(te_obj_i) 
-
-            
             v.update({
                 'cst_penalty': cst_penalty,
             })
@@ -466,31 +363,39 @@ class DSD(IOD):
             loss_te_i = -te_obj.mean()
             loss_te.append(loss_te_i)
 
+        if self.do_print:
+            self.do_print = False
+            self.te_losses.append((runner.step_itr, [loss_te[i].detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
+
+
         tensors.update({
             'LossTe': loss_te
         })
 
+        if self.susd_q_function:
+            next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
+            sac_utils.update_loss_qf_N(
+                self, tensors, v,
+                actions=v['actions'],
+                next_obs=next_processed_cat_obs,
+                dones=v['dones'],
+                rewards=v['rewards'] * torch.sqrt(v['csd_distances']),
+                policy=self.option_policy,
+            )
 
-    def plot_csd_logs(self, runner, min_csd=None, max_csd=None):
-        if len(self.csd_logs) == 0:
+    def plot_csd_reward_logs(self, runner):
+        if len(self.csd_reward_logs) == 0:
             return
 
-        epochs, csd_values = zip(*self.csd_logs)
+        epochs, csd_values = zip(*self.csd_reward_logs)
         epochs = np.array(epochs)
-        csd_values = 1000 * np.array(csd_values)  # Scale if desired
+        csd_values =  np.array(csd_values)
 
-        # Clip values if bounds are provided
-        if min_csd is not None or max_csd is not None:
-            # Use default bounds if needed
-            if min_csd is None:
-                min_csd = -np.inf
-            if max_csd is None:
-                max_csd = np.inf
-            csd_values = np.clip(csd_values, min_csd, max_csd)
+        os.makedirs(f'results/{self.exp_name}', exist_ok=True)
 
-        # Plotting
-        fig, ax = plt.subplots(figsize=(10, 6))
         for i in range(csd_values.shape[1]):
+            fig, ax = plt.subplots(figsize=(10, 6))
+
             ax.plot(
                 epochs,
                 csd_values[:, i],
@@ -500,60 +405,78 @@ class DSD(IOD):
                 linewidth=1
             )
 
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('CSD Value (×1e3)')
-        ax.set_title('CSD per Factor over Epochs')
-        ax.legend()
-        ax.grid(True)
-        fig.tight_layout()
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('CSD Value')
+            ax.set_title(f'CSD over Epochs')
+            ax.legend()
+            ax.grid(True)
+            fig.tight_layout()
 
-        csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}.png'
-        os.makedirs(os.path.dirname(csd_plot_path), exist_ok=True)
-        fig.savefig(csd_plot_path)
-        plt.close(fig)
+            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}_reward.png'
+            fig.savefig(csd_plot_path)
+            plt.close(fig)
+
+    def plot_csd_logs(self, runner):
+        if len(self.csd_logs) == 0:
+            return
+
+        epochs, csd_values = zip(*self.csd_logs)
+        epochs = np.array(epochs)
+        csd_values =  np.array(csd_values)
+        
+        os.makedirs(f'results/{self.exp_name}', exist_ok=True)
+
+        for i in range(csd_values.shape[1]):
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            ax.plot(
+                epochs,
+                csd_values[:, i],
+                label=f'Factor {i}',
+                marker='o',
+                markersize=3,
+                linewidth=1
+            )
+
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('CSD Value')
+            ax.set_title(f'CSD for Factor {i} over Epochs')
+            ax.legend()
+            ax.grid(True)
+            fig.tight_layout()
+
+            # Save each factor's plot separately
+            csd_plot_path = f'results/{self.exp_name}/csd_plot_epoch_{runner.step_itr}_factor_{i}.png'
+            fig.savefig(csd_plot_path)
+            plt.close(fig)
 
     def _update_loss_dual_lam(self, tensors, v):
-        if self.susd_agg:
-            log_dual_lam = self.dual_lam.param
-            dual_lam = log_dual_lam.exp()
-            cst_penalty = v['cst_penalty'][0]
-            loss_dual_lam = log_dual_lam * (cst_penalty.detach()).mean()
+        log_dual_lam = self.dual_lam.param
+        dual_lam = log_dual_lam.exp()
+        cst_penalty = v['cst_penalty'][0]
+        loss_dual_lam = log_dual_lam * (cst_penalty.detach()).mean()
 
-            tensors.update({
-                'DualLam': dual_lam,
-                'LossDualLam': loss_dual_lam,
-            })
-        else:
-            dual_lams = []
-            loss_dual_lams = []
-
-            for i, (dual_lam_module, cst_penalty_i) in enumerate(zip(self.dual_lam, v['cst_penalty'])):
-                log_dual_lam_i = dual_lam_module()                           # log(λ_i)
-                dual_lam_i = log_dual_lam_i.exp()                            # λ_i
-                loss_dual_lam_i = log_dual_lam_i * cst_penalty_i.detach().mean()  # λ_i * E[cst]
-
-                dual_lams.append(dual_lam_i)
-                loss_dual_lams.append(loss_dual_lam_i)
-
-                # Save each one individually
-                tensors.update({
-                    f'DualLam_{i}': dual_lam_i,
-                    f'LossDualLam_{i}': loss_dual_lam_i,
-                })
+        tensors.update({
+            'DualLam': dual_lam,
+            'LossDualLam': loss_dual_lam,
+        })
 
     def _update_loss_qf(self, tensors, v):
         processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
         next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
 
-        ### define the reward of the low-level policy 
-        if self.susd_use_distance_as_reward:
-            rewards = v['rewards'] * v['csd_distances']
-            rewards = rewards.sum(dim=1)
+        if self.susd_q_function:
+            rewards = torch.zeros((v['rewards'].shape[0], 1), device=v['rewards'].device)
+            for i in range(self.N):
+                start = self.partition_points[i]
+                end = self.partition_points[i + 1]
+                start_option = i * self.dim_option
+                end_option = (i + 1) * self.dim_option
+                reward_i = self.qf1_list[i](self._get_concat_obs(self.option_policy.process_observations(v['obs'][:, start:end]), v['options'][:, start_option:end_option]), v['actions'])
+                rewards = rewards + reward_i
         else:
-            if self.susd_csd:
-                rewards = v['rewards'].sum(dim=1) * v['csd_reward']
-            else:
-                rewards = v['rewards'].sum(dim=1)
+            rewards = v['rewards'] * torch.sqrt(v['csd_distances'])
+            rewards = rewards.sum(dim=1)
 
         sac_utils.update_loss_qf(
             self, tensors, v,
@@ -583,6 +506,11 @@ class DSD(IOD):
             self, tensors, v,
         )
 
+    def _update_loss_alpha_N(self, tensors, v):
+        sac_utils.update_loss_alpha_N(
+            self, tensors, v,
+        )   
+
     def plot_early_stopping(self, early_stopping):
         unique_tasks, step_iters = zip(*early_stopping)
 
@@ -605,6 +533,108 @@ class DSD(IOD):
             plt.show()
 
         plt.close()
+
+    def plot_mus(self, runner):
+        if len(self.mus) == 0:
+            return
+
+        epochs, mus = zip(*self.mus)
+        epochs = np.array(epochs)
+        mus =  np.array(mus)
+        
+        os.makedirs(f'results/{self.exp_name}', exist_ok=True)
+
+        for i in range(mus.shape[1]):
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            ax.plot(
+                epochs,
+                mus[:, i],
+                label=f'Factor {i}',
+                marker='o',
+                markersize=3,
+                linewidth=1
+            )
+
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('Norm 2 Mu')
+            ax.set_title(f'Mu for Factor {i} over Epochs')
+            ax.legend()
+            ax.grid(True)
+            fig.tight_layout()
+
+            # Save each factor's plot separately
+            csd_plot_path = f'results/{self.exp_name}/mu_plot_epoch_{runner.step_itr}_mu_{i}.png'
+            fig.savefig(csd_plot_path)
+            plt.close(fig)
+
+    def plot_early_stopping_with_names(self, early_stopping_with_names):
+        unique_tasks = [entry[0] for entry in early_stopping_with_names]
+        task_names = [entry[1] for entry in early_stopping_with_names]
+        step_iters = [entry[2] for entry in early_stopping_with_names]
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(step_iters, unique_tasks, marker='o', linestyle='-', color='steelblue')
+
+        for i, (step, count, names) in enumerate(zip(step_iters, unique_tasks, task_names)):
+            label = "\n".join(names)  
+            offset = 15 if i % 2 == 0 else -25 
+            plt.annotate(
+                label,
+                (step, count),
+                textcoords="offset points",
+                xytext=(0, offset),
+                ha='center',
+                fontsize=9,
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.7)
+            )
+
+        plt.xlabel('Epochs')
+        plt.ylabel('Completed Tasks')
+        plt.title('Task Coverage Over Time')
+        plt.grid(True)
+        plt.xticks(step_iters, rotation='vertical')
+        plt.tight_layout()
+
+        save_path = f"results/{self.exp_name}_with_names"
+        plt.savefig(save_path)
+        print(f"Early Stopping Plot Saved to: {save_path}")
+
+        plt.close()
+
+    def plot_te_losses(self, runner):
+        if len(self.te_losses) == 0:
+            return
+
+        epochs, te_losses = zip(*self.te_losses)
+        epochs = np.array(epochs)
+        te_losses =  -1 * np.array(te_losses)  # Scale if desired
+        
+        os.makedirs(f'results/{self.exp_name}', exist_ok=True)
+
+        for i in range(te_losses.shape[1]):
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            ax.plot(
+                epochs,
+                te_losses[:, i],
+                label=f'Factor {i}',
+                marker='o',
+                markersize=3,
+                linewidth=1
+            )
+
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('Phi Loss')
+            ax.set_title(f'Phi for Factor {i} over Epochs')
+            ax.legend()
+            ax.grid(True)
+            fig.tight_layout()
+
+            # Save each factor's plot separately
+            csd_plot_path = f'results/{self.exp_name}/phi_plot_epoch_{runner.step_itr}_phi_{i}.png'
+            fig.savefig(csd_plot_path)
+            plt.close(fig)
 
     def get_completed_task_names(self, mask):
         task_names = ['BB', 'TB', 'LS', 'SC', 'HC', 'MI', 'KE']
@@ -669,27 +699,6 @@ class DSD(IOD):
             random_option_colors = np.array([cmap(c)[:3] for c in colors])
 
         else:
-            # random_option = np.random.randn(1, self.N, self.dim_option)
-            # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
-            # random_options = [random_option.copy()]
-
-            # for i in range(self.num_random_trajectories - 1):
-            #     new_random_option = random_option.copy()
-
-            #     time_idx = i % self.N
-            #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
-            #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
-            #     random_options.append(new_random_option)
-            
-            # random_options = np.vstack(random_options)
-
-            #### just one factor activate for z
-            # activate_factor = self.counter % self.N
-            # self.counter += 1
-            # random_options = np.zeros((self.num_random_trajectoriesrajectories, self.N, self.dim_option))
-            # random_options[:, activate_factor, :] = np.random.randn(self.num_random_trajectories, self.dim_option)
-
-           #### main code 
             random_options = np.random.randn(self.num_random_trajectories, self.N * self.dim_option)
 
             if self.unit_length:
@@ -710,33 +719,33 @@ class DSD(IOD):
             env_update=dict(_action_noise_std=None),
         )
 
+        data = self.process_samples(random_trajectories)
+
         with FigManager(runner, 'TrajPlot_RandomZ') as fm:
-            runner._env.render_trajectories(
-                random_trajectories, random_option_colors, self.eval_plot_axis, fm.ax
-            )
+                runner._env.render_trajectories(
+                    random_trajectories, random_option_colors, self.eval_plot_axis, fm.ax
+                )
 
 
         from sklearn.decomposition import PCA
-        data = self.process_samples(random_trajectories)
         last_obs = torch.stack([torch.from_numpy(ob[-1]).to(dtype=torch.float32, device=self.device) for ob in data['obs']])
-    
+        
         option_dists = self.traj_encoder(last_obs)
-
         option_means = option_dists.detach().cpu().numpy()
         pca = PCA(n_components=2)
         option_means_2d = pca.fit_transform(option_means)
         option_colors = random_option_colors
 
         with FigManager(runner, f'PhiPlot') as fm:
-            draw_2d_gaussians(
-                option_means_2d,
-                [[0.5, 0.5]] * len(option_means_2d),
-                option_colors,
-                fm.ax,
-                fill=True,
-                use_adaptive_axis=True,
-                alpha=1.0
-            )
+                draw_2d_gaussians(
+                    option_means_2d,
+                    [[0.5, 0.5]] * len(option_means_2d),
+                    option_colors,
+                    fm.ax,
+                    fill=True,
+                    use_adaptive_axis=True,
+                    alpha=1.0
+                )
         
         eval_option_metrics = {}
 
@@ -747,35 +756,11 @@ class DSD(IOD):
                 video_options = video_options.repeat(self.num_video_repeats, axis=0)
             else:
                 if self.dim_option * self.N == 2:
-                    # radius = 1. if self.unit_length else 1.5
-                    # video_options = []
-                    # for angle in [3, 2, 1, 4]:
-                    #     video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-                    # video_options.append([0, 0])
-                    # for angle in [0, 5, 6, 7]:
-                    #     video_options.append([radius * np.cos(angle * np.pi / 4), radius * np.sin(angle * np.pi / 4)])
-                    # video_options = np.array(video_options)
-
                     video_options = np.random.randn(9, self.N * self.dim_option)
                     if self.unit_length:
                         video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
                     flat_random_options = video_options.reshape(9, self.N * self.dim_option)
                 else:
-                    # random_option = np.random.randn(1, self.N, self.dim_option)
-                    # random_option /= np.linalg.norm(random_option, axis=-1, keepdims=True)
-                    # random_options = [random_option.copy()]
-
-                    # for i in range(17):
-                    #     new_random_option = random_option.copy()
-
-                    #     time_idx = i % self.N
-                    #     new_random_option[0, time_idx, :] = np.random.randn(self.dim_option)
-                    #     new_random_option /= np.linalg.norm(new_random_option, axis=-1, keepdims=True)
-                    #     random_options.append(new_random_option)
-                    
-                    # random_options = np.vstack(random_options)
-                    # flat_random_options = random_options.reshape(18, self.N * self.dim_option)
-
                     video_options = np.random.randn(9, self.N * self.dim_option)
                     if self.unit_length:
                         video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
@@ -803,7 +788,10 @@ class DSD(IOD):
             )
         self._log_eval_metrics(runner)
 
-        self.plot_csd_logs(runner, 0, 5000)
+        self.plot_csd_logs(runner)
+        self.plot_csd_reward_logs(runner)
+        self.plot_te_losses(runner)
+        self.plot_mus(runner)
 
 
         #### plot the task coverage for franka kitchen
@@ -818,5 +806,6 @@ class DSD(IOD):
             self.early_stopping_with_names.append((task_coverage, task_names, runner.step_itr))
             self.plot_early_stopping(self.early_stopping)
             self.plot_early_stopping_with_names(self.early_stopping_with_names)
+
 
 

@@ -3,11 +3,21 @@ import os
 import socket
 import sys
 import gymnasium as gym
+import torch
+import numpy as np
+from garagei.torch.q_functions.continuous_mlp_q_function_ex import ContinuousMLPQFunctionEx
+from garagei.torch.modules.parameter_module import ParameterModule
 
 
 from garage.experiment.experiment import get_metadata
 from garagei.envs.consistent_normalized_env import consistent_normalize
 from iod.utils import get_normalizer_preset
+
+from pettingzoo.mpe import simple_heterogenous_v3
+from pettingzoo.utils.wrappers.centralized_wrapper import (CentralizedWrapper,
+                                                               DownstreamCentralizedWrapper,
+                                                               SequentialDSWrapper)
+from envs.mp.particle import Particle
 
 import global_context
 
@@ -100,13 +110,6 @@ def make_env(args, max_path_length):
         from gymnasium_robotics.envs.franka_kitchen import KitchenEnv
 
         all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
-        # custom_order = [
-        #         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,     # Panda Arm and Gripper States
-        #         18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Burners and Overhead Light
-        #         29, 30, 31, 49, 50, 51,                                           # Cabinets (Slide + Left + Right Hinge)
-        #         32, 52,                                                          # Microwave Door
-        #         33, 34, 35, 36, 37, 38, 39, 53, 54, 55, 56, 57, 58               # Kettle
-        # ]
         custom_order = [
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,     # Robot
                 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,  # Switches
@@ -122,7 +125,6 @@ def make_env(args, max_path_length):
         )
 
         env = KitchenFranka(base_env, custom_order=custom_order)
-
 
     elif args.env == "fetch":
         from envs.mujoco.fetch import FetchEnvironment
@@ -142,14 +144,35 @@ def make_env(args, max_path_length):
         base_env = gym.make('FetchPickAndPlace-v3', max_episode_steps=150, render_mode="rgb_array")
         env = FetchEnvironment(base_env, custom_order=custom_order)
 
+    elif args.env == "particle":        
+        env = simple_heterogenous_v3.parallel_env(
+            render_mode= "rgb_array",
+            max_cycles=1000,
+            continuous_actions=True,
+            local_ratio=0,
+            N=10,
+            img_encoder=None)
+
+        env = CentralizedWrapper(env, simplify_action_space=True)
+
+        distances = list(range(0, 10))       # 0–9
+        agent_info = list(range(10, 50))     # 10–49
+        station_info = list(range(50, 70))   # 50–69
+
+        custom_order = []
+
+        for i in range(10):
+            custom_order.append(distances[i])                       
+            custom_order.extend(agent_info[i*4:(i+1)*4])            
+            custom_order.extend(station_info[i*2:(i+1)*2])
+
+        env = Particle(env, custom_order, (512, 480))
+        env.reset(seed=args.seed)
+
     else:
         raise NotImplementedError
     
-
-    # if args.frame_stack is not None:
-    #     from envs.custom_dmc_tasks.pixel_wrappers import FrameStackWrapper
-    #     env = FrameStackWrapper(env, args.frame_stack)
-
+    
     normalizer_type = args.normalizer_type
     normalizer_kwargs = {}
 
@@ -161,3 +184,14 @@ def make_env(args, max_path_length):
         env = consistent_normalize(env, normalize_obs=True, mean=normalizer_mean, std=normalizer_std, **normalizer_kwargs)
 
     return env
+
+
+def make_q_function(input_dim, action_dim, master_dims, nonlinearity, alpha):
+    qf1 = ContinuousMLPQFunctionEx(
+            obs_dim=input_dim,
+            action_dim=action_dim,
+            hidden_sizes=master_dims,
+            hidden_nonlinearity=nonlinearity or torch.relu,
+        )
+    log_alpha = ParameterModule(torch.Tensor([np.log(alpha)]))
+    return qf1, log_alpha
