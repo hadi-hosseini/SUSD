@@ -41,7 +41,6 @@ class SUSD(IOD):
             q1_list,
             # log_alpha_list,
             susd_q_function,
-            susd_q_function_alpha,
 
             **kwargs,
     ):
@@ -60,7 +59,6 @@ class SUSD(IOD):
             self.qf1_list = [qf1.to(self.device) for qf1 in q1_list]
             # self.log_alpha_list = [log_alpha.to(self.device) for log_alpha in log_alpha_list]
             self.target_qf1_list = [copy.deepcopy(qf1) for qf1 in self.qf1_list]
-            self.susd_q_function_alpha = susd_q_function_alpha
 
         self.param_modules.update(
             qf1=self.qf1,
