@@ -1,5 +1,5 @@
 import akro
-
+from akro import Box as AkroBox
 from garage.envs import EnvSpec
 
 
@@ -29,17 +29,17 @@ def gymnasium_to_gym_space(space):
 class AkroWrapperTrait:
     @property
     def spec(self):
-        # kitchen env
-        # print("Action space type:", type(self.action_space))
-        # print("Observation space type:", type(self.observation_space))
-        gym_action_space = gymnasium_to_gym_space(self.action_space)
-        gym_obs_space = gymnasium_to_gym_space(self.observation_space)
 
+        if isinstance(self.action_space, AkroBox):
+            gym_action_space = self.action_space
+        else:
+            gym_action_space = gymnasium_to_gym_space(self.action_space)
 
-        # ant env
-        # gym_action_space = self.action_space
-        # gym_obs_space = self.observation_space
-        # exit()
+        if isinstance(self.observation_space, AkroBox):
+            gym_obs_space = self.observation_space
+        else:
+            gym_obs_space = gymnasium_to_gym_space(self.observation_space)
+
         return EnvSpec(action_space=akro.from_gym(gym_action_space),
                        observation_space=akro.from_gym(gym_obs_space))
 

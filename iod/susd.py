@@ -39,8 +39,9 @@ class SUSD(IOD):
             susd_dist_norm,
             susd_input_factor0,
             q1_list,
-            log_alpha_list,
+            # log_alpha_list,
             susd_q_function,
+            susd_q_function_alpha,
 
             **kwargs,
     ):
@@ -57,8 +58,9 @@ class SUSD(IOD):
         self.susd_q_function = susd_q_function
         if self.susd_q_function:
             self.qf1_list = [qf1.to(self.device) for qf1 in q1_list]
-            self.log_alpha_list = [log_alpha.to(self.device) for log_alpha in log_alpha_list]
+            # self.log_alpha_list = [log_alpha.to(self.device) for log_alpha in log_alpha_list]
             self.target_qf1_list = [copy.deepcopy(qf1) for qf1 in self.qf1_list]
+            self.susd_q_function_alpha = susd_q_function_alpha
 
         self.param_modules.update(
             qf1=self.qf1,
@@ -226,14 +228,14 @@ class SUSD(IOD):
             optimizer_keys=['log_alpha'],
         )
 
-        if self.susd_q_function:
-            self._update_loss_alpha_N(tensors, internal_vars)
-            for i in range(self.N):
-                self._gradient_descent(
-                    tensors[f'LossAlpha_{i}'],
-                    optimizer_keys=[f'log_alpha_{i}'],
-                )
-            sac_utils.update_targets_N(self)
+        # if self.susd_q_function:
+        #     self._update_loss_alpha_N(tensors, internal_vars)
+        #     for i in range(self.N):
+        #         self._gradient_descent(
+        #             tensors[f'LossAlpha_{i}'],
+        #             optimizer_keys=[f'log_alpha_{i}'],
+        #         )
+        #     sac_utils.update_targets_N(self)
 
         sac_utils.update_targets(self)
 
@@ -506,10 +508,10 @@ class SUSD(IOD):
             self, tensors, v,
         )
 
-    def _update_loss_alpha_N(self, tensors, v):
-        sac_utils.update_loss_alpha_N(
-            self, tensors, v,
-        )   
+    # def _update_loss_alpha_N(self, tensors, v):
+        # sac_utils.update_loss_alpha_N(
+        #     self, tensors, v,
+        # )   
 
     def plot_early_stopping(self, early_stopping):
         unique_tasks, step_iters = zip(*early_stopping)
@@ -567,41 +569,6 @@ class SUSD(IOD):
             csd_plot_path = f'results/{self.exp_name}/mu_plot_epoch_{runner.step_itr}_mu_{i}.png'
             fig.savefig(csd_plot_path)
             plt.close(fig)
-
-    def plot_early_stopping_with_names(self, early_stopping_with_names):
-        unique_tasks = [entry[0] for entry in early_stopping_with_names]
-        task_names = [entry[1] for entry in early_stopping_with_names]
-        step_iters = [entry[2] for entry in early_stopping_with_names]
-
-        plt.figure(figsize=(10, 6))
-        plt.plot(step_iters, unique_tasks, marker='o', linestyle='-', color='steelblue')
-
-        for i, (step, count, names) in enumerate(zip(step_iters, unique_tasks, task_names)):
-            label = "\n".join(names)  
-            offset = 15 if i % 2 == 0 else -25 
-            plt.annotate(
-                label,
-                (step, count),
-                textcoords="offset points",
-                xytext=(0, offset),
-                ha='center',
-                fontsize=9,
-                bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.7)
-            )
-
-        plt.xlabel('Epochs')
-        plt.ylabel('Completed Tasks')
-        plt.title('Task Coverage Over Time')
-        plt.grid(True)
-        plt.xticks(step_iters, rotation='vertical')
-        plt.tight_layout()
-
-        save_path = f"results/{self.exp_name}/task_coverage_with_names.png"
-        
-        plt.savefig(save_path)
-        print(f"Early Stopping Plot Saved to: {save_path}")
-
-        plt.close()
 
     def plot_te_losses(self, runner):
         if len(self.te_losses) == 0:
@@ -670,7 +637,6 @@ class SUSD(IOD):
         plt.tight_layout()
 
         save_path = f"results/{self.exp_name}/task_coverage_with_names.png"
-
         plt.savefig(save_path)
         print(f"Early Stopping Plot Saved to: {save_path}")
 

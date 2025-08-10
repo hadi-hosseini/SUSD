@@ -62,8 +62,8 @@ else:
     START_METHOD = 'spawn'
 
 
-args = SUSDFrankaKitchenConfig()
-# args = SUSDParticle()
+# args = SUSDFrankaKitchenConfig()
+args = SUSDParticle()
 
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
