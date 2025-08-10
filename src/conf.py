@@ -180,7 +180,7 @@ class SUSDAntConfig(SUSDConfig):
 
 @dataclass
 class SUSDParticle(SUSDConfig):
-    run_group: str = 'TEST'
+    run_group: str = 'SUSD_PARTICLE'
     env: str = 'particle'
     max_path_length: int = 50
     seed: int = 0
@@ -201,5 +201,6 @@ class SUSDParticle(SUSDConfig):
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
-    susd_dist_norm: int = 1 # using normalization for marginal distribution
+    susd_dist_norm: int = 0 # using normalization for marginal distribution
     susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
+    susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
