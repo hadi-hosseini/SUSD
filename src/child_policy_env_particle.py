@@ -29,7 +29,7 @@ class ChildPolicyEnv(gym.Wrapper):
         self.child_policy.eval()
 
         self.cp_dim_action = cp_dict['dim_option']
-        self.cp_N = getattr(cp_dict, 'N', 1) # csd
+        self.cp_N = getattr(cp_dict, 'N', 1) # baselines
         # self.cp_N = getattr(cp_dict, 'N', 10) # susd
 
         
