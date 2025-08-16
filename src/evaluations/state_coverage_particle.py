@@ -20,7 +20,7 @@ os.environ["MUJOCO_GL"] = "egl"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 mode = "eval" # ["plot", "eval"]
-algo = "susd" # ["csd", "metra", "lsd", "diyan", "susd"]
+algo = "csd" # ["csd", "metra", "lsd", "diyan", "susd"]
 skill_dim = 2
 
 if algo == "susd":
@@ -77,7 +77,6 @@ def create_particle_env(seed=0):
     env = Particle(env, custom_order, (512, 480))
     return env
 
-
 max_steps = 50
 
 
@@ -111,7 +110,7 @@ def eval(env, seed):
                 action_np, _ = option_policy.get_action(input_tensor)
             action = action_np[0]
 
-            obs, reward, done, info = env.step(action)
+            obs, _, done, info = env.step(action)
             steps += 1
 
             x, y = info['next_coordinates']
@@ -158,8 +157,16 @@ def run_multiple_seeds(num_runs=8):
     print(f"\n📁 Logs saved to {csv_path}")
     return all_logs
 
+def smooth_curve(values, alpha=0.6):
+    """Exponential moving average smoothing."""
+    smoothed = []
+    last = values[0]
+    for v in values:
+        last = alpha * v + (1 - alpha) * last
+        smoothed.append(last)
+    return np.array(smoothed)
 
-def plot_multiple_methods_cumulative_reward(logs_by_method, max_duration, dt=1.0, confidence=0.95, save_path=None):
+def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, confidence=0.95, save_path=None):
     common_times = np.arange(0, max_duration + dt, dt)
 
     plt.figure(figsize=(10, 6))
@@ -168,18 +175,18 @@ def plot_multiple_methods_cumulative_reward(logs_by_method, max_duration, dt=1.0
         interp_rewards = []
         for log in all_logs:
             times, rewards = zip(*log)
-            f = interp1d(times, rewards, kind='previous', bounds_error=False,
-                         fill_value=(rewards[0], rewards[-1]))
-            interp_rewards.append(f(common_times))
+            times = np.array(times)
+            rewards = np.array(rewards)
+            
+            interp = np.interp(common_times, times, rewards)
+            interp_rewards.append(interp)
         
         interp_rewards = np.array(interp_rewards)
         mean_rewards = np.mean(interp_rewards, axis=0)
-        sem = stats.sem(interp_rewards, axis=0)
-        margin = sem * stats.t.ppf((1 + confidence) / 2., interp_rewards.shape[0] - 1)
 
-        # Plot mean and confidence interval
-        plt.plot(common_times, mean_rewards, label=method)
-        plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.2)
+        mean_rewards = smooth_curve(mean_rewards, alpha=0.15)
+
+        plt.plot(common_times, mean_rewards, label=method, linewidth=0.8)
 
     plt.xlabel('Steps')
     plt.ylabel('State Coverage')
@@ -193,6 +200,7 @@ def plot_multiple_methods_cumulative_reward(logs_by_method, max_duration, dt=1.0
         print(f"✅ Plot saved to: {save_path}")
     else:
         plt.show()
+
 
 def load_logs_from_csv(csv_path):
     df = pd.read_csv(csv_path)
@@ -209,20 +217,20 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    # susd_logs = load_logs_from_csv("final_models/particle/COVERAGE/task_coverage_susd_particle.csv")
-    # metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/task_coverage_metra_particle.csv")
-    csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/task_coverage_csd_particle.csv")
-    # lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/task_coverage_lsd_particle.csv")
+    susd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_susd_particle.csv")
+    metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_metra_particle.csv")
+    csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle.csv")
+    # lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
 
 
     logs_by_method = {
-        # "SUSD": susd_logs,
-        # "METRA": metra_logs,
+        "SUSD": susd_logs,
+        "METRA": metra_logs,
         "CSD": csd_logs,
         # "LSD": lsd_logs
     }
 
-    plot_multiple_methods_cumulative_reward(
+    plot_multiple_methods_unique_steps(
         logs_by_method,
         max_duration=1e4,
         dt=1.0,
