@@ -19,8 +19,8 @@ os.environ["MUJOCO_GL"] = "egl"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-mode = "eval" # ["plot", "eval"]
-algo = "csd" # ["csd", "metra", "lsd", "diyan", "susd"]
+mode = "plot" # ["plot", "eval"]
+algo = "lsd" # ["csd", "metra", "lsd", "diyan", "susd"]
 skill_dim = 2
 
 if algo == "susd":
@@ -29,20 +29,21 @@ if algo == "susd":
     skill_dim = 20 # N=10 & d=2
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/particle/METRA/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/METRA/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/particle/METRA/option_policy6000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/METRA/traj_encoder6000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/particle/CSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/CSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/particle/CSD/option_policy6000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/CSD/traj_encoder6000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/particle/LSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/LSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/particle/LSD/option_policy6000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/LSD/traj_encoder6000.pt'
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/particle/DIAYN/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/DIAYN/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/particle/DIAYN/option_policy6000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/DIAYN/traj_encoder6000.pt'
+
 
 csv_path = f"final_models/particle/COVERAGE/state_coverage_{algo}_particle.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
@@ -81,7 +82,6 @@ max_steps = 50
 
 
 def eval(env, seed):
-
     log = []
     record_video = False
     done = True
@@ -220,14 +220,14 @@ elif mode == "plot":
     susd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_susd_particle.csv")
     metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_metra_particle.csv")
     csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle.csv")
-    # lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
+    lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
 
 
     logs_by_method = {
         "SUSD": susd_logs,
         "METRA": metra_logs,
         "CSD": csd_logs,
-        # "LSD": lsd_logs
+        "LSD": lsd_logs
     }
 
     plot_multiple_methods_unique_steps(
