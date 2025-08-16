@@ -27,10 +27,17 @@ from garagei.torch.policies.policy_ex import PolicyEx
 
 from iod.sac import SAC
 from iod.ppo import PPO
-from src.child_policy_env import ChildPolicyEnv
+# from src.child_policy_env import ChildPolicyEnv
+from src.child_policy_env_particle import ChildPolicyEnv
 from src.conf import SUSDConfig
 from src.utils import get_exp_name, get_log_dir
 from downstream_tasks.downstream_kitchen import DownstreamKitchen
+
+from pettingzoo.mpe import simple_heterogenous_v3
+from pettingzoo.utils.wrappers.centralized_wrapper import (CentralizedWrapper,
+                                                               DownstreamCentralizedWrapper,
+                                                               SequentialDSWrapper)
+from envs.mp.particle import Particle
 
 
 
@@ -57,7 +64,7 @@ class SUSDHighLevelKitchenConfig(SUSDHighLevelConfig):
     run_group: str = "HRL_CSD"
     max_path_length: int = 20 # 8 (original value)
     dim_option: int = 2
-    n_parallel: int = 8 # 4 is better
+    n_parallel: int = 2 # 4 is better
     algo: str = "sac"
     n_epochs_per_eval: int = 100
     n_epochs_per_save: int = 0
@@ -107,10 +114,121 @@ class SUSDHighLevelKitchenConfig(SUSDHighLevelConfig):
         ]
 
 
-args = SUSDHighLevelKitchenConfig()
+
+@dataclass
+class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
+    run_group: str = "HRL_METRA"
+    max_path_length: int =  10 #10
+    dim_option: int = 2
+    n_parallel: int = 8  # 1
+    task_diff: int = 0 # 0: not factorized 1: easy 2: medium 3: hard
+    traj_batch_size: int = 1 
+    num_random_trajectories: int = 100
+    cp_multi_step: int = 5 # 5
+    algo: str = "sac"
+    n_epochs_per_eval: int = 100
+    n_epochs_per_save: int = 0
+    n_epochs_per_pt_save: int = 0
+    n_epochs_per_pkl_update: int = 0
+    n_epochs: int = 6000 
+    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
+    trans_optimization_epochs: int = 50
+    sac_replay_buffer: int = 1
+    sac_max_buffer_size: int = 1000000
+    sac_min_buffer_size: int = 1000
+    n_epochs_per_log: int = 25
+    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_save: int = 1000 # 1000
+    n_epochs_per_pt_save: int = 1000 # 1000
+    te_only_last_frame: int  = 0
+    alpha: float = 0.1
+    # cp_path: str = "/home/hadi/rl/baseline/exp/CSD_PARTICLE/sd000_1754998555_particle_metra/option_policy5000.pt" # csd
+    # cp_path: str = "/home/hadi/rl/baseline/exp/LSD_PARTICLE/sd000_1755263965_particle_metra/option_policy5000.pt" # lsd
+    cp_path: str = "/home/hadi/rl/baseline/exp/METRA_PARTICLE/sd000_1755263681_particle_metra/option_policy5000.pt" # metra
+    cp_unit_length: int = 1
+
+    env: str = "particle"
+    cp_multitask: int = 0 # the number of tasks
+    distances = list(range(0, 10))       # 0–9
+    agent_info = list(range(10, 50))     # 10–49
+    station_info = list(range(50, 70))   # 50–69
+
+    custom_order = []
+
+    for i in range(10):
+        custom_order.append(distances[i])                       
+        custom_order.extend(agent_info[i*4:(i+1)*4])            
+        custom_order.extend(station_info[i*2:(i+1)*2])  
+
+@dataclass
+class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
+    run_group: str = "HRL_SUSD"
+    max_path_length: int = 10
+    dim_option: int = 20 # susd
+    task_diff: int = 0 # 0: not factorized 1: easy 2: medium 3: hard
+    n_parallel: int = 1 
+    traj_batch_size: int = 1 
+    num_random_trajectories: int = 100 # number of trajectories for evaluation
+    cp_multi_step: int = 5
+    algo: str = "sac"
+    n_epochs_per_eval: int = 100
+    n_epochs_per_save: int = 0
+    n_epochs_per_pt_save: int = 0
+    n_epochs_per_pkl_update: int = 0
+    n_epochs: int = 200000
+    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
+    trans_optimization_epochs: int = 50
+    sac_replay_buffer: int = 1
+    sac_max_buffer_size: int = 1000000
+    sac_min_buffer_size: int = 1000
+    n_epochs_per_log: int = 25
+    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_save: int = 1000 # 1000
+    n_epochs_per_pt_save: int = 1000 # 1000
+    te_only_last_frame: int  = 0
+    alpha: float = 0.1
+    cp_path: str = "/home/hadi/rl/SUSD/exp/SUSD_PARTICLE/sd000_1754997216_particle_metra/option_policy5000.pt" # susd
+
+    cp_unit_length: int = 1
+
+    env: str = "particle"
+    cp_multitask: int = 0 # the number of tasks
+    distances = list(range(0, 10))       # 0–9
+    agent_info = list(range(10, 50))     # 10–49
+    station_info = list(range(50, 70))   # 50–69
+
+    custom_order = []
+
+    for i in range(10):
+        custom_order.append(distances[i])                       
+        custom_order.extend(agent_info[i*4:(i+1)*4])            
+        custom_order.extend(station_info[i*2:(i+1)*2])  
+
+
+
+method = "baseline_particle" # ["susd_particle", "baseline_particle"]
+
+if method == "susd_particle":
+    args = SUSDHighLevelParticleConfig()
+elif method == "baseline_particle":
+    args = BaselineHighLevelParticleConfig()
+
 
 def make_env(max_path_length):
-    env =  DownstreamKitchen(tasks_to_complete=args.all_tasks, terminate_on_tasks_completed=True, render_mode="rgb_array", custom_order=args.custom_order)
+    if args.env == "particle":
+        env = simple_heterogenous_v3.parallel_env(
+            render_mode='rgb_array',
+            max_cycles=1000,
+            continuous_actions=True,
+            local_ratio=0,
+            N=10)
+
+        factorize = args.task_diff > 0
+        env = DownstreamCentralizedWrapper(env, landmark_id=range(10), N=10, factorize=factorize, custom_order=args.custom_order, simplify_action_space=True)
+        env.reset(seed=0)
+        
+    elif args.env == "kitchen_franka":
+        env =  DownstreamKitchen(tasks_to_complete=args.all_tasks, terminate_on_tasks_completed=True, render_mode="rgb_array", custom_order=args.custom_order)
 
     if args.cp_path is not None:
         if not os.path.exists(args.cp_path):
@@ -126,8 +244,8 @@ def make_env(max_path_length):
             cp_unit_length=args.cp_unit_length,
             cp_multi_step=args.cp_multi_step,
             cp_num_truncate_obs=0,
-            cp_multitask=len(args.all_tasks)
-        )
+            cp_multitask=args.cp_multitask)
+    
     return env
 
 
@@ -162,7 +280,10 @@ def run(ctxt=None):
         if args.env == "kitchen_franka": # solve as multitask
             policy_q_input_dim = env.observation_space.shape[0] + args.cp_multitask
             action_dim = env.action_space.shape[0]
-
+        elif args.env == "particle":
+            policy_q_input_dim = env.observation_space.shape[0]
+            action_dim = env.action_space.shape[0]
+            
     device = torch.device('cuda' if args.use_gpu else 'cpu')
     master_dims = [args.model_master_dim] * args.model_master_num_layers
 
@@ -204,7 +325,7 @@ def run(ctxt=None):
             output_dim=1,
             hidden_sizes=master_dims,
             hidden_nonlinearity=nonlinearity or torch.relu,
-            layer_normalization=args.critic_layer_norm,
+            layer_normalization=None,
         )
         optimizers = ({
             'vf': torch.optim.Adam([
@@ -295,25 +416,25 @@ def run(ctxt=None):
             discount=args.sac_discount,
             discrete=args.discrete,
             unit_length=args.unit_length,
+            multitask=args.cp_multitask,
+            exp_name= get_exp_name(args)[0]
         )
     
 
     replay_buffer = PathBufferEx(capacity_in_transitions=int(args.sac_max_buffer_size), pixel_shape=None)
     
-    sac_args = dict(
-        qf1=qf1,
-        qf2=qf2,
-        log_alpha=log_alpha,
-        tau=args.sac_tau,
-        scale_reward=args.sac_scale_reward,
-        target_coef=args.sac_target_coef,
+    if args.algo == "sac":
+        sac_args = dict(
+            qf1=qf1,
+            qf2=qf2,
+            log_alpha=log_alpha,
+            tau=args.sac_tau,
+            scale_reward=args.sac_scale_reward,
+            target_coef=args.sac_target_coef,
 
-        replay_buffer=replay_buffer,
-        min_buffer_size=args.sac_min_buffer_size,
-        pixel_shape=None,
-        multitask=args.cp_multitask,
-        exp_name= get_exp_name(args)[0]
-    )
+            replay_buffer=replay_buffer,
+            min_buffer_size=args.sac_min_buffer_size,
+        )
 
     if args.algo == "sac":
         algo = SAC(**algo_kwargs, **sac_args)
@@ -326,7 +447,6 @@ def run(ctxt=None):
             ppo_clip=0.2,
         )
     
-
     if args.sample_cpu:
         algo.option_policy.cpu()
     else:

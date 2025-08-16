@@ -29,8 +29,6 @@ class SAC(IOD):
             multitask,
             exp_name,
 
-            pixel_shape=None,
-
             **kwargs,
     ):
         super().__init__(**kwargs)
@@ -57,10 +55,9 @@ class SAC(IOD):
         self._reward_scale_factor = scale_reward
         self._target_entropy = -np.prod(self._env_spec.action_space.shape).item() / 2. * target_coef
 
-        self.pixel_shape = pixel_shape
-
         self.multitask = multitask
         self.exp_name = exp_name
+        self.dist_predictor = None
 
     @property
     def policy(self):

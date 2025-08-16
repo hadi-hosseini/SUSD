@@ -78,27 +78,4 @@ class Particle(MujocoTrait, CentralizedWrapper):
 
     def calc_eval_metrics(self, trajectories, is_option_trajectories, coord_dims=None):
         eval_metrics = {}
-
-        # goal_names = ['BottomBurner', 'LightSwitch', 'SlideCabinet', 'HingeCabinet', 'Microwave', 'Kettle']
-        # sum_successes = 0
-
-        # for i, goal_name in enumerate(goal_names):
-        #     goal_key = f'metric_success_task_relevant/goal_{i}'
-        #     success = 0
-        #     for traj in trajectories:
-        #         env_infos = traj['env_infos']
-        #         # Case 1: dict of lists
-        #         if isinstance(env_infos, dict):
-        #             vals = env_infos.get(goal_key, [0])
-        #             success = max(success, max(vals))
-        #         # Case 2: list of dicts
-        #         elif isinstance(env_infos, list):
-        #             vals = [info.get(goal_key, 0) for info in env_infos if isinstance(info, dict)]
-        #             if vals:
-        #                 success = max(success, max(vals))
-        #     eval_metrics[f'KitchenTask{goal_name}'] = success
-        #     sum_successes += success
-
-        # eval_metrics[f'KitchenOverall'] = sum_successes
-
         return eval_metrics

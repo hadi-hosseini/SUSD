@@ -18,6 +18,10 @@ class PPO(IOD):
             vf,
             gae_lambda,
             ppo_clip,
+            
+            multitask,
+            exp_name,
+
             **kwargs,
     ):
         super().__init__(**kwargs)
@@ -27,6 +31,10 @@ class PPO(IOD):
         self.gae_lambda = gae_lambda
         self.ppo_clip = ppo_clip
         self.replay_buffer = None
+
+        self.multitask = multitask
+        self.exp_name = exp_name
+        self.dist_predictor = None
 
     @property
     def policy(self):
@@ -48,7 +56,7 @@ class PPO(IOD):
             epoch_data[key] = torch.tensor(np.concatenate(value, axis=0), dtype=torch.float32, device=self.device)
         return epoch_data
 
-    def _train_once_inner(self, path_data):
+    def _train_once_inner(self, path_data, runner):
         # Update advantages
         valids = [len(traj) for traj in path_data['obs']]
         obs_flat = torch.tensor(np.concatenate(path_data['obs'], axis=0), dtype=torch.float32, device=self.device)
@@ -139,15 +147,15 @@ class PPO(IOD):
             worker_update=dict(
                 _render=False,
                 _deterministic_initial_state=False,
-                _deterministic_policy=self.eval_deterministic_traj,
+                _deterministic_policy=True,
             ),
             env_update=dict(_action_noise_std=None),
         )
 
-        with FigManager(runner, 'TrajPlot_RandomZ') as fm:
-            runner._env.render_trajectories(
-                random_trajectories, np.zeros((self.num_random_trajectories, 3)), self.eval_plot_axis, fm.ax
-            )
+        # with FigManager(runner, 'TrajPlot_RandomZ') as fm:
+        #     runner._env.render_trajectories(
+        #         random_trajectories, np.zeros((self.num_random_trajectories, 3)), self.eval_plot_axis, fm.ax
+        #     )
 
         eval_option_metrics = {}
         eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
