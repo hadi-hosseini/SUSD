@@ -21,7 +21,8 @@ class ChildPolicyEnv(gym.Wrapper):
             cp_multi_step,
             cp_num_truncate_obs,
             cp_omit_obs_idxs=None,
-            cp_multitask = False
+            cp_multitask = False,
+            causal_vector=[1] * 10
     ):
         super().__init__(env)
 
@@ -29,8 +30,8 @@ class ChildPolicyEnv(gym.Wrapper):
         self.child_policy.eval()
 
         self.cp_dim_action = cp_dict['dim_option']
-        self.cp_N = getattr(cp_dict, 'N', 1) # baselines
-        # self.cp_N = getattr(cp_dict, 'N', 10) # susd
+        # self.cp_N = getattr(cp_dict, 'N', 1) # baselines
+        self.cp_N = getattr(cp_dict, 'N', 10) # susd
 
         
         self.cp_action_range = cp_action_range
@@ -40,6 +41,7 @@ class ChildPolicyEnv(gym.Wrapper):
         self.cp_omit_obs_idxs = cp_omit_obs_idxs
         self.cp_multitask = cp_multitask
         self.cp_discrete = cp_dict['discrete']
+        self.causal_vector = causal_vector
 
         self.observation_space = self.env.observation_space
 
@@ -105,6 +107,9 @@ class ChildPolicyEnv(gym.Wrapper):
             action = np.clip(action, lb, ub)
 
             observation, r, done, info = self.env.step(action, **kwargs)
+            r = r * self.causal_vector
+            r = sum(r)
+
             self.cycle_reward += r
             if self.step_count % self.cp_multi_step == 0:
                 reward = self.cycle_reward / self.cp_multi_step

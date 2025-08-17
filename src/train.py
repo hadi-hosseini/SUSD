@@ -117,20 +117,21 @@ class SUSDHighLevelKitchenConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
-    run_group: str = "HRL_METRA"
-    max_path_length: int =  10 #10
+    baseline: str = "DIAYN"
+    max_path_length: int =  10 # 10
     dim_option: int = 2
-    n_parallel: int = 8  # 1
-    task_diff: int = 0 # 0: not factorized 1: easy 2: medium 3: hard
+    n_parallel: int = 1  # 1
+    task_diff: int = 3 # 1: easy 2: medium 3: hard 4: all of them
+    run_group: str = f"HRL_{baseline}_{task_diff}"
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100
     cp_multi_step: int = 5 # 5
-    algo: str = "sac"
+    algo: str = "sac" # sac
     n_epochs_per_eval: int = 100
     n_epochs_per_save: int = 0
     n_epochs_per_pt_save: int = 0
     n_epochs_per_pkl_update: int = 0
-    n_epochs: int = 6000 
+    n_epochs: int = 10000 
     eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
     trans_optimization_epochs: int = 50
     sac_replay_buffer: int = 1
@@ -142,9 +143,7 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    # cp_path: str = "/home/hadi/rl/baseline/exp/CSD_PARTICLE/sd000_1754998555_particle_metra/option_policy5000.pt" # csd
-    # cp_path: str = "/home/hadi/rl/baseline/exp/LSD_PARTICLE/sd000_1755263965_particle_metra/option_policy5000.pt" # lsd
-    cp_path: str = "/home/hadi/rl/baseline/exp/METRA_PARTICLE/sd000_1755263681_particle_metra/option_policy5000.pt" # metra
+    cp_path: str = f"final_models/particle/{baseline}/option_policy10000.pt"
     cp_unit_length: int = 1
 
     env: str = "particle"
@@ -162,10 +161,10 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
 
 @dataclass
 class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
-    run_group: str = "HRL_SUSD"
     max_path_length: int = 10
     dim_option: int = 20 # susd
-    task_diff: int = 0 # 0: not factorized 1: easy 2: medium 3: hard
+    task_diff: int = 3 # 1: easy 2: medium 3: hard 4: all of them
+    run_group: str = f"HRL_SUSD_{task_diff}"
     n_parallel: int = 1 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -175,7 +174,7 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     n_epochs_per_save: int = 0
     n_epochs_per_pt_save: int = 0
     n_epochs_per_pkl_update: int = 0
-    n_epochs: int = 200000
+    n_epochs: int = 10000
     eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
     trans_optimization_epochs: int = 50
     sac_replay_buffer: int = 1
@@ -187,8 +186,7 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    cp_path: str = "/home/hadi/rl/SUSD/exp/SUSD_PARTICLE/sd000_1754997216_particle_metra/option_policy5000.pt" # susd
-
+    cp_path: str = "/home/hadi/rl/SUSD/final_models/particle/SUSD/option_policy10000.pt"
     cp_unit_length: int = 1
 
     env: str = "particle"
@@ -206,13 +204,31 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
 
 
 
-method = "baseline_particle" # ["susd_particle", "baseline_particle"]
+def get_causal_vector(task_diff):
+    if task_diff == 1:
+        agent_list = [1]
+    elif task_diff == 2:
+        agent_list = [0, 2, 4, 6, 9]
+    elif task_diff == 3:
+        agent_list = [0, 1, 2, 3, 4, 6, 7, 9]
+    elif task_diff == 4:
+        agent_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    causal_vector = np.zeros([10])
+    for i in range(len(agent_list)):
+        causal_vector[agent_list[i]] = 1
+
+    return causal_vector
+
+
+method = "susd_particle" # ["susd_particle", "baseline_particle"]
 
 if method == "susd_particle":
     args = SUSDHighLevelParticleConfig()
 elif method == "baseline_particle":
     args = BaselineHighLevelParticleConfig()
 
+causal_vector = get_causal_vector(args.task_diff)
 
 def make_env(max_path_length):
     if args.env == "particle":
@@ -223,8 +239,7 @@ def make_env(max_path_length):
             local_ratio=0,
             N=10)
 
-        factorize = args.task_diff > 0
-        env = DownstreamCentralizedWrapper(env, landmark_id=range(10), N=10, factorize=factorize, custom_order=args.custom_order, simplify_action_space=True)
+        env = DownstreamCentralizedWrapper(env, landmark_id=range(10), N=10, factorize=True, custom_order=args.custom_order, simplify_action_space=True)
         env.reset(seed=0)
         
     elif args.env == "kitchen_franka":
@@ -244,7 +259,8 @@ def make_env(max_path_length):
             cp_unit_length=args.cp_unit_length,
             cp_multi_step=args.cp_multi_step,
             cp_num_truncate_obs=0,
-            cp_multitask=args.cp_multitask)
+            cp_multitask=args.cp_multitask,
+            causal_vector=causal_vector)
     
     return env
 
@@ -417,7 +433,7 @@ def run(ctxt=None):
             discrete=args.discrete,
             unit_length=args.unit_length,
             multitask=args.cp_multitask,
-            exp_name= get_exp_name(args)[0]
+            exp_name= get_exp_name(args)[0],
         )
     
 
