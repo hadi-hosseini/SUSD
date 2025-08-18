@@ -12,6 +12,8 @@ from garagei.torch.modules.parameter_module import ParameterModule
 from garage.experiment.experiment import get_metadata
 from garagei.envs.consistent_normalized_env import consistent_normalize
 from iod.utils import get_normalizer_preset
+from envs.moma_2d.moma_2d_gym_env import MoMa2DGymEnv
+
 
 from pettingzoo.mpe import simple_heterogenous_v3
 from pettingzoo.utils.wrappers.centralized_wrapper import (CentralizedWrapper,
@@ -169,6 +171,12 @@ def make_env(args, max_path_length):
         env = Particle(env, custom_order, (512, 480))
         env.reset(seed=args.seed)
 
+    elif args.env == "gunner":
+        custom_order = [0, 1, 2, 3, 12, 13,
+                        4, 5, 6, 7, 14, 15, 16,
+                        8, 9, 10, 11, 17] # base, arm, view
+        env = MoMa2DGymEnv(max_step=1000, custom_order=custom_order)
+        env.reset()
     else:
         raise NotImplementedError
     

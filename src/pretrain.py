@@ -53,7 +53,7 @@ from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env, make_q_function
 from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory, PartitionedTrajectoryEncoderWithInputFactor0
-from src.conf import SUSDFrankaKitchenConfig, SUSDParticle
+from src.conf import SUSDFrankaKitchenConfig, SUSDParticle, SUSDGunner
 
 
 if os.environ.get('START_METHOD') is not None:
@@ -63,7 +63,8 @@ else:
 
 
 # args = SUSDFrankaKitchenConfig()
-args = SUSDParticle()
+# args = SUSDParticle()
+args = SUSDGunner()
 
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])

@@ -27,7 +27,7 @@ os.environ["MUJOCO_GL"] = "egl"
 class KitchenFranka(gym.Wrapper, MujocoTrait, mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self, *args, custom_order=None, **kwargs):        
         super().__init__(*args, **kwargs)
-        self.last_state = None
+        # self.last_state = None
         self.last_ob = None
         self.reward_range = (-np.inf, np.inf)
         self.metadata = {}
@@ -65,7 +65,7 @@ class KitchenFranka(gym.Wrapper, MujocoTrait, mujoco_env.MujocoEnv, utils.EzPick
         ob = self.get_state(state['observation'])
 
 
-        self.last_state = state
+        # self.last_state = state
         self.last_ob = ob
         
         return ob
@@ -83,18 +83,18 @@ class KitchenFranka(gym.Wrapper, MujocoTrait, mujoco_env.MujocoEnv, utils.EzPick
         info['episode_task_completions'] = task_vector
 
 
-        coords = self.last_state['observation'][:2].copy()
-        next_coords = next_state['observation'][:2].copy()
+        coords = self.last_ob[:2].copy()
+        next_coords =ob[:2].copy()
 
         info['coordinates'] = coords
         info['next_coordinates'] = next_coords
-        info['ori_obs'] = self.last_state['observation']
-        info['next_ori_obs'] = next_state['observation']
+        info['ori_obs'] = self.last_ob
+        info['next_ori_obs'] = ob
 
         if render:
             info['render'] = self.render().transpose(2, 0, 1)
 
-        self.last_state = next_state
+        # self.last_state = next_state
         self.last_ob = ob
 
         return ob, reward, done, info

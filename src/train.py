@@ -121,7 +121,7 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
     max_path_length: int =  10 # 10
     dim_option: int = 2
     n_parallel: int = 1  # 1
-    task_diff: int = 3 # 1: easy 2: medium 3: hard 4: all of them
+    task_diff: int = 1 # 1: easy 2: medium 3: hard 4: all of them
     run_group: str = f"HRL_{baseline}_{task_diff}"
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100
@@ -163,7 +163,7 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
 class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     max_path_length: int = 10
     dim_option: int = 20 # susd
-    task_diff: int = 3 # 1: easy 2: medium 3: hard 4: all of them
+    task_diff: int = 1 # 1: easy 2: medium 3: hard 4: all of them
     run_group: str = f"HRL_SUSD_{task_diff}"
     n_parallel: int = 1 
     traj_batch_size: int = 1 

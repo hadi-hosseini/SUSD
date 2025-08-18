@@ -55,6 +55,8 @@ def factorize_environment(args):
         state_factorization_points = [0, 11, 25]
     elif args.env == "particle":
         state_factorization_points = [0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70]
+    elif args.env == "gunner":
+        state_factorization_points = [0, 6, 13, 18]
     return state_factorization_points
 
 
