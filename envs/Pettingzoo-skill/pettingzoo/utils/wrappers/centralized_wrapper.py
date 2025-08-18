@@ -83,39 +83,6 @@ class CentralizedWrapper(gym.Env):
 	def render(self, mode='human'):
 		return self._env.render()
 
-	# # THIS IS A HACK (It's compatible for DUSDi not us)
-	# def plot_prediction_net(self, agent, cfg, step=0, device="cuda", anti=False, SHOW=False):
-	# 	assert agent.domain == "particle"
-	# 	N = cfg.env.particle.N
-	# 	# So we want to test: for each vector, what are the predicted skill
-	# 	vectors = np.linspace(0.05, 2.00, 16)
-	# 	possible_vectors = [[v] for v in vectors]
-	# 	prediction = []
-	# 	for vec in possible_vectors:
-	# 		with torch.no_grad():
-	# 			test_obs = torch.tensor(vec*N, device=device, dtype=torch.float32)
-	# 			if anti:
-	# 				predicted_z = torch.softmax(agent.anti_diayn(None, torch.tensor(test_obs, device=device)).
-	# 											reshape(cfg.agent.skill_channel, -1),
-	# 											dim=-1)
-	# 			else:
-	# 				predicted_z = torch.softmax(agent.diayn(None, torch.tensor(test_obs, device=device)).
-	# 											reshape(cfg.agent.skill_channel, -1),
-	# 											dim=-1)
-	# 		prediction.append(predicted_z.cpu().numpy())
-
-	# 	apd = f"_step_{step}"
-	# 	if anti:
-	# 		apd += "_anti"
-
-	# 	import sys
-	# 	np.set_printoptions(threshold=sys.maxsize)
-
-	# 	# Save in the right format (group by subskill)
-	# 	text = np.array2string(np.array(prediction).swapaxes(0, 1), precision=2, suppress_small=True)
-	# 	with open(f"pred{apd}.txt", "w") as text_file:
-	# 		text_file.write(text)
-
 	def __getattr__(self, name):
 		return getattr(self._env, name)
 
@@ -208,7 +175,7 @@ class DownstreamCentralizedWrapper(CentralizedWrapper):
 			raise TypeError("Unsupported type for vec. Must be torch.Tensor, numpy.ndarray, or list.")
 
 
-	def reset(self, seed=1): # 0: pretrain seed # 1: train seed
+	def reset(self, seed=0): # 0: pretrain seed # 1: train seed
 		self._env.reset(seed)
 		self.step_count = 0.0
 		self.downstream_reset()
@@ -218,7 +185,6 @@ class DownstreamCentralizedWrapper(CentralizedWrapper):
 		return state
 
 	def get_reward(self, state):
-		# dist_list = state[:self.N]
 		indices = np.arange(0, 70, 7)
 		dist_list = state[indices]		
 		reward = np.zeros_like(self.landmark_id, dtype=np.float32)
@@ -258,7 +224,9 @@ class SequentialDSWrapper(DownstreamCentralizedWrapper):
 	"""
 	Defines the sequential interaction environment
 	"""
-	def __init__(self, env, N, agent_sequence=[0, 1, 2], simplify_action_space=True):
+	def __init__(self, env, N, agent_sequence=[0, 1, 2], simplify_action_space=True, **kwargs):
+
+		super().__init__(env, N=N, simplify_action_space=simplify_action_space, **kwargs)
 		self._env = env
 		self.N = N
 		self.distance_threshold = 0.6
@@ -267,6 +235,7 @@ class SequentialDSWrapper(DownstreamCentralizedWrapper):
 		self.simplify_action_space = simplify_action_space
 
 		self.initialize_parameters()
+		self.cycle_step = 10 # 50
 		self.initialize_action_space()
 		self.initialize_state_space()
 
@@ -284,30 +253,31 @@ class SequentialDSWrapper(DownstreamCentralizedWrapper):
 		if self.progress_idx == len(self.agent_sequence):
 			reward = 10
 		else:
-			dist_list = state[:self.N]
+			indices = np.arange(0, 70, 7)
+			dist_list = state[indices]		
 			reward = 0
 			for idx in range(self.N):
-				# if idx in [5, 8]:
-				# 	continue
 				binary = self.curren_idx[idx]
 				dist = dist_list[idx]
 				if binary == 0:
 					if dist > self.distance_threshold:
-						reward += 0
+						reward += 0.0
 					else:
 						reward -= 0.1
 				else:
 					# Ok here is the problem -> after update
 					if dist < self.distance_threshold:
-						reward += 0
+						reward += 0.0 
 						self.charge_counter += 1
 					else:
 						reward -= 0.1
 		return reward
 
+
 	def ds_state_update(self):
-		if self.progress_idx < len(self.agent_sequence) and self.charge_counter > 40:
+		if self.progress_idx < len(self.agent_sequence) and self.charge_counter > 0: # 40
 			# switch to next target
+			print(self.progress_idx)
 			self.progress_idx += 1
 			self.charge_counter = 0
 			self.curren_idx = np.zeros(self.N)

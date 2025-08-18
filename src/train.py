@@ -121,8 +121,9 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
     max_path_length: int =  10 # 10
     dim_option: int = 2
     n_parallel: int = 1  # 1
-    task_diff: int = 1 # 1: easy 2: medium 3: hard 4: all of them
-    run_group: str = f"HRL_{baseline}_{task_diff}"
+    task_diff: int = 5 # 1: easy 2: medium 3: hard 4: all of them
+    downstream_task: str = "seq" # fp: food&poison seq: sequential
+    run_group: str = f"HRL_{baseline}_{task_diff}_{downstream_task}"
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100
     cp_multi_step: int = 5 # 5
@@ -161,14 +162,15 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
 
 @dataclass
 class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
-    max_path_length: int = 10
+    max_path_length: int = 10 # 10
     dim_option: int = 20 # susd
-    task_diff: int = 1 # 1: easy 2: medium 3: hard 4: all of them
-    run_group: str = f"HRL_SUSD_{task_diff}"
-    n_parallel: int = 1 
+    task_diff: int = 5 # 1: easy 2: medium 3: hard 4: all of them
+    downstream_task: str = "seq" # fp: food&poison seq: sequential
+    run_group: str = f"HRL_SUSD_{task_diff}_{downstream_task}"
+    n_parallel: int = 8 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
-    cp_multi_step: int = 5
+    cp_multi_step: int = 5 # 5
     algo: str = "sac"
     n_epochs_per_eval: int = 100
     n_epochs_per_save: int = 0
@@ -213,6 +215,12 @@ def get_causal_vector(task_diff):
         agent_list = [0, 1, 2, 3, 4, 6, 7, 9]
     elif task_diff == 4:
         agent_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    elif task_diff == 7:
+        agent_list = [1, 3] # easy for seq task
+    elif task_diff == 5:
+        agent_list = [0, 2, 8] # medium for seq task
+    elif task_diff == 6:
+        agent_list = [0, 2, 6, 8, 9] # hard for seq task
 
     causal_vector = np.zeros([10])
     for i in range(len(agent_list)):
@@ -239,7 +247,10 @@ def make_env(max_path_length):
             local_ratio=0,
             N=10)
 
-        env = DownstreamCentralizedWrapper(env, landmark_id=range(10), N=10, factorize=True, custom_order=args.custom_order, simplify_action_space=True)
+        if args.downstream_task == "fp":
+            env = DownstreamCentralizedWrapper(env, landmark_id=range(10), N=10, factorize=True, custom_order=args.custom_order, simplify_action_space=True)
+        elif args.downstream_task == "seq":
+            env = SequentialDSWrapper(env, landmark_id=range(10), N=10, factorize=True, custom_order=args.custom_order, simplify_action_space=True, agent_sequence=[0, 2, 8])
         env.reset(seed=0)
         
     elif args.env == "kitchen_franka":
@@ -260,7 +271,8 @@ def make_env(max_path_length):
             cp_multi_step=args.cp_multi_step,
             cp_num_truncate_obs=0,
             cp_multitask=args.cp_multitask,
-            causal_vector=causal_vector)
+            causal_vector=causal_vector,
+            downstream_task=args.downstream_task)
     
     return env
 

@@ -101,7 +101,7 @@ class SUSDConfig:
 # --- Specific Configs ---
 @dataclass
 class SUSDFrankaKitchenConfig(SUSDConfig):
-    run_group: str = 'SUSD_WITH_SCALE_50'
+    run_group: str = 'SUSD_KITCHEN'
     env: str = 'kitchen_franka'
     max_path_length: int = 50
     seed: int = 0
@@ -121,10 +121,10 @@ class SUSDFrankaKitchenConfig(SUSDConfig):
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    sac_scale_reward: float = 50.0 # the reward that we multiply with intrinsic rewrad 
+    sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_dist_norm: int = 1 # using normalization for marginal distribution
     susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
-    susd_q_function: int = 1 # 1: use q-function for reward estimation 0: off
+    susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
 
 @dataclass
 class SUSDFetchConfig(SUSDConfig):
@@ -209,7 +209,7 @@ class SUSDParticle(SUSDConfig):
 
 @dataclass
 class SUSDGunner(SUSDConfig):
-    run_group: str = 'SUSD_GUNNER'
+    run_group: str = 'TEST'
     env: str = 'gunner'
     max_path_length: int = 50
     seed: int = 0
