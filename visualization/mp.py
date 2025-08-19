@@ -55,6 +55,46 @@ def fp_easy():
     return fp_easy
 
 
+def seq_easy():
+    all_dfs = []
+    for method in methods:
+        reader = SummaryReader(f"./exp/HRL_{method}_7_seq", pivot=True)
+        df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
+        df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
+        df["method"] = method
+        all_dfs.append(df)
+
+    seq_easy = pd.concat(all_dfs)
+    return seq_easy
+
+
+def seq_medium():
+    all_dfs = []
+    for method in methods:
+        reader = SummaryReader(f"./exp/HRL_{method}_5_seq", pivot=True)
+        df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
+        df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
+        df["method"] = method
+        all_dfs.append(df)
+
+    seq_medium = pd.concat(all_dfs)
+    return seq_medium
+
+
+def seq_hard():
+    all_dfs = []
+    for method in methods:
+        reader = SummaryReader(f"./exp/HRL_{method}_6_seq", pivot=True)
+        df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
+        df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
+        df["method"] = method
+        all_dfs.append(df)
+
+    seq_hard = pd.concat(all_dfs)
+    return seq_hard
+
+
+
 def plot_result(df, save_path, title):
     plt.figure(figsize=(10,6))
 
@@ -100,9 +140,23 @@ save_path = "visualization/vis/mp_fp_medium.png"
 mp_fp_medium = fp_medium()
 plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
 
-
-
 ### mp_fp_easy
 save_path = "visualization/vis/mp_fp_easy.png" 
 mp_fp_easy = fp_easy()
 plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
+
+
+### mp seq_easy
+save_path = "visualization/vis/mp_seq_easy.png" 
+mp_seq_easy = seq_easy()
+plot_result(mp_seq_easy, save_path, title="Multiparticle Sequential Easy")
+
+### mp seq_medium
+save_path = "visualization/vis/mp_seq_medium.png" 
+mp_seq_medium = seq_medium()
+plot_result(mp_seq_medium, save_path, title="Multiparticle Sequential Medium")
+
+### mp seq_hard
+save_path = "visualization/vis/mp_seq_hard.png" 
+mp_seq_hard = seq_hard()
+plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")

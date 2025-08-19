@@ -121,7 +121,7 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
     max_path_length: int =  10 # 10
     dim_option: int = 2
     n_parallel: int = 1  # 1
-    task_diff: int = 5 # 1: easy 2: medium 3: hard 4: all of them
+    task_diff: int = 6 # 1: easy 2: medium 3: hard 4: all of them
     downstream_task: str = "seq" # fp: food&poison seq: sequential
     run_group: str = f"HRL_{baseline}_{task_diff}_{downstream_task}"
     traj_batch_size: int = 1 
@@ -164,7 +164,7 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
 class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     max_path_length: int = 10 # 10
     dim_option: int = 20 # susd
-    task_diff: int = 5 # 1: easy 2: medium 3: hard 4: all of them
+    task_diff: int = 6 # 1: easy 2: medium 3: hard 4: all of them
     downstream_task: str = "seq" # fp: food&poison seq: sequential
     run_group: str = f"HRL_SUSD_{task_diff}_{downstream_task}"
     n_parallel: int = 8 
@@ -220,7 +220,7 @@ def get_causal_vector(task_diff):
     elif task_diff == 5:
         agent_list = [0, 2, 8] # medium for seq task
     elif task_diff == 6:
-        agent_list = [0, 2, 6, 8, 9] # hard for seq task
+        agent_list = [0, 1, 7, 9] # hard for seq task
 
     causal_vector = np.zeros([10])
     for i in range(len(agent_list)):
@@ -229,7 +229,7 @@ def get_causal_vector(task_diff):
     return causal_vector
 
 
-method = "susd_particle" # ["susd_particle", "baseline_particle"]
+method = "baseline_particle" # ["susd_particle", "baseline_particle"]
 
 if method == "susd_particle":
     args = SUSDHighLevelParticleConfig()
@@ -250,7 +250,7 @@ def make_env(max_path_length):
         if args.downstream_task == "fp":
             env = DownstreamCentralizedWrapper(env, landmark_id=range(10), N=10, factorize=True, custom_order=args.custom_order, simplify_action_space=True)
         elif args.downstream_task == "seq":
-            env = SequentialDSWrapper(env, landmark_id=range(10), N=10, factorize=True, custom_order=args.custom_order, simplify_action_space=True, agent_sequence=[0, 2, 8])
+            env = SequentialDSWrapper(env, landmark_id=range(10), N=10, factorize=True, custom_order=args.custom_order, simplify_action_space=True, agent_sequence=[0, 1, 7, 9])
         env.reset(seed=0)
         
     elif args.env == "kitchen_franka":
