@@ -15,6 +15,8 @@ conda activate dsd
 pip install -r requirements.txt --no-deps
 pip install -e .
 pip install -e garaged
+cd envs/Pettingzoo-skill
+pip install -e .
 ```
 
 ## Examples

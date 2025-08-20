@@ -16,33 +16,31 @@ from iod.utils import get_normalizer_preset
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# variables 
-algo = "csd" # ["dsd", "metra", "lsd", "csd", "diayn"]
+algo = "diayn" # ["susd", "metra", "lsd", "csd", "diayn"]
 num_runs = 8
 max_duration = 50
 max_steps = 200
-dsd_model = "dsd_clip"
 mode = "plot" # ["eval", "plot"]
 
-if algo == "dsd":
-    option_policy_checkpoint_path = f'final_models/ant/DSD/{dsd_model}/option_policy38000.pt'
-    traj_encoder_checkpoint_path = f'final_models/ant/DSD/{dsd_model}/traj_encoder38000.pt'
+if algo == "susd":
+    option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000.pt'
+    traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/ant/METRA/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/METRA/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/ant/METRA/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/METRA/traj_encoder10000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/ant/CSD/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/CSD/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/ant/CSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/CSD/traj_encoder10000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/ant/LSD/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/LSD/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/ant/LSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/LSD/traj_encoder10000.pt'
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/ant/DIAYN/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/DIAYN/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/ant/DIAYN/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/DIAYN/traj_encoder10000.pt'
 
 
 # Load pretrained option_policy
@@ -91,7 +89,7 @@ def zero_shot_eval(env, max_duration=30.0, max_steps=200):
             g_tensor[:, 0] = torch.tensor(goal[0])  # Overwrite x
             g_tensor[:, 1] = torch.tensor(goal[1])  # Overwrite y
 
-            if algo == "dsd":
+            if algo == "susd":
                 phi_s = traj_encoder(s_tensor).detach()
                 phi_g = traj_encoder(g_tensor).detach()
             else:
@@ -219,25 +217,21 @@ def load_logs_from_csv(csv_path):
 
 
 if mode == "eval":
-    run_multiple_seeds(num_runs=1, max_duration=max_duration, max_steps=200)
+    run_multiple_seeds(num_runs=num_runs, max_duration=max_duration, max_steps=200)
 elif mode == "plot":
-    # dsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd_kitchen.csv")
-    # dsd2_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd2_kitchen.csv")
-    # dsd3_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd3_kitchen.csv")
-    # dsd4_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd4_kitchen.csv")
-    # metra_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_metra_kitchen.csv")
+    susd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_susd_ant.csv")
+    metra_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_metra_ant.csv")
     csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_csd_ant.csv")
-    # lsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_lsd_kitchen.csv")
+    lsd_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_lsd_ant.csv")
+    diayn_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_diayn_ant.csv")
 
 
     logs_by_method = {
-        # "DSD_Q": dsd_logs,
-        # "DSD_NORM": dsd2_logs,
-        # "DSD_CLIP": dsd3_logs,
-        # "DSD_ORIG": dsd4_logs,
-        # "METRA": metra_logs,
+        "SUSD": susd_logs,
+        "METRA": metra_logs,
         "CSD": csd_logs,
-        # "LSD": lsd_logs
+        "LSD": lsd_logs,
+        "DIAYN": diayn_logs,
     }
 
     plot_multiple_methods_cumulative_reward(

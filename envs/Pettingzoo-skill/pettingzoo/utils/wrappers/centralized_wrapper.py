@@ -175,7 +175,7 @@ class DownstreamCentralizedWrapper(CentralizedWrapper):
 			raise TypeError("Unsupported type for vec. Must be torch.Tensor, numpy.ndarray, or list.")
 
 
-	def reset(self, seed=0): # 0: pretrain seed # 1: train seed
+	def reset(self, seed=2): # 0: pretrain seed # 1/2/3: train seed
 		self._env.reset(seed)
 		self.step_count = 0.0
 		self.downstream_reset()

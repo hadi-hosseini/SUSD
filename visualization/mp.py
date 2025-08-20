@@ -4,10 +4,10 @@ from tbparse import SummaryReader
 
 methods = ["CSD", "METRA", "LSD", "DIAYN", "SUSD"]
 
-def fp_diff():
+def fp_diff(): # task_diff = 4
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}", pivot=True)
+        reader = SummaryReader(f"./exp/HRL_{method}_fp_4", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -16,10 +16,10 @@ def fp_diff():
     fp_diff = pd.concat(all_dfs)
     return fp_diff
 
-def fp_hard():
+def fp_hard(): # task_diff = 3
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_3", pivot=True)
+        reader = SummaryReader(f"./exp/HRL_{method}_fp_3", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -28,10 +28,10 @@ def fp_hard():
     fp_hard = pd.concat(all_dfs)
     return fp_hard
 
-def fp_medium():
+def fp_medium(): # task_diff = 2
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_2", pivot=True)
+        reader = SummaryReader(f"./exp/HRL_{method}_fp_2", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -40,12 +40,10 @@ def fp_medium():
     fp_medium = pd.concat(all_dfs)
     return fp_medium
 
-
-
-def fp_easy():
+def fp_easy(): # task_diff = 1
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_1", pivot=True)
+        reader = SummaryReader(f"./exp/HRL_{method}_fp_1", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -54,11 +52,10 @@ def fp_easy():
     fp_easy = pd.concat(all_dfs)
     return fp_easy
 
-
-def seq_easy():
+def seq_easy(): # task_diff = 5
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_7_seq", pivot=True)
+        reader = SummaryReader(f"./exp/HRL_{method}_seq_5", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -67,11 +64,10 @@ def seq_easy():
     seq_easy = pd.concat(all_dfs)
     return seq_easy
 
-
-def seq_medium():
+def seq_medium(): # task_diff = 6
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_5_seq", pivot=True)
+        reader = SummaryReader(f"./exp/HRL_{method}_seq_6", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -80,11 +76,10 @@ def seq_medium():
     seq_medium = pd.concat(all_dfs)
     return seq_medium
 
-
-def seq_hard():
+def seq_hard(): # task_diff = 7
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_6_seq", pivot=True)
+        reader = SummaryReader(f"./exp/HRL_{method}_seq_7", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -92,7 +87,6 @@ def seq_hard():
 
     seq_hard = pd.concat(all_dfs)
     return seq_hard
-
 
 
 def plot_result(df, save_path, title):

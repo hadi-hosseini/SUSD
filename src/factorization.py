@@ -47,7 +47,7 @@ def get_gaussian_module_construction(args,
 
 def factorize_environment(args):
     if args.env == "ant":
-        state_factorization_points = [0, 7, 15, 21, 29]
+        state_factorization_points = [0, 29]
     elif args.env == "kitchen_franka":
         state_factorization_points = [0, 18, 38, 44, 46, 59]
         # state_factorization_points = [0, 59]

@@ -18,44 +18,38 @@ import time
 from tqdm import tqdm
 import csv
 
-from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.logger import configure
-from stable_baselines3 import SAC
-from stable_baselines3.common.vec_env import DummyVecEnv     
 from envs.mujoco.ant_env import AntEnv
 
 import os
 os.environ["MUJOCO_GL"] = "egl"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-all_tasks = ['bottom burner', 'top burner', 'light switch', 'slide cabinet', 'hinge cabinet', 'microwave', 'kettle']
 
 mode = "plot" # ["plot", "eval"]
-algo = "csd" # ["dsd", "metra"]
-dsd_model = "dsd_norm"
+algo = "diayn" # ["susd", "metra", "csd", "diayn", "lsd"]
+skill_dim = 2
 
-if algo == "dsd":
-    option_policy_checkpoint_path = f'final_models/ant/DSD/{dsd_model}/option_policy38000.pt'
-    traj_encoder_checkpoint_path = f'final_models/ant/DSD/{dsd_model}/traj_encoder38000.pt'
+if algo == "susd":
+    option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000.pt'
+    traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/ant/METRA/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/METRA/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/ant/METRA/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/METRA/traj_encoder10000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/ant/CSD/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/CSD/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/ant/CSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/CSD/traj_encoder10000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/ant/LSD/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/LSD/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/ant/LSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/LSD/traj_encoder10000.pt'
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/ant/DIAYN/option_policy40000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/DIAYN/traj_encoder40000.pt'
+    option_policy_checkpoint_path = 'final_models/ant/DIAYN/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/ant/DIAYN/traj_encoder10000.pt'
 
-csv_path = f"final_models/ant/COVERAGE/task_coverage_{algo}_ant.csv"
+csv_path = f"final_models/ant/COVERAGE/state_coverage_{algo}_ant.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -65,8 +59,6 @@ traj_encoder = traj_encoder.to(device).eval()
 
 env = AntEnv(render_hw=100)
 max_steps = 200
-
-skill_dim = 2
 
 
 def eval(env):
@@ -196,23 +188,20 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    # dsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd_kitchen.csv")
-    # dsd2_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd2_kitchen.csv")
-    # dsd3_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd3_kitchen.csv")
-    # dsd4_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_dsd4_kitchen.csv")
-    # metra_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_metra_kitchen.csv")
-    csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/task_coverage_csd_ant.csv")
-    # lsd_logs = load_logs_from_csv("final_models/kitchen/COVERAGE/task_coverage_lsd_kitchen.csv")
+    susd_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_susd_ant.csv")
+    metra_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_metra_ant.csv")
+    csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_csd_ant.csv")
+    lsd_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_lsd_ant.csv")
+    diayn_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_diayn_ant.csv")
+
 
 
     logs_by_method = {
-        # "DSD_Q": dsd_logs,
-        # "DSD_NORM": dsd2_logs,
-        # "DSD_CLIP": dsd3_logs,
-        # "DSD_ORIG": dsd4_logs,
-        # "METRA": metra_logs,
+        "SUSD": susd_logs,
+        "METRA": metra_logs,
         "CSD": csd_logs,
-        # "LSD": lsd_logs
+        "LSD": lsd_logs,
+        "DIAYN": diayn_logs,
     }
 
     plot_multiple_methods_cumulative_reward(
