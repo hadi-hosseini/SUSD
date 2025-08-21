@@ -168,6 +168,7 @@ class MoMa2DGymEnv(MujocoTrait, gym.Env):
 		reward = self.get_reward()
 
 		observation = self.permute_state(observation)
+		observation = observation.reshape(-1) # add
 
 		coords = self.last_agent_pos
 		next_coords = self.agent_pos
@@ -209,9 +210,15 @@ class MoMa2DGymEnv(MujocoTrait, gym.Env):
 		obs = [*self.base_item, *self.arm_item, *self.view_item,
 					   *self.agent_pos, *self.arm_pos, self.gripper_location, self.view].copy()
 
+
+		
 		obs = self.permute_state(obs)
+		obs = obs.reshape(-1) # add
+		
 		self.last_obs = obs
 		self.last_agent_pos = self.agent_pos
+
+		
 
 		return obs
 

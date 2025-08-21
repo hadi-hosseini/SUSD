@@ -28,16 +28,20 @@ from garagei.torch.policies.policy_ex import PolicyEx
 from iod.sac import SAC
 from iod.ppo import PPO
 # from src.child_policy_env import ChildPolicyEnv
-from src.child_policy_env_particle import ChildPolicyEnv
+from src.child_policy_env_particle import ChildPolicyEnvParticle
+from src.child_policy_env_gunner import ChildPolicyEnvGunner
 from src.conf import SUSDConfig
 from src.utils import get_exp_name, get_log_dir
 from downstream_tasks.downstream_kitchen import DownstreamKitchen
+
 
 from pettingzoo.mpe import simple_heterogenous_v3
 from pettingzoo.utils.wrappers.centralized_wrapper import (CentralizedWrapper,
                                                                DownstreamCentralizedWrapper,
                                                                SequentialDSWrapper)
 from envs.mp.particle import Particle
+from envs.moma_2d.moma_2d_downstream_env import MoMa2DGymDSEnv
+from envs.moma_2d.moma_2d_gym_env import MoMa2DGymEnv
 
 
 
@@ -111,7 +115,7 @@ class SUSDHighLevelKitchenConfig(SUSDHighLevelConfig):
                 28, 29, 30, 49, 50, 51,                                           # Cabinets
                 31, 52,                                                          # Microwave
                 32, 33, 34, 35, 36, 37, 38, 53, 54, 55, 56, 57, 58               # Kettle
-        ]
+    ]
 
 
 
@@ -206,6 +210,80 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
 
 
 
+@dataclass
+class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
+    baseline: str = "CSD"
+    max_path_length: int = 500 # 10
+    dim_option: int = 2 # susd
+    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
+    run_group: str = f"HRL_{baseline}_{downstream_task}"
+    n_parallel: int = 8 
+    traj_batch_size: int = 1 
+    num_random_trajectories: int = 100 # number of trajectories for evaluation
+    cp_multi_step: int = 5 # 5
+    algo: str = "sac"
+    n_epochs_per_eval: int = 100
+    n_epochs_per_save: int = 0
+    n_epochs_per_pt_save: int = 0
+    n_epochs_per_pkl_update: int = 0
+    n_epochs: int = 10000
+    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
+    trans_optimization_epochs: int = 50
+    sac_replay_buffer: int = 1
+    sac_max_buffer_size: int = 1000000
+    sac_min_buffer_size: int = 1000
+    n_epochs_per_log: int = 25
+    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_save: int = 1000 # 1000
+    n_epochs_per_pt_save: int = 1000 # 1000
+    te_only_last_frame: int  = 0
+    alpha: float = 0.1
+    cp_path: str = "final_models/gunner/CSD/option_policy10000.pt"
+    cp_unit_length: int = 1
+
+    env: str = "gunner"
+    cp_multitask: int = 0 # the number of tasks
+    custom_order = [0, 1, 2, 3, 12, 13,
+                        4, 5, 6, 7, 14, 15, 16,
+                        8, 9, 10, 11, 17] # base, arm, view
+
+@dataclass
+class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
+    max_path_length: int = 500 # 10
+    dim_option: int = 2 # susd
+    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
+    run_group: str = f"HRL_SUSD_{downstream_task}"
+    n_parallel: int = 8 
+    traj_batch_size: int = 1 
+    num_random_trajectories: int = 100 # number of trajectories for evaluation
+    cp_multi_step: int = 5 # 5
+    algo: str = "sac"
+    n_epochs_per_eval: int = 100
+    n_epochs_per_save: int = 0
+    n_epochs_per_pt_save: int = 0
+    n_epochs_per_pkl_update: int = 0
+    n_epochs: int = 10000
+    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
+    trans_optimization_epochs: int = 50
+    sac_replay_buffer: int = 1
+    sac_max_buffer_size: int = 1000000
+    sac_min_buffer_size: int = 1000
+    n_epochs_per_log: int = 25
+    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_save: int = 1000 # 1000
+    n_epochs_per_pt_save: int = 1000 # 1000
+    te_only_last_frame: int  = 0
+    alpha: float = 0.1
+    cp_path: str = "final_models/gunner/SUSD/option_policy10000.pt"
+    cp_unit_length: int = 1
+
+    env: str = "gunner"
+    cp_multitask: int = 0 # the number of tasks
+    custom_order = [0, 1, 2, 3, 12, 13,
+                        4, 5, 6, 7, 14, 15, 16,
+                        8, 9, 10, 11, 17] # base, arm, view
+
+
 def get_causal_vector(task_diff):
     if task_diff == 1: # fp - easy
         agent_list = [1, 6] 
@@ -229,14 +307,23 @@ def get_causal_vector(task_diff):
     return causal_vector, agent_list
 
 
-method = "susd_particle" # ["susd_particle", "baseline_particle"]
+# method = "susd_particle" # ["susd_particle", "baseline_particle"]
 
-if method == "susd_particle":
-    args = SUSDHighLevelParticleConfig()
-elif method == "baseline_particle":
-    args = BaselineHighLevelParticleConfig()
+# if method == "susd_particle":
+#     args = SUSDHighLevelParticleConfig()
+# elif method == "baseline_particle":
+#     args = BaselineHighLevelParticleConfig()
 
-causal_vector, agent_list = get_causal_vector(args.task_diff)
+
+method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
+
+if method == "susd_gunner":
+    args = SUSDHighLevelGunnerConfig()
+else:
+    args = BaseHighLevelGunnerConfig()
+
+if args.env == "particle":
+    causal_vector, agent_list = get_causal_vector(args.task_diff)
 
 def make_env(max_path_length):
     if args.env == "particle":
@@ -256,6 +343,10 @@ def make_env(max_path_length):
     elif args.env == "kitchen_franka":
         env =  DownstreamKitchen(tasks_to_complete=args.all_tasks, terminate_on_tasks_completed=True, render_mode="rgb_array", custom_order=args.custom_order)
 
+    elif args.env == "gunner":
+        env = MoMa2DGymEnv(max_step=1000, custom_order=args.custom_order)
+        env = MoMa2DGymDSEnv(version=args.downstream_task, show_empty=True, max_step=1000)
+
     if args.cp_path is not None:
         if not os.path.exists(args.cp_path):
             import glob
@@ -263,17 +354,27 @@ def make_env(max_path_length):
         cp_dict = torch.load(args.cp_path, map_location='cpu')
 
 
-    env = ChildPolicyEnv(
-            env,
-            cp_dict,
-            cp_action_range=1.5,
-            cp_unit_length=args.cp_unit_length,
-            cp_multi_step=args.cp_multi_step,
-            cp_num_truncate_obs=0,
-            cp_multitask=args.cp_multitask,
-            causal_vector=causal_vector,
-            downstream_task=args.downstream_task)
-    
+    if args.env == "particle":
+        env = ChildPolicyEnvParticle(
+                env,
+                cp_dict,
+                cp_action_range=1.5,
+                cp_unit_length=args.cp_unit_length,
+                cp_multi_step=args.cp_multi_step,
+                cp_num_truncate_obs=0,
+                cp_multitask=args.cp_multitask,
+                causal_vector=causal_vector,
+                downstream_task=args.downstream_task)
+        
+    elif args.env == "gunner":
+        env = ChildPolicyEnvGunner(
+                env,
+                cp_dict,
+                cp_action_range=1.5,
+                cp_unit_length=args.cp_unit_length,
+                cp_multi_step=args.cp_multi_step,
+                cp_num_truncate_obs=0,
+                cp_multitask=args.cp_multitask)
     return env
 
 
@@ -311,7 +412,10 @@ def run(ctxt=None):
         elif args.env == "particle":
             policy_q_input_dim = env.observation_space.shape[0]
             action_dim = env.action_space.shape[0]
-            
+        elif args.env == "gunner":
+            policy_q_input_dim = env.observation_space.shape[0]
+            action_dim = env.action_space.shape[0]
+
     device = torch.device('cuda' if args.use_gpu else 'cpu')
     master_dims = [args.model_master_dim] * args.model_master_num_layers
 

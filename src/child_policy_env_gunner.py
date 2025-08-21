@@ -11,7 +11,7 @@ from garage.torch.distributions import TanhNormal
 from iod.utils import get_torch_concat_obs
 
 
-class ChildPolicyEnvParticle(gym.Wrapper):
+class ChildPolicyEnvGunner(gym.Wrapper):
     def __init__(
             self,
             env,
@@ -20,10 +20,8 @@ class ChildPolicyEnvParticle(gym.Wrapper):
             cp_unit_length,
             cp_multi_step,
             cp_num_truncate_obs,
-            downstream_task = "fp",
             cp_omit_obs_idxs=None,
             cp_multitask = False,
-            causal_vector=[1] * 10
     ):
         super().__init__(env)
 
@@ -32,7 +30,7 @@ class ChildPolicyEnvParticle(gym.Wrapper):
 
         self.cp_dim_action = cp_dict['dim_option']
         # self.cp_N = getattr(cp_dict, 'N', 1) # baselines
-        self.cp_N = getattr(cp_dict, 'N', 10) # susd
+        self.cp_N = getattr(cp_dict, 'N', 3) # susd
 
         
         self.cp_action_range = cp_action_range
@@ -42,8 +40,6 @@ class ChildPolicyEnvParticle(gym.Wrapper):
         self.cp_omit_obs_idxs = cp_omit_obs_idxs
         self.cp_multitask = cp_multitask
         self.cp_discrete = cp_dict['discrete']
-        self.causal_vector = causal_vector
-        self.downstream_task = downstream_task
 
         self.observation_space = self.env.observation_space
 
@@ -109,9 +105,6 @@ class ChildPolicyEnvParticle(gym.Wrapper):
             action = np.clip(action, lb, ub)
 
             observation, r, done, info = self.env.step(action, **kwargs)
-            if self.downstream_task == "fp":
-                r = r * self.causal_vector
-                r = sum(r)
 
             self.cycle_reward += r
             if self.step_count % self.cp_multi_step == 0:
