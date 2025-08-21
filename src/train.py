@@ -215,7 +215,7 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
     baseline: str = "CSD"
     max_path_length: int = 500 # 10
     dim_option: int = 2 # susd
-    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
+    downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
     run_group: str = f"HRL_{baseline}_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
@@ -251,7 +251,7 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
 class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     max_path_length: int = 500 # 10
     dim_option: int = 2 # susd
-    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
+    downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
     run_group: str = f"HRL_SUSD_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
@@ -315,7 +315,7 @@ def get_causal_vector(task_diff):
 #     args = BaselineHighLevelParticleConfig()
 
 
-method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
+method = "baseline_gunner" # ["susd_gunner", "baseline_gunner"]
 
 if method == "susd_gunner":
     args = SUSDHighLevelGunnerConfig()
