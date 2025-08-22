@@ -293,7 +293,7 @@ class IOD(RLAlgorithm):
     def process_samples(self, paths):
         data = defaultdict(list)
         for path in paths:
-            print(path['rewards'])
+            # print(path['rewards'])
             data['obs'].append(path['observations'])
             data['next_obs'].append(path['next_observations'])
             data['actions'].append(path['actions'])

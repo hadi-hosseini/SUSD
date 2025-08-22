@@ -3,9 +3,7 @@ import matplotlib.pyplot as plt
 from tbparse import SummaryReader
 import numpy as np
 
-# methods = ["CSD", "METRA", "LSD", "DIAYN", "SUSD"]
-methods = ["CSD", "SUSD"]
-
+methods = ["CSD", "METRA", "LSD", "DIAYN", "SUSD"]
 
 def lim(): 
     all_dfs = []
@@ -99,7 +97,7 @@ def plot_result(df, save_path, title):
 
     # styling
     plt.title(title, fontsize=16, weight="bold")
-    plt.xlabel("Steps", fontsize=14)
+    plt.xlabel("Episodes", fontsize=14)
     plt.ylabel("Return", fontsize=14)
 
     plt.grid(True, linestyle="--", alpha=0.6)

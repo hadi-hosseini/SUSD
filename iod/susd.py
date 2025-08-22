@@ -41,6 +41,7 @@ class SUSD(IOD):
             q1_list,
             # log_alpha_list,
             susd_q_function,
+            susd_ablation1,
 
             **kwargs,
     ):
@@ -97,6 +98,7 @@ class SUSD(IOD):
         self.exp_name = exp_name
         self.susd_dist_norm = susd_dist_norm
         self.susd_input_factor0 = susd_input_factor0
+        self.susd_ablation1 = susd_ablation1
 
         assert self._trans_optimization_epochs is not None
 
@@ -329,13 +331,17 @@ class SUSD(IOD):
                 geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
                 normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
                 normalized_csd = torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor
-                if self.susd_dist_norm:
-                    if self.env_name == "kitchen_franka":
-                        csd_distances = [(59.0 * normalized_csd[:, start:end])/(end - start) for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
+
+                if self.susd_ablation1:
+                    csd_distances = torch.mean(normalized_csd, dim=1)
                 else:
-                    csd_distances = [normalized_csd[:, start:end] for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
-                csd_distances = [torch.sum(csd_distance, dim=1)/normalized_csd.shape[1] for csd_distance in csd_distances]
-                csd_distances = torch.stack(csd_distances, dim=1)
+                    if self.susd_dist_norm:
+                        if self.env_name == "kitchen_franka":
+                            csd_distances = [(59.0 * normalized_csd[:, start:end])/(end - start) for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
+                    else:
+                        csd_distances = [normalized_csd[:, start:end] for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
+                    csd_distances = [torch.sum(csd_distance, dim=1)/normalized_csd.shape[1] for csd_distance in csd_distances]
+                    csd_distances = torch.stack(csd_distances, dim=1)
 
 
                 if self.do_print:
@@ -475,8 +481,12 @@ class SUSD(IOD):
                 reward_i = self.qf1_list[i](self._get_concat_obs(self.option_policy.process_observations(v['obs'][:, start:end]), v['options'][:, start_option:end_option]), v['actions'])
                 rewards = rewards + reward_i
         else:
-            rewards = v['rewards'] * torch.sqrt(v['csd_distances'])
-            rewards = rewards.sum(dim=1)
+            if self.susd_ablation1:
+                rewards = v['rewards'].sum(dim=1)
+                rewards = rewards * torch.sqrt(v['csd_distances'])
+            else:
+                rewards = v['rewards'] * torch.sqrt(v['csd_distances'])
+                rewards = rewards.sum(dim=1)
 
         sac_utils.update_loss_qf(
             self, tensors, v,

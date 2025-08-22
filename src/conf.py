@@ -96,6 +96,7 @@ class SUSDConfig:
     dual_dist: str = 'one'  # Distance metric choice; options: 'l2', 's2_from_s', 'one'
     susd_dist_norm: int = 0 # to normalize each distribution 
     susd_input_factor0: int = 0 # input factor 0 (robot) to other phi functions.
+    susd_ablation1: int = 0 # use csd weight for all factors
 
 
 # --- Specific Configs ---
@@ -180,7 +181,7 @@ class SUSDAntConfig(SUSDConfig):
 
 @dataclass
 class SUSDParticle(SUSDConfig):
-    run_group: str = 'SUSD_PARTICLE'
+    run_group: str = 'SUSD_ABLATION1'
     env: str = 'particle'
     max_path_length: int = 50
     seed: int = 0
@@ -204,6 +205,7 @@ class SUSDParticle(SUSDConfig):
     susd_dist_norm: int = 0 # using normalization for marginal distribution
     susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
     susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
+    susd_ablation1: int = 1 # use CSD weight for all factors
 
 
 
