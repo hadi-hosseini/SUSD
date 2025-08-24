@@ -63,8 +63,8 @@ else:
 
 
 # args = SUSDFrankaKitchenConfig()
-args = SUSDParticle()
-# args = SUSDGunner()
+# args = SUSDParticle()
+args = SUSDGunner()
 
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])

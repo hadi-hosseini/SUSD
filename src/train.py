@@ -125,8 +125,8 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
     max_path_length: int =  10 # 10
     dim_option: int = 2
     n_parallel: int = 1  # 1
-    task_diff: int = 2 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
-    downstream_task: str = "fp" # fp: food&poison seq: sequential
+    task_diff: int = 7 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
+    downstream_task: str = "seq" # fp: food&poison seq: sequential
     run_group: str = f"HRL_{baseline}_{downstream_task}_{task_diff}"
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100
@@ -168,8 +168,8 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
 class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     max_path_length: int = 10 # 10
     dim_option: int = 20 # susd
-    task_diff: int = 2 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
-    downstream_task: str = "fp" # fp: food&poison seq: sequential
+    task_diff: int = 7 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
+    downstream_task: str = "seq" # fp: food&poison seq: sequential
     run_group: str = f"HRL_SUSD_{downstream_task}_{task_diff}"
     n_parallel: int = 1 
     traj_batch_size: int = 1 
@@ -192,7 +192,8 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    cp_path: str = "/home/hadi/rl/SUSD/final_models/particle/SUSD/option_policy10000.pt"
+    cp_path: str = "final_models/particle/SUSD/option_policy10000.pt" # ORIGINAL
+    # cp_path: str = "final_models/particle/ABLATION1/option_policy10000.pt" # ABLATION1
     cp_unit_length: int = 1
 
     env: str = "particle"
@@ -253,7 +254,7 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     dim_option: int = 2 # susd
     downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
     run_group: str = f"HRL_SUSD_{downstream_task}"
-    n_parallel: int = 8 
+    n_parallel: int = 1 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
     cp_multi_step: int = 5 # 5
@@ -274,7 +275,8 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    cp_path: str = "final_models/gunner/SUSD/option_policy10000.pt"
+    # cp_path: str = "final_models/gunner/ABLATION1/option_policy10000.pt" # ablation1
+    cp_path: str = "final_models/gunner/SUSD/option_policy10000.pt" # SUSD
     cp_unit_length: int = 1
 
     env: str = "gunner"
@@ -315,7 +317,7 @@ elif method == "baseline_particle":
     args = BaselineHighLevelParticleConfig()
 
 
-# method = "baseline_gunner" # ["susd_gunner", "baseline_gunner"]
+# method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
 
 # if method == "susd_gunner":
 #     args = SUSDHighLevelGunnerConfig()

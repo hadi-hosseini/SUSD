@@ -345,7 +345,10 @@ class SUSD(IOD):
 
 
                 if self.do_print:
-                    self.csd_logs.append((runner.step_itr, [csd_distances[:, i].mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
+                    if self.susd_ablation1:
+                        self.csd_logs.append((runner.step_itr, [csd_distances.mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
+                    else:
+                        self.csd_logs.append((runner.step_itr, [csd_distances[:, i].mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
 
                 v.update({'csd_distances': csd_distances})
 
