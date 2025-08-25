@@ -214,14 +214,14 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
 @dataclass
 class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
     baseline: str = "DIAYN"
-    max_path_length: int = 500 # 10
+    max_path_length: int = 500
     dim_option: int = 2 # susd
     downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
     run_group: str = f"HRL_{baseline}_{downstream_task}"
-    n_parallel: int = 8 
+    n_parallel: int = 1 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
-    cp_multi_step: int = 5 # 5
+    cp_multi_step: int = 5
     algo: str = "sac"
     n_epochs_per_eval: int = 100
     n_epochs_per_save: int = 0
@@ -250,14 +250,14 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
 
 @dataclass
 class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
-    max_path_length: int = 500 # 10
+    max_path_length: int = 500
     dim_option: int = 2 # susd
-    downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
-    run_group: str = f"HRL_SUSD_{downstream_task}"
+    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
+    run_group: str = f"HRL_SUSD_{downstream_task}_ABLATION1"
     n_parallel: int = 1 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
-    cp_multi_step: int = 5 # 5
+    cp_multi_step: int = 5
     algo: str = "sac"
     n_epochs_per_eval: int = 100
     n_epochs_per_save: int = 0
@@ -275,8 +275,8 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    # cp_path: str = "final_models/gunner/ABLATION1/option_policy10000.pt" # ablation1
-    cp_path: str = "final_models/gunner/SUSD/option_policy10000.pt" # SUSD
+    # cp_path: str = "final_models/gunner/SUSD/option_policy10000.pt" # SUSD
+    cp_path: str = "final_models/gunner/ABLATION1/option_policy10000.pt" # ablation1
     cp_unit_length: int = 1
 
     env: str = "gunner"
@@ -309,20 +309,20 @@ def get_causal_vector(task_diff):
     return causal_vector, agent_list
 
 
-method = "susd_particle" # ["susd_particle", "baseline_particle"]
+# method = "baseline_particle" # ["susd_particle", "baseline_particle"]
 
-if method == "susd_particle":
-    args = SUSDHighLevelParticleConfig()
-elif method == "baseline_particle":
-    args = BaselineHighLevelParticleConfig()
+# if method == "susd_particle":
+#     args = SUSDHighLevelParticleConfig()
+# elif method == "baseline_particle":
+#     args = BaselineHighLevelParticleConfig()
 
 
-# method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
+method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
 
-# if method == "susd_gunner":
-#     args = SUSDHighLevelGunnerConfig()
-# else:
-#     args = BaseHighLevelGunnerConfig()
+if method == "susd_gunner":
+    args = SUSDHighLevelGunnerConfig()
+else:
+    args = BaseHighLevelGunnerConfig()
 
 if args.env == "particle":
     causal_vector, agent_list = get_causal_vector(args.task_diff)

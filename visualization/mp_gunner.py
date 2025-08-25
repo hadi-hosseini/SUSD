@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tbparse import SummaryReader
 import numpy as np
+import math
 
 methods = ["CSD", "METRA", "LSD", "DIAYN", "SUSD"]
 
@@ -89,84 +90,93 @@ def seq_hard(): # task_diff = 7
     seq_hard = pd.concat(all_dfs)
     return seq_hard
 
+
+def lim():  # gunner with lim
+    all_dfs = []
+    for method in methods:
+        reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
+        df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
+        df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
+        df["method"] = method
+        all_dfs.append(df)
+
+    seq_hard = pd.concat(all_dfs)
+    return seq_hard
+
+def nolim(): # gunner without lim
+    all_dfs = []
+    for method in methods:
+        reader = SummaryReader(f"./exp/HRL_{method}_nolim", pivot=True)
+        df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
+        df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
+        df["method"] = method
+        all_dfs.append(df)
+
+    seq_hard = pd.concat(all_dfs)
+    return seq_hard
+
 def plot_result(df, save_path, title):
     plt.figure(figsize=(10,6))
-
-    window = 5
-    for method, group in df.groupby("method"):
-        group_sorted = group.sort_values("step").copy()
-
-        # compute mean and CI for each list
-        group_sorted["mean"] = group_sorted["EvalOp/AverageDiscountedReturn"].apply(
-            lambda x: np.mean(x)
-        )
-        group_sorted["ci95"] = group_sorted["EvalOp/AverageDiscountedReturn"].apply(
-            lambda x: 1.96 * np.std(x, ddof=1) / np.sqrt(len(x)) if len(x) > 1 else 0
-        )
-
-
-        # rolling mean for smoothing
-        smoothed = group_sorted["mean"].rolling(window, min_periods=1).mean()
-        smoothed_ci = group_sorted["ci95"].rolling(window, min_periods=1).mean()
-
-        # plot line
-        plt.plot(
-            group_sorted["step"],
-            smoothed,
-            label=method,
-            linewidth=2,
-            alpha=0.8
-        )
-
-        # # plot confidence band
-        # plt.fill_between(
-        #     group_sorted["step"],
-        #     smoothed - smoothed_ci,
-        #     smoothed + smoothed_ci,
-        #     alpha=0.05
-        # )
-
-    # styling
-    plt.title(title, fontsize=16, weight="bold")
-    plt.xlabel("Episodes", fontsize=14)
-    plt.ylabel("Return", fontsize=14)
-
-    plt.grid(True, linestyle="--", alpha=0.6)
+    plot_result_on_ax(df, plt.gca(), title)
     plt.legend(title="Method", fontsize=12, title_fontsize=13, loc="best")
     plt.tight_layout()
-
-    # save before showing
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.show()
 
 
-# def plot_result(df, save_path, title):
-#     plt.figure(figsize=(10,6))
+def plot_result_on_ax(df, ax, title):
+    window = 5
+    for method, group in df.groupby("method"):
+        group_sorted = group.sort_values("step").copy()
 
-#     window = 5
-#     for method, group in df.groupby("method"):
-#         group_sorted = group.sort_values("step")
-#         smoothed = group_sorted["EvalOp/AverageDiscountedReturn"].rolling(window, min_periods=1).mean()
-#         plt.plot(
-#             group_sorted["step"],
-#             smoothed,
-#             label=method,
-#             linewidth=2,
-#             alpha=0.6
-#         )
+        # compute mean and CI
+        group_sorted["mean"] = group_sorted["EvalOp/AverageDiscountedReturn"].apply(lambda x: np.mean(x))
+        group_sorted["ci95"] = group_sorted["EvalOp/AverageDiscountedReturn"].apply(
+            lambda x: 1.96 * np.std(x, ddof=1) / np.sqrt(len(x)) if len(x) > 1 else 0
+        )
 
-#     # styling
-#     plt.title(title, fontsize=16, weight="bold")
-#     plt.xlabel("Steps", fontsize=14)
-#     plt.ylabel("Return", fontsize=14)
+        smoothed = group_sorted["mean"].rolling(window, min_periods=1).mean()
+        smoothed_ci = group_sorted["ci95"].rolling(window, min_periods=1).mean()
 
-#     plt.grid(True, linestyle="--", alpha=0.6)
-#     plt.legend(title="Method", fontsize=12, title_fontsize=13, loc="best")
-#     plt.tight_layout()
+        ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
 
-#     # save before showing
-#     plt.savefig(save_path, dpi=300, bbox_inches="tight")
-#     plt.show()
+        max_margin = 3
+        ci_clipped = np.minimum(smoothed_ci, max_margin)
+        ax.fill_between(group_sorted["step"], smoothed - ci_clipped, smoothed + ci_clipped, alpha=0.05)
+
+    ax.set_title(title, fontsize=14, weight="bold")
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("Return")
+    ax.grid(True, linestyle="--", alpha=0.6)
+
+
+def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
+    nrows = math.ceil(len(dfs) / ncols)
+    fig, axs = plt.subplots(nrows, ncols, figsize=(figsize[0], nrows * figsize[1] / 2))
+    axs = axs.flatten()
+
+    for i, (df, title) in enumerate(zip(dfs, titles)):
+        plot_result_on_ax(df, axs[i], title)
+
+    # hide extra axes
+    for j in range(len(dfs), len(axs)):
+        axs[j].axis("off")
+
+    # shared legend
+    handles, labels = axs[0].get_legend_handles_labels()
+    fig.legend(
+        handles, labels, title="Method", fontsize=12, title_fontsize=13,
+        loc="upper center", ncol=len(labels)
+    )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95]) 
+
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight")
+
+    plt.show()
+
+
 
 ### mp_fp_diff
 save_path = "visualization/vis/mp_fp_diff.png" 
@@ -204,3 +214,33 @@ plot_result(mp_seq_medium, save_path, title="Multiparticle Sequential Medium")
 save_path = "visualization/vis/mp_seq_hard.png" 
 mp_seq_hard = seq_hard()
 plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
+
+
+### gunner_lim
+save_path = "visualization/vis/gunner_lim.png" 
+gunner_lim = lim()
+plot_result(gunner_lim, save_path, title="Gunner Limitation")
+
+
+### gunner_nolim
+save_path = "visualization/vis/gunner_nolim.png" 
+gunner_nolim = nolim()
+plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
+
+
+### plot_groups
+dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard, gunner_lim, gunner_nolim]
+titles = [
+    "Multiparticle Food&Poison Difficult",
+    "Multiparticle Food&Poison Hard",
+    "Multiparticle Food&Poison Medium",
+    "Multiparticle Food&Poison Easy",
+    "Multiparticle Sequential Easy",
+    "Multiparticle Sequential Medium",
+    "Multiparticle Sequential Hard",
+    "Gunner with Limitation",
+    "Gunner without Limitation"
+]
+
+save_path = "visualization/vis/grouped_results.png"
+plot_grouped_results(dfs, titles, save_path=save_path, ncols=3)

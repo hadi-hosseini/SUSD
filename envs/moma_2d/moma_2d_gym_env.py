@@ -191,10 +191,21 @@ class MoMa2DGymEnv(MujocoTrait, gym.Env):
 	def get_reward(self):
 		return 0
 
-	def reset(self, seed=None):
+	def reset(self, seed=1): # None is pretrain; 0/1/3 is train
 		self.step_count = 0
 		self.agent_traj = []
-		self.agent_pos = np.array([self.limit / 2, self.limit / 2], dtype=np.float32)
+
+		if seed == 0:
+			self.agent_pos = np.array([0.2 * self.limit, 0.2 * self.limit], dtype=np.float32)
+		elif seed == 1:
+			self.agent_pos = np.array([0.8 * self.limit, 0.2 * self.limit], dtype=np.float32)
+		elif seed == 2:
+			self.agent_pos = np.array([0.2 * self.limit, 0.8 * self.limit], dtype=np.float32)
+		elif seed == 3:
+			self.agent_pos = np.array([0.8 * self.limit, 0.8 * self.limit], dtype=np.float32)
+		else: # None
+			self.agent_pos = np.array([self.limit / 2, self.limit / 2], dtype=np.float32)
+			
 		self.arm_pos = self.agent_pos
 		self.relative_arm_pos = np.array([0.0, 0.0], dtype=np.float32)
 		self.gripper_location = 0.5

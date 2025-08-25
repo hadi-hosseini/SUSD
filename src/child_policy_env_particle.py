@@ -31,8 +31,8 @@ class ChildPolicyEnvParticle(gym.Wrapper):
         self.child_policy.eval()
 
         self.cp_dim_action = cp_dict['dim_option']
-        # self.cp_N = getattr(cp_dict, 'N', 1) # baselines
-        self.cp_N = getattr(cp_dict, 'N', 10) # susd
+        self.cp_N = getattr(cp_dict, 'N', 1) # baselines
+        # self.cp_N = getattr(cp_dict, 'N', 10) # susd
 
         
         self.cp_action_range = cp_action_range
