@@ -17,8 +17,8 @@ from iod.utils import get_normalizer_preset
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 algo = "diayn" # ["susd", "metra", "lsd", "csd", "diayn"]
-num_runs = 8
-max_duration = 50
+num_runs = 8 
+max_duration = 100 * 100 # steps
 max_steps = 200
 mode = "plot" # ["eval", "plot"]
 
@@ -65,22 +65,23 @@ def zero_shot_eval(env, max_duration=30.0, max_steps=200):
     cumulative_reward = 0.0
     # frames = []
 
-    start_time = time.time()
-    last_log_time = start_time
     time_reward_log = []
     episode_step_counts = []
     steps = 0
+    total_steps = 0
 
     
-    while time.time() - start_time < max_duration:
+    # while time.time() - start_time < max_duration:
+    while total_steps < max_duration: 
         if done:
             obs = env.reset()
             done = False
             steps = 0
 
-        while not done and steps < max_steps and (time.time() - start_time < max_duration):
+        # while not done and steps < max_steps and (time.time() - start_time < max_duration):
+        while not done and steps < max_steps and (total_steps < max_duration):
+
             # ---- 1. Get current state and goal ----
-            current_pos = env.sim.data.qpos.flat[:2]
             goal = env.current_goal
 
             # ---- 2. Encode current and goal to skill space ----
@@ -112,15 +113,12 @@ def zero_shot_eval(env, max_duration=30.0, max_steps=200):
             obs, reward, done, info = env.step(action)
             cumulative_reward += reward
             steps += 1
+            total_steps += 1
 
             # frame = env.render(mode="rgb_array")
             # frames.append(frame)
 
-            current_time = time.time()
-            if current_time - last_log_time >= 1.0:
-                elapsed = current_time - start_time
-                time_reward_log.append((elapsed, cumulative_reward))
-                last_log_time = current_time
+            time_reward_log.append((total_steps, cumulative_reward))
 
             # print(f"Step {step:3d}: "
             #     f"action={np.round(action, 2)} "
@@ -168,6 +166,28 @@ def run_multiple_seeds(num_runs=8, max_duration=30, max_steps=200):
     print(f"\n📁 Logs saved to {csv_path}")
     return all_logs
 
+def smooth_rewards(values, alpha=0.6, context=5):
+    smoothed = []
+    for i, v in enumerate(values):
+        if i == 0:
+            smoothed.append(v)
+        else:
+            # Exponential smoothing
+            smoothed_val = alpha * v + (1 - alpha) * smoothed[-1]
+            smoothed.append(smoothed_val)
+    smoothed = np.array(smoothed)
+
+    # Apply rolling mean with context window (without dropping at the ends)
+    if context > 1:
+        smoothed_context = []
+        for i in range(len(smoothed)):
+            start = max(0, i - context + 1)
+            window = smoothed[start:i+1]
+            smoothed_context.append(np.mean(window))
+        smoothed = np.array(smoothed_context)
+
+    return smoothed
+
 def plot_multiple_methods_cumulative_reward(logs_by_method, max_duration, dt=1.0, confidence=0.95, save_path=None):
     common_times = np.arange(0, max_duration + dt, dt)
 
@@ -186,13 +206,15 @@ def plot_multiple_methods_cumulative_reward(logs_by_method, max_duration, dt=1.0
         sem = stats.sem(interp_rewards, axis=0)
         margin = sem * stats.t.ppf((1 + confidence) / 2., interp_rewards.shape[0] - 1)
 
+        mean_rewards = smooth_rewards(mean_rewards, alpha=0.6, context=200)
+
         # Plot mean and confidence interval
         plt.plot(common_times, mean_rewards, label=method)
         plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.2)
 
-    plt.xlabel('Elapsed Time (s)')
+    plt.xlabel('Steps')
     plt.ylabel('Cumulative Reward')
-    plt.title('Average Cumulative Reward over Time')
+    plt.title('Average Cumulative Reward')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -222,8 +244,8 @@ elif mode == "plot":
     susd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_susd_ant.csv")
     metra_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_metra_ant.csv")
     csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_csd_ant.csv")
-    lsd_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_lsd_ant.csv")
-    diayn_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_diayn_ant.csv")
+    lsd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_lsd_ant.csv")
+    diayn_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_diayn_ant.csv")
 
 
     logs_by_method = {
@@ -236,7 +258,7 @@ elif mode == "plot":
 
     plot_multiple_methods_cumulative_reward(
         logs_by_method,
-        max_duration=50,
+        max_duration=100 * 100,
         dt=1.0,
         save_path=f"final_models/ant/COVERAGE/zero_shot_ant_comparison_ours.png"
     )

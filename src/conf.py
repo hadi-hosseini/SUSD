@@ -181,12 +181,12 @@ class SUSDAntConfig(SUSDConfig):
 
 @dataclass
 class SUSDParticle(SUSDConfig):
-    run_group: str = 'SUSD_ABLATION1'
+    run_group: str = 'SUSD_ABLATION2_PARTICLE'
     env: str = 'particle'
     max_path_length: int = 50
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 8 # 8
+    n_parallel: int = 8
     normalizer_type: str = 'off'
     num_video_repeats: int = 1
     sac_max_buffer_size: int = 1000000
@@ -205,13 +205,13 @@ class SUSDParticle(SUSDConfig):
     susd_dist_norm: int = 0 # using normalization for marginal distribution
     susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
     susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
-    susd_ablation1: int = 0 # use CSD weight for all factors
+    susd_ablation1: int = 1 # use CSD weight for all factors
 
 
 
 @dataclass
 class SUSDGunner(SUSDConfig):
-    run_group: str = 'SUSD_ABLATION1_GUNNER'
+    run_group: str = 'TEST'
     env: str = 'gunner'
     max_path_length: int = 50
     seed: int = 0

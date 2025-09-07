@@ -121,9 +121,9 @@ class SUSDHighLevelKitchenConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
-    baseline: str = "DIAYN"
+    baseline: str = "DUSDI"
     max_path_length: int =  10 # 10
-    dim_option: int = 2
+    dim_option: int = 50 # 2 (others), 50 (dusdi)
     n_parallel: int = 1  # 1
     task_diff: int = 7 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
     downstream_task: str = "seq" # fp: food&poison seq: sequential
@@ -153,16 +153,20 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
 
     env: str = "particle"
     cp_multitask: int = 0 # the number of tasks
-    distances = list(range(0, 10))       # 0–9
-    agent_info = list(range(10, 50))     # 10–49
-    station_info = list(range(50, 70))   # 50–69
 
-    custom_order = []
+    if baseline == "DUSDI":
+        custom_order = list(range(0, 70))
+    else:
+        distances = list(range(0, 10))       # 0–9
+        agent_info = list(range(10, 50))     # 10–49
+        station_info = list(range(50, 70))   # 50–69
 
-    for i in range(10):
-        custom_order.append(distances[i])                       
-        custom_order.extend(agent_info[i*4:(i+1)*4])            
-        custom_order.extend(station_info[i*2:(i+1)*2])  
+        custom_order = []
+
+        for i in range(10):
+            custom_order.append(distances[i])                       
+            custom_order.extend(agent_info[i*4:(i+1)*4])            
+            custom_order.extend(station_info[i*2:(i+1)*2])  
 
 @dataclass
 class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
@@ -171,7 +175,7 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     task_diff: int = 7 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
     downstream_task: str = "seq" # fp: food&poison seq: sequential
     run_group: str = f"HRL_SUSD_{downstream_task}_{task_diff}"
-    n_parallel: int = 1 
+    n_parallel: int = 4 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
     cp_multi_step: int = 5 # 5
@@ -194,6 +198,7 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     alpha: float = 0.1
     cp_path: str = "final_models/particle/SUSD/option_policy10000.pt" # ORIGINAL
     # cp_path: str = "final_models/particle/ABLATION1/option_policy10000.pt" # ABLATION1
+    # cp_path: str = "final_models/particle/ABLATION2/option_policy10000.pt" # ABLATION1
     cp_unit_length: int = 1
 
     env: str = "particle"
@@ -213,10 +218,10 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
-    baseline: str = "DIAYN"
+    baseline: str = "DUSDI"
     max_path_length: int = 500
-    dim_option: int = 2 # susd
-    downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
+    dim_option: int = 15 
+    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
     run_group: str = f"HRL_{baseline}_{downstream_task}"
     n_parallel: int = 1 
     traj_batch_size: int = 1 
@@ -244,7 +249,11 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
 
     env: str = "gunner"
     cp_multitask: int = 0 # the number of tasks
-    custom_order = [0, 1, 2, 3, 12, 13,
+
+    if baseline == "DUSDI":
+        custom_order = list(range(0, 18))
+    else:
+        custom_order = [0, 1, 2, 3, 12, 13,
                         4, 5, 6, 7, 14, 15, 16,
                         8, 9, 10, 11, 17] # base, arm, view
 
@@ -252,9 +261,9 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
 class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     max_path_length: int = 500
     dim_option: int = 2 # susd
-    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
-    run_group: str = f"HRL_SUSD_{downstream_task}_ABLATION1"
-    n_parallel: int = 1 
+    downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
+    run_group: str = f"HRL_SUSD_{downstream_task}_ABLATION2"
+    n_parallel: int = 4 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
     cp_multi_step: int = 5
@@ -276,7 +285,8 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     te_only_last_frame: int  = 0
     alpha: float = 0.1
     # cp_path: str = "final_models/gunner/SUSD/option_policy10000.pt" # SUSD
-    cp_path: str = "final_models/gunner/ABLATION1/option_policy10000.pt" # ablation1
+    # cp_path: str = "final_models/gunner/ABLATION1/option_policy10000.pt" # ablation1
+    cp_path: str = "final_models/gunner/ABLATION2/option_policy10000.pt" # ablation2
     cp_unit_length: int = 1
 
     env: str = "gunner"
@@ -317,7 +327,7 @@ def get_causal_vector(task_diff):
 #     args = BaselineHighLevelParticleConfig()
 
 
-method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
+method = "baseline_gunner" # ["susd_gunner", "baseline_gunner"]
 
 if method == "susd_gunner":
     args = SUSDHighLevelGunnerConfig()

@@ -7,6 +7,7 @@ import torch
 
 from garage.envs import EnvSpec
 from garage.torch.distributions import TanhNormal
+from src.dusdi_utils import Actor
 
 from iod.utils import get_torch_concat_obs
 
@@ -25,13 +26,27 @@ class ChildPolicyEnvGunner(gym.Wrapper):
     ):
         super().__init__(env)
 
-        self.child_policy = cp_dict['policy']
+        mode = 2 # 0:susd   1: dsd baselines  2:dusdi
+        self.mode = mode
+
+        if mode == 2: # dusdi
+            self.child_policy = Actor("state", 33, 6, 15, 1024, True, [-10, 2], "moma2D")
+            self.child_policy.load_state_dict(cp_dict)
+            self.cp_dim_action = 5
+            self.cp_N = 3
+            self.cp_discrete = False
+
+        else:
+            self.cp_dim_action = cp_dict['dim_option']
+            self.child_policy = cp_dict['policy']
+            self.cp_discrete = cp_dict['discrete']
+
+            if mode == 0: # susd
+                self.cp_N = getattr(cp_dict, 'N', 3) # susd
+            else: # dsd-baselines
+                self.cp_N = getattr(cp_dict, 'N', 1) # baselines
+
         self.child_policy.eval()
-
-        self.cp_dim_action = cp_dict['dim_option']
-        # self.cp_N = getattr(cp_dict, 'N', 1) # baselines
-        self.cp_N = getattr(cp_dict, 'N', 3) # susd
-
         
         self.cp_action_range = cp_action_range
         self.cp_unit_length = cp_unit_length
@@ -39,7 +54,6 @@ class ChildPolicyEnvGunner(gym.Wrapper):
         self.cp_num_truncate_obs = cp_num_truncate_obs
         self.cp_omit_obs_idxs = cp_omit_obs_idxs
         self.cp_multitask = cp_multitask
-        self.cp_discrete = cp_dict['discrete']
 
         self.observation_space = self.env.observation_space
 
@@ -88,15 +102,22 @@ class ChildPolicyEnvGunner(gym.Wrapper):
             cp_action = torch.as_tensor(cp_action)
             cp_input = get_torch_concat_obs(cp_obs, cp_action, dim=0).float()
 
-            # First try to use mode
-            if hasattr(self.child_policy._module, 'forward_mode'):
-                # Beta
-                action = self.child_policy.get_mode_actions(cp_input.unsqueeze(dim=0))[0]
-            else:
-                # Tanhgaussian
-                action_dist = self.child_policy(cp_input.unsqueeze(dim=0))[0]
+            # dusdi
+            if self.mode == 2:
+                action_dist = self.child_policy(cp_input.unsqueeze(dim=0))
                 action = action_dist.mean.detach().numpy()
-            action = action[0]
+                action = action[0]
+
+
+            else: # First try to use mode
+                if hasattr(self.child_policy._module, 'forward_mode'):
+                    # Beta
+                    action = self.child_policy.get_mode_actions(cp_input.unsqueeze(dim=0))[0]
+                else:
+                    # Tanhgaussian
+                    action_dist = self.child_policy(cp_input.unsqueeze(dim=0))[0]
+                    action = action_dist.mean.detach().numpy()
+                action = action[0]  
 
             # Assume that the range of the variable 'action' (= the output from self.child_policy) is [-1, 1]
             # This assumption is probably true as of now (since we only use (scaled) Beta or TanhGaussian policy)

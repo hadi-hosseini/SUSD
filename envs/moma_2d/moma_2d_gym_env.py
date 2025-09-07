@@ -191,7 +191,7 @@ class MoMa2DGymEnv(MujocoTrait, gym.Env):
 	def get_reward(self):
 		return 0
 
-	def reset(self, seed=1): # None is pretrain; 0/1/3 is train
+	def reset(self, seed=3): # None is pretrain; 0/1/3 is train
 		self.step_count = 0
 		self.agent_traj = []
 

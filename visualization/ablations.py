@@ -4,13 +4,16 @@ from tbparse import SummaryReader
 import numpy as np
 import math
 
-methods = ["CSD", "ABLATION1", "SUSD"]
+# methods = ["CSD", "ABLATION1", "ABLATION2", "SUSD"]
+methods = ["CSD", "ABLATION2", "SUSD"]
 
 def fp_diff(): # task_diff = 4
     all_dfs = []
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_4_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_fp_4_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_4", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -26,6 +29,8 @@ def fp_hard(): # task_diff = 3
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_3_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_fp_3_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_3", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -41,6 +46,8 @@ def fp_medium(): # task_diff = 2
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_2_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_fp_2_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_2", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -56,6 +63,8 @@ def fp_easy(): # task_diff = 1
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_1_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_fp_1_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_1", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -71,6 +80,8 @@ def seq_easy(): # task_diff = 5
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_5_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_seq_5_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_5", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -86,6 +97,8 @@ def seq_medium(): # task_diff = 6
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_6_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_seq_6_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_6", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -101,6 +114,8 @@ def seq_hard(): # task_diff = 7
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_7_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_seq_7_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_7", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -117,6 +132,8 @@ def lim():
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -132,6 +149,8 @@ def nolim():
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_ABLATION1", pivot=True)
+        elif method == "ABLATION2":
+            reader = SummaryReader(f"./exp/HRL_SUSD_nolim_ABLATION2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_nolim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -167,7 +186,10 @@ def plot_result_on_ax(df, ax, title):
         smoothed = group_sorted["mean"].rolling(window, min_periods=1).mean()
         smoothed_ci = group_sorted["ci95"].rolling(window, min_periods=1).mean()
 
-        ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
+        if method == "ABLATION2":
+            ax.plot(group_sorted["step"], smoothed, label="Ablation", linewidth=2, alpha=0.8)
+        else:
+            ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
 
         max_margin = 3
         ci_clipped = np.minimum(smoothed_ci, max_margin)
@@ -257,7 +279,7 @@ mp_seq_hard = seq_hard()
 plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
 
 
-### plot_groups
+## plot_groups
 dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard, gunner_lim, gunner_nolim]
 titles = [
     "Multiparticle Food&Poison Difficult",
