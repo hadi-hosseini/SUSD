@@ -102,7 +102,6 @@ class SUSD(IOD):
 
 
         self.adaptive_base = 0.0
-        self.adapative_base_count = 0
 
         assert self._trans_optimization_epochs is not None
 
@@ -138,11 +137,15 @@ class SUSD(IOD):
             epoch_data[key] = torch.tensor(np.concatenate(value, axis=0), dtype=torch.float32, device=self.device)
         return epoch_data
 
-    def _update_replay_buffer(self, data, oversample_factor=100):
+    def _update_replay_buffer(self, data):
         if self.replay_buffer is not None:
 
             if self.susd_ablation_mode == 3:
                 csd_distances = data.pop('csd_distances')
+
+                alpha = 0.3
+                csd_mean = csd_distances.mean().item()
+                self.adaptive_base = (1 - alpha) * self.adaptive_base + alpha * csd_mean
             
             # Add paths to the replay buffer
             for i in range(len(data['actions'])):
@@ -156,7 +159,8 @@ class SUSD(IOD):
                 self.replay_buffer.add_path(path)
                 
                 if self.susd_ablation_mode == 3 and csd_distances[i] > self.adaptive_base: # oversample good samples in the buffer
-                    for _ in range(oversample_factor - 1):
+                    oversample_factor = int(csd_distances[i]/self.adaptive_base)
+                    for _ in range(oversample_factor):
                         self.replay_buffer.add_path(path)
 
     def _sample_replay_buffer(self):
@@ -387,11 +391,6 @@ class SUSD(IOD):
                     elif self.susd_ablation_mode == 0: # SUSD
                         self.csd_logs.append((runner.step_itr, [csd_distances[:, i].mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
 
-                if self.susd_ablation_mode == 3: # update adaptive base in oversampling
-                    csd_sum = csd_distances.sum().item()
-                    self.adapative_base_count += csd_distances.shape[0]
-                    self.adaptive_base = self.adaptive_base + (csd_sum - self.adaptive_base)/self.adapative_base_count
-
                 v.update({'csd_distances': csd_distances})
 
             else:
@@ -533,7 +532,7 @@ class SUSD(IOD):
                 rewards = v['rewards'] * torch.sqrt(v['csd_distances'])
                 rewards = rewards.sum(dim=1)
             elif self.susd_ablation_mode == 3: # Oversampling
-                rewards = v['rewards']
+                rewards = v['rewards'].sum(dim=1)
 
         sac_utils.update_loss_qf(
             self, tensors, v,
@@ -772,44 +771,45 @@ class SUSD(IOD):
         
         eval_option_metrics = {}
 
-        # Videos
-        if self.eval_record_video:
-            if self.discrete:
-                video_options = np.eye(self.dim_option)
-                video_options = video_options.repeat(self.num_video_repeats, axis=0)
-            else:
-                if self.dim_option * self.N == 2:
-                    video_options = np.random.randn(9, self.N * self.dim_option)
-                    if self.unit_length:
-                        video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
-                    flat_random_options = video_options.reshape(9, self.N * self.dim_option)
+
+        if not self.env_name == "elden_kitchen":
+            if self.eval_record_video:
+                if self.discrete:
+                    video_options = np.eye(self.dim_option)
+                    video_options = video_options.repeat(self.num_video_repeats, axis=0)
                 else:
-                    video_options = np.random.randn(9, self.N * self.dim_option)
-                    if self.unit_length:
-                        video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
-                    flat_random_options = video_options.reshape(9, self.N * self.dim_option)
+                    if self.dim_option * self.N == 2:
+                        video_options = np.random.randn(9, self.N * self.dim_option)
+                        if self.unit_length:
+                            video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
+                        flat_random_options = video_options.reshape(9, self.N * self.dim_option)
+                    else:
+                        video_options = np.random.randn(9, self.N * self.dim_option)
+                        if self.unit_length:
+                            video_options = video_options / np.linalg.norm(video_options, axis=1, keepdims=True)
+                        flat_random_options = video_options.reshape(9, self.N * self.dim_option)
 
-                video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
-            video_trajectories = self._get_trajectories(
-                runner,
-                sampler_key='local_option_policy',
-                extras=self._generate_option_extras(video_options),
-                worker_update=dict(
-                    _render=True,
-                    _deterministic_policy=True,
-                ),
-            )
-            record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
+                    video_options = flat_random_options.repeat(self.num_video_repeats, axis=0)
+                video_trajectories = self._get_trajectories(
+                    runner,
+                    sampler_key='local_option_policy',
+                    extras=self._generate_option_extras(video_options),
+                    worker_update=dict(
+                        _render=True,
+                        _deterministic_policy=True,
+                    ),
+                )
+                record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
 
-        eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
-        with global_context.GlobalContext({'phase': 'eval', 'policy': 'option'}):
-            log_performance_ex(
-                runner.step_itr,
-                TrajectoryBatch.from_trajectory_list(self._env_spec, random_trajectories),
-                discount=self.discount,
-                additional_records=eval_option_metrics,
-            )
-        self._log_eval_metrics(runner)
+            eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
+            with global_context.GlobalContext({'phase': 'eval', 'policy': 'option'}):
+                log_performance_ex(
+                    runner.step_itr,
+                    TrajectoryBatch.from_trajectory_list(self._env_spec, random_trajectories),
+                    discount=self.discount,
+                    additional_records=eval_option_metrics,
+                )
+            self._log_eval_metrics(runner)
 
         self.plot_csd_logs(runner)
         self.plot_csd_reward_logs(runner)

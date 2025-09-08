@@ -260,9 +260,9 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
 @dataclass
 class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     max_path_length: int = 500
-    dim_option: int = 2 # susd
-    downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
-    run_group: str = f"HRL_SUSD_{downstream_task}_ABLATION2"
+    dim_option: int = 5 # susd # dim=2 or dim=5
+    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
+    run_group: str = f"HRL_SUSD_{downstream_task}_dim_{dim_option}"
     n_parallel: int = 4 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -284,9 +284,9 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    # cp_path: str = "final_models/gunner/SUSD/option_policy10000.pt" # SUSD
+    cp_path: str = f"final_models/gunner/SUSD/option_policy10000_dim_{dim_option}.pt" # SUSD
     # cp_path: str = "final_models/gunner/ABLATION1/option_policy10000.pt" # ablation1
-    cp_path: str = "final_models/gunner/ABLATION2/option_policy10000.pt" # ablation2
+    # cp_path: str = "final_models/gunner/ABLATION2/option_policy10000.pt" # ablation2
     cp_unit_length: int = 1
 
     env: str = "gunner"
@@ -327,7 +327,7 @@ def get_causal_vector(task_diff):
 #     args = BaselineHighLevelParticleConfig()
 
 
-method = "baseline_gunner" # ["susd_gunner", "baseline_gunner"]
+method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
 
 if method == "susd_gunner":
     args = SUSDHighLevelGunnerConfig()
