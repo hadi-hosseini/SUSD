@@ -62,9 +62,9 @@ else:
     START_METHOD = 'spawn'
 
 
-# args = SUSDFrankaKitchenConfig()
+args = SUSDFrankaKitchenConfig()
 # args = SUSDParticle()
-args = SUSDGunner()
+# args = SUSDGunner()
 
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
@@ -425,7 +425,7 @@ def run(ctxt=None):
         susd_dist_norm=args.susd_dist_norm,
         susd_input_factor0 = args.susd_input_factor0,
         susd_q_function = args.susd_q_function,
-        susd_ablation1 = args.susd_ablation1
+        susd_ablation_mode = args.susd_ablation_mode
     )
 
     if args.algo == 'metra':

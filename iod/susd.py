@@ -41,7 +41,7 @@ class SUSD(IOD):
             q1_list,
             # log_alpha_list,
             susd_q_function,
-            susd_ablation1,
+            susd_ablation_mode,
 
             **kwargs,
     ):
@@ -98,7 +98,11 @@ class SUSD(IOD):
         self.exp_name = exp_name
         self.susd_dist_norm = susd_dist_norm
         self.susd_input_factor0 = susd_input_factor0
-        self.susd_ablation1 = susd_ablation1
+        self.susd_ablation_mode = susd_ablation_mode
+
+
+        self.adaptive_base = 0.0
+        self.adapative_base_count = 0
 
         assert self._trans_optimization_epochs is not None
 
@@ -134,8 +138,12 @@ class SUSD(IOD):
             epoch_data[key] = torch.tensor(np.concatenate(value, axis=0), dtype=torch.float32, device=self.device)
         return epoch_data
 
-    def _update_replay_buffer(self, data):
+    def _update_replay_buffer(self, data, oversample_factor=100):
         if self.replay_buffer is not None:
+
+            if self.susd_ablation_mode == 3:
+                csd_distances = data.pop('csd_distances')
+            
             # Add paths to the replay buffer
             for i in range(len(data['actions'])):
                 path = {}
@@ -144,7 +152,12 @@ class SUSD(IOD):
                     if cur_list.ndim == 1:
                         cur_list = cur_list[..., np.newaxis]
                     path[key] = cur_list
+
                 self.replay_buffer.add_path(path)
+                
+                if self.susd_ablation_mode == 3 and csd_distances[i] > self.adaptive_base: # oversample good samples in the buffer
+                    for _ in range(oversample_factor - 1):
+                        self.replay_buffer.add_path(path)
 
     def _sample_replay_buffer(self):
         samples = self.replay_buffer.sample_transitions(self._trans_minibatch_size)
@@ -156,6 +169,11 @@ class SUSD(IOD):
         return data
 
     def _train_once_inner(self, path_data, runner):
+
+        if self.susd_ablation_mode == 3: # if oversampling is activate, then calculate the CSD for each rollout
+            csd_distances = self._compute_csd(path_data) 
+            path_data["csd_distances"] = csd_distances.detach().cpu().numpy()
+
         self._update_replay_buffer(path_data)
 
         epoch_data = self._flatten_data(path_data)
@@ -291,6 +309,25 @@ class SUSD(IOD):
 
         return mean_partitions, std_partitions
 
+    def _compute_csd(self, path_data):
+        epoch_data = self._flatten_data(path_data)
+        data = {}
+        for key, value in epoch_data.items():
+            data[key] = value
+
+        obs = data['obs']
+        next_obs = data['next_obs']
+        s2_dist = self.dist_predictor(obs)
+        s2_dist_mean = s2_dist.mean
+        s2_dist_std = s2_dist.stddev
+        scaling_factor = 1. / s2_dist_std
+        geo_mean = torch.exp(torch.log(scaling_factor).mean(dim=1, keepdim=True))
+        normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
+        normalized_csd = torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor
+        csd_distances = torch.mean(normalized_csd, dim=1)
+        return csd_distances
+
+
     def _update_loss_te(self, tensors, v, runner):
         self._update_rewards(tensors, v)
         rewards = v['rewards']
@@ -332,9 +369,9 @@ class SUSD(IOD):
                 normalized_scaling_factor = (scaling_factor / geo_mean) ** 2
                 normalized_csd = torch.square((next_obs - obs) - s2_dist_mean) * normalized_scaling_factor
 
-                if self.susd_ablation1:
+                if self.susd_ablation_mode == 1 or self.susd_ablation_mode == 3: # just CSD weight or Oversampling
                     csd_distances = torch.mean(normalized_csd, dim=1)
-                else:
+                elif self.susd_ablation_mode == 0: # SUSD
                     if self.susd_dist_norm:
                         if self.env_name == "kitchen_franka":
                             csd_distances = [(59.0 * normalized_csd[:, start:end])/(end - start) for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
@@ -345,10 +382,15 @@ class SUSD(IOD):
 
 
                 if self.do_print:
-                    if self.susd_ablation1:
+                    if self.susd_ablation_mode == 1: # just CSD weight
                         self.csd_logs.append((runner.step_itr, [csd_distances.mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
-                    else:
+                    elif self.susd_ablation_mode == 0: # SUSD
                         self.csd_logs.append((runner.step_itr, [csd_distances[:, i].mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
+
+                if self.susd_ablation_mode == 3: # update adaptive base in oversampling
+                    csd_sum = csd_distances.sum().item()
+                    self.adapative_base_count += csd_distances.shape[0]
+                    self.adaptive_base = self.adaptive_base + (csd_sum - self.adaptive_base)/self.adapative_base_count
 
                 v.update({'csd_distances': csd_distances})
 
@@ -484,12 +526,14 @@ class SUSD(IOD):
                 reward_i = self.qf1_list[i](self._get_concat_obs(self.option_policy.process_observations(v['obs'][:, start:end]), v['options'][:, start_option:end_option]), v['actions'])
                 rewards = rewards + reward_i
         else:
-            if self.susd_ablation1:
+            if self.susd_ablation_mode == 1: # just CSD weight
                 rewards = v['rewards'].sum(dim=1)
                 rewards = rewards * torch.sqrt(v['csd_distances'])
-            else:
+            elif self.susd_ablation_mode == 0: # SUSD method
                 rewards = v['rewards'] * torch.sqrt(v['csd_distances'])
                 rewards = rewards.sum(dim=1)
+            elif self.susd_ablation_mode == 3: # Oversampling
+                rewards = v['rewards']
 
         sac_utils.update_loss_qf(
             self, tensors, v,

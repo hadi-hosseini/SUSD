@@ -229,7 +229,7 @@ plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
 
 
 ### plot_groups
-dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard]
+dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard, gunner_lim, gunner_nolim]
 titles = [
     "Multiparticle Food&Poison Difficult",
     "Multiparticle Food&Poison Hard",
@@ -238,8 +238,8 @@ titles = [
     "Multiparticle Sequential Easy",
     "Multiparticle Sequential Medium",
     "Multiparticle Sequential Hard",
-    # "Gunner with Limitation",
-    # "Gunner without Limitation"
+    "Gunner with Limitation",
+    "Gunner without Limitation"
 ]
 
 save_path = "visualization/vis/grouped_results.png"
