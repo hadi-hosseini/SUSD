@@ -30,9 +30,12 @@ from iod.ppo import PPO
 # from src.child_policy_env import ChildPolicyEnv
 from src.child_policy_env_particle import ChildPolicyEnvParticle
 from src.child_policy_env_gunner import ChildPolicyEnvGunner
+from src.child_policy_env_elden_kitchen import ChildPolicyEnvEldenKitchen
 from src.conf import SUSDConfig
 from src.utils import get_exp_name, get_log_dir
 from downstream_tasks.downstream_kitchen import DownstreamKitchen
+from envs.elden_kitchen.elden_kitchen import elden_kitchen, EldenKitchen
+
 
 
 from pettingzoo.mpe import simple_heterogenous_v3
@@ -296,6 +299,47 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
                         8, 9, 10, 11, 17] # base, arm, view
 
 
+
+@dataclass
+class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
+    max_path_length: int = 50
+    dim_option: int = 2 # susd # dim=2 or dim=5
+    downstream_task: str = "elden_downstream" # lim: with limitation; nolim: no limitation
+    run_group: str = f"HRL_SUSD_{downstream_task}"
+    n_parallel: int = 4 
+    traj_batch_size: int = 1 
+    num_random_trajectories: int = 100 # number of trajectories for evaluation
+    cp_multi_step: int = 5
+    algo: str = "sac"
+    n_epochs_per_eval: int = 100
+    n_epochs_per_save: int = 0
+    n_epochs_per_pt_save: int = 0
+    n_epochs_per_pkl_update: int = 0
+    n_epochs: int = 10000
+    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
+    trans_optimization_epochs: int = 50
+    sac_replay_buffer: int = 1
+    sac_max_buffer_size: int = 1000000
+    sac_min_buffer_size: int = 1000
+    n_epochs_per_log: int = 25
+    n_epochs_per_eval: int = 250 # 250
+    n_epochs_per_save: int = 1000 # 1000
+    n_epochs_per_pt_save: int = 1000 # 1000
+    te_only_last_frame: int  = 0
+    alpha: float = 0.1
+    cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy8000.pt" # SUSD
+    cp_unit_length: int = 1
+
+    env: str = "elden_kitchen"
+    cp_multitask: int = 0 # the number of tasks
+    custom_order = [113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 0, 1, 2, 3] # 29 arm + 4 don't know
+    custom_order += [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 101, 102, 103, 104, 105, 106]  # 22 pot
+    custom_order += [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37] # 18 butter
+    custom_order += [38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56] # 19 meatball
+    custom_order += [57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 107, 108, 109, 110, 111, 112] # 22 button
+    custom_order += [73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86] # 14 stove
+    custom_order += [87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100] # 14 target 
+
 def get_causal_vector(task_diff):
     if task_diff == 1: # fp - easy
         agent_list = [1, 6] 
@@ -319,6 +363,9 @@ def get_causal_vector(task_diff):
     return causal_vector, agent_list
 
 
+
+args = SUSDHighLevelEldenKitchenConfig()
+
 # method = "baseline_particle" # ["susd_particle", "baseline_particle"]
 
 # if method == "susd_particle":
@@ -327,12 +374,12 @@ def get_causal_vector(task_diff):
 #     args = BaselineHighLevelParticleConfig()
 
 
-method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
+# method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
 
-if method == "susd_gunner":
-    args = SUSDHighLevelGunnerConfig()
-else:
-    args = BaseHighLevelGunnerConfig()
+# if method == "susd_gunner":
+#     args = SUSDHighLevelGunnerConfig()
+# else:
+#     args = BaseHighLevelGunnerConfig()
 
 if args.env == "particle":
     causal_vector, agent_list = get_causal_vector(args.task_diff)
@@ -358,6 +405,10 @@ def make_env(max_path_length):
     elif args.env == "gunner":
         env = MoMa2DGymEnv(max_step=1000, custom_order=args.custom_order)
         env = MoMa2DGymDSEnv(version=args.downstream_task, show_empty=True, max_step=1000)
+    
+    elif args.env == "elden_kitchen":
+        env = elden_kitchen(reward_scale=1.0, horizon=250, render=False, downstream_task=True)
+        env = EldenKitchen(env, custom_order=args.custom_order)
 
     if args.cp_path is not None:
         if not os.path.exists(args.cp_path):
@@ -380,6 +431,15 @@ def make_env(max_path_length):
         
     elif args.env == "gunner":
         env = ChildPolicyEnvGunner(
+                env,
+                cp_dict,
+                cp_action_range=1.5,
+                cp_unit_length=args.cp_unit_length,
+                cp_multi_step=args.cp_multi_step,
+                cp_num_truncate_obs=0,
+                cp_multitask=args.cp_multitask)
+    elif args.env == "elden_kitchen":
+        env = ChildPolicyEnvEldenKitchen(
                 env,
                 cp_dict,
                 cp_action_range=1.5,
@@ -425,6 +485,9 @@ def run(ctxt=None):
             policy_q_input_dim = env.observation_space.shape[0]
             action_dim = env.action_space.shape[0]
         elif args.env == "gunner":
+            policy_q_input_dim = env.observation_space.shape[0]
+            action_dim = env.action_space.shape[0]
+        elif args.env == "elden_kitchen":
             policy_q_input_dim = env.observation_space.shape[0]
             action_dim = env.action_space.shape[0]
 

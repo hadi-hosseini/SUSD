@@ -143,9 +143,12 @@ class SUSD(IOD):
             if self.susd_ablation_mode == 3:
                 csd_distances = data.pop('csd_distances')
 
-                alpha = 0.3
+                alpha = 0.1
                 csd_mean = csd_distances.mean().item()
                 self.adaptive_base = (1 - alpha) * self.adaptive_base + alpha * csd_mean
+                print(csd_distances)
+                print(self.adaptive_base)
+                print(csd_mean)
             
             # Add paths to the replay buffer
             for i in range(len(data['actions'])):
@@ -159,7 +162,8 @@ class SUSD(IOD):
                 self.replay_buffer.add_path(path)
                 
                 if self.susd_ablation_mode == 3 and csd_distances[i] > self.adaptive_base: # oversample good samples in the buffer
-                    oversample_factor = int(csd_distances[i]/self.adaptive_base)
+                    oversample_factor = 2 * int(csd_distances[i]/self.adaptive_base)
+                    print(oversample_factor)
                     for _ in range(oversample_factor):
                         self.replay_buffer.add_path(path)
 

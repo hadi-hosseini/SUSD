@@ -62,10 +62,10 @@ else:
     START_METHOD = 'spawn'
 
 
-args = SUSDFrankaKitchenConfig()
+# args = SUSDFrankaKitchenConfig()
 # args = SUSDParticle()
 # args = SUSDGunner()
-# args = SUSDEldenKitchen()
+args = SUSDEldenKitchen()
 
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])

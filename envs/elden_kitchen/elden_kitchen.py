@@ -1,4 +1,5 @@
 from envs.elden_kitchen.kitchen import Kitchen
+from envs.elden_kitchen.kitchen_downstream import KitchenDownStreamTask
 
 import copy
 from robosuite.controllers import load_controller_config
@@ -12,6 +13,7 @@ import os
 os.environ["MUJOCO_GL"] = "egl"
 
 from envs.mujoco.mujoco_utils import MujocoTrait
+from contextlib import contextmanager
 
 class EldenKitchen(GymWrapper, MujocoTrait):
     def __init__(self, env, custom_order=None):
@@ -64,7 +66,7 @@ class EldenKitchen(GymWrapper, MujocoTrait):
         return eval_metrics
     
 
-def elden_kitchen(reward_scale=0.0, horizon=50, render=False): # reward_sacle = 1.0 is used for downstream task
+def elden_kitchen(reward_scale=0.0, horizon=50, render=False, downstream_task=False): # reward_sacle = 1.0 is used for downstream task
     manipulation_env_params = {
                 "robots": "UR5e",
                 "controller_name": "OSC_POSITION",
@@ -122,7 +124,8 @@ def elden_kitchen(reward_scale=0.0, horizon=50, render=False): # reward_sacle = 
     env_kwargs.pop("dynamics_keys")
     env_kwargs.pop("policy_additional_keys")
 
-    env = Kitchen(robots=manipulation_env_params["robots"],
+    if downstream_task:
+        env = KitchenDownStreamTask(robots=manipulation_env_params["robots"],
                     controller_configs=load_controller_config(default_controller=manipulation_env_params["controller_name"]),
                     gripper_types=manipulation_env_params["gripper_types"],
                     has_renderer=False,
@@ -132,8 +135,34 @@ def elden_kitchen(reward_scale=0.0, horizon=50, render=False): # reward_sacle = 
                     control_freq=manipulation_env_params["control_freq"],
                     reward_scale=manipulation_env_params["reward_scale"],
                     **env_kwargs)
+    else:
+        env = Kitchen(robots=manipulation_env_params["robots"],
+                        controller_configs=load_controller_config(default_controller=manipulation_env_params["controller_name"]),
+                        gripper_types=manipulation_env_params["gripper_types"],
+                        has_renderer=False,
+                        has_offscreen_renderer=render,
+                        use_camera_obs=False,
+                        ignore_done=False,
+                        control_freq=manipulation_env_params["control_freq"],
+                        reward_scale=manipulation_env_params["reward_scale"],
+                        **env_kwargs)
                     
     return env
+
+
+@contextmanager
+def kitchen_env(custom_order, reward_scale=1.0, horizon=50, render=True):
+    env = None
+    try:
+        base_env = elden_kitchen(reward_scale=reward_scale, horizon=horizon, render=render)
+        env = EldenKitchen(base_env, custom_order=custom_order)
+        yield env
+    finally:
+        if env is not None:
+            try:
+                env.close()
+            except Exception as e:
+                print(f"Error closing env: {e}")
 
 
 # env = elden_kitchen(reward_scale=1.0, horizon=50.0, render=True)
