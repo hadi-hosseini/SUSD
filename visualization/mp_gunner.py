@@ -94,7 +94,10 @@ def seq_hard(): # task_diff = 7
 def lim():  # gunner with lim
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
+        if method == "DUSDI":
+            reader = SummaryReader(f"./exp/HRL_{method}_lim_V2", pivot=True)  
+        else:
+            reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -106,7 +109,10 @@ def lim():  # gunner with lim
 def nolim(): # gunner without lim
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_nolim", pivot=True)
+        if method == "DUSDI":
+            reader = SummaryReader(f"./exp/HRL_{method}_nolim_V2", pivot=True)
+        else:
+            reader = SummaryReader(f"./exp/HRL_{method}_nolim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method

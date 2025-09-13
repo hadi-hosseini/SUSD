@@ -5,7 +5,7 @@ import numpy as np
 import math
 
 # methods = ["CSD", "ABLATION1", "ABLATION2", "SUSD"]
-methods = ["CSD", "ABLATION2", "SUSD"]
+methods = ["CSD", "ABLATION1", "ABLATION2", "SUSD", "DUSDI"]
 
 def fp_diff(): # task_diff = 4
     all_dfs = []
@@ -134,6 +134,8 @@ def lim():
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_ABLATION2", pivot=True)
+        elif method == "DUSDI":
+            reader = SummaryReader(f"./exp/HRL_{method}_lim_V2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -151,6 +153,8 @@ def nolim():
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_ABLATION2", pivot=True)
+        elif method == "DUSDI":
+            reader = SummaryReader(f"./exp/HRL_{method}_nolim_V2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_nolim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -186,10 +190,10 @@ def plot_result_on_ax(df, ax, title):
         smoothed = group_sorted["mean"].rolling(window, min_periods=1).mean()
         smoothed_ci = group_sorted["ci95"].rolling(window, min_periods=1).mean()
 
-        if method == "ABLATION2":
-            ax.plot(group_sorted["step"], smoothed, label="Ablation", linewidth=2, alpha=0.8)
-        else:
-            ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
+        # if method == "ABLATION2":
+        #     ax.plot(group_sorted["step"], smoothed, label="Ablation", linewidth=2, alpha=0.8)
+        # else:
+        ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
 
         max_margin = 3
         ci_clipped = np.minimum(smoothed_ci, max_margin)

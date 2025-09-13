@@ -26,14 +26,14 @@ class ChildPolicyEnvGunner(gym.Wrapper):
     ):
         super().__init__(env)
 
-        mode = 0 # 0:susd   1: dsd baselines  2:dusdi
+        mode = 0 # 0:susd   1:dsd  2:dusdi
         self.mode = mode
 
         if mode == 2: # dusdi
-            self.child_policy = Actor("state", 33, 6, 15, 1024, True, [-10, 2], "moma2D")
+            self.child_policy = Actor("state", 38, 6, 20, 1024, True, [-10, 2], "moma2D")
             self.child_policy.load_state_dict(cp_dict)
             self.cp_dim_action = 5
-            self.cp_N = 3
+            self.cp_N = 4
             self.cp_discrete = False
 
         else:
@@ -43,6 +43,8 @@ class ChildPolicyEnvGunner(gym.Wrapper):
 
             if mode == 0: # susd
                 self.cp_N = getattr(cp_dict, 'N', 3) # susd
+                # self.cp_N = getattr(cp_dict, 'N', 4) # DELTE THIS!!!
+
             else: # dsd-baselines
                 self.cp_N = getattr(cp_dict, 'N', 1) # baselines
 

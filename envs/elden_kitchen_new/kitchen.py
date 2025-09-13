@@ -15,7 +15,7 @@ from robosuite.utils.observables import Observable, sensor
 from robosuite.utils.mjcf_utils import CustomMaterial, array_to_string, find_elements, add_material
 from robosuite.utils.buffers import RingBuffer
 
-from envs.elden_kitchen.kitchen_objects import TargetObject, ButtonObject, StoveObject, PotObject
+from envs.elden_kitchen.kitchen_objects import ButtonObject, StoveObject, PotObject
 
 FILEPATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -26,11 +26,10 @@ class AttrDict(dict):
         self.__dict__ = self
 
 
-class KitchenDownStreamTask(SingleArmEnv):
+class Kitchen(SingleArmEnv):
     def __init__(
         self,
         robots,
-        downstream_task,
         env_configuration="default",
         controller_configs=None,
         gripper_types="default",
@@ -67,8 +66,6 @@ class KitchenDownStreamTask(SingleArmEnv):
         button_y_range=(-0.05, -0.05),
         stove_x_range=(0.07, 0.07),
         stove_y_range=(-0.05, -0.05),
-        target_x_range=(0.07, 0.07),
-        target_y_range=(-0.05, -0.05),
         normalization_range=((-0.5, -0.5, 0.7), (0.5, 0.5, 1.1)),
     ):
         # settings for table top (hardcoded since it's not an essential part of the environment)
@@ -80,8 +77,6 @@ class KitchenDownStreamTask(SingleArmEnv):
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
-
-        self.downstream_task = downstream_task
 
         # object placement initializer
         self.placement_initializer = placement_initializer
@@ -102,8 +97,6 @@ class KitchenDownStreamTask(SingleArmEnv):
         self.button_y_range = button_y_range
         self.stove_x_range = stove_x_range
         self.stove_y_range = stove_y_range
-        self.target_x_range = target_x_range
-        self.target_y_range = target_y_range
 
         # global position range for normalization
         global_low, global_high = normalization_range
@@ -168,100 +161,18 @@ class KitchenDownStreamTask(SingleArmEnv):
         pot_on_stove = self.check_contact("stove_collision_burner", "pot_body_bottom")
 
         pot_pos = self.sim.data.body_xpos[self.obj_body_id["pot"]]
-        target_pos = self.sim.data.body_xpos[self.obj_body_id["target"]]
-        target_pot_xy_dist = np.linalg.norm(pot_pos[:2] - target_pos[:2])
 
         pot_touched = int(self.check_contact(self.robots[0].gripper, self.objects_dict["pot"]))
 
-        pot_on_target = target_pot_xy_dist < 0.07 and not pot_touched
+        if self.meatball_cook_status < 1:
+            self.stage = int(meatball_in_pot) + int(self.butter_melt_status == 1) + int(pot_on_stove) + int(self.button_on)
+        else:
+            self.stage = 5 + int(not self.button_on)
 
-        if self.downstream_task == 1: # put butter in pot
-            if self.butter_in_pot:
-                return 1
-        elif self.downstream_task == 2: # put meatball in pot
-            if meatball_in_pot:
-                return 1
-        elif self.downstream_task == 3: # put pot on stove and turn on stove
-            if pot_on_stove and self.button_on:
-                return 1
-        elif self.downstream_task == 4: # put butter in pot and put pot on stove
-            if self.butter_in_pot and pot_on_stove:
-                return 1
-        elif self.downstream_task == 5: # put meatball in pot and put pot on stove
-            if meatball_in_pot and pot_on_stove:
-                return 1 
-            
-        return 0
-        
-        # self.stage = 0
-
-        # # Stage 0 -> 1: Butter placed in pot
-        # if self.stage == 0 and self.butter_in_pot:
-        #     self.stage = 1
-
-        # # Stage 1 -> 2: Meatball placed in pot
-        # elif self.stage == 1 and meatball_in_pot:
-        #     self.stage = 2
-
-        # # Stage 2 -> 3: Pot on stove
-        # elif self.stage == 2 and pot_on_stove:
-        #     self.stage = 3
-
-        # # Stage 3 -> 4: Button pressed (stove on)
-        # elif self.stage == 3 and self.button_on:
-        #     self.stage = 4
-
-        # # Stage 4 -> 5: Pot moved to target
-        # elif self.stage == 4 and pot_on_target:
-        #     self.stage = 5
-
-        # # Stage 5 -> 6: Button turned off
-        # elif self.stage == 5 and not self.button_on:
-        #     self.stage = 6
-
-        # return self.stage
-
-
-        # self.stage = 0
-
-        # # Stage 0 -> 1: Meatball in pot
-        # if self.stage == 0 and meatball_in_pot:
-        #     self.stage = 1
-
-        # # Stage 1 -> 2: Butter melted
-        # elif self.stage == 1 and self.butter_melt_status == 1:
-        #     self.stage = 2
-
-        # # Stage 2 -> 3: Pot on stove
-        # elif self.stage == 2 and pot_on_stove:
-        #     self.stage = 3
-
-        # # Stage 3 -> 4: Button pressed (stove on)
-        # elif self.stage == 3 and self.button_on:
-        #     self.stage = 4
-
-        # # Stage 4 -> 5: Pot moved to target
-        # elif self.stage == 4 and pot_on_target:
-        #     self.stage = 5
-
-        # # Stage 5 -> 6: Button turned off
-        # elif self.stage == 5 and not self.button_on:
-        #     self.stage = 6
-
-        # # Stage 6 -> 7: Meatball cook status
-        # elif self.stage == 6 and self.meatball_cook_status == 1:
-        #     self.stage = 7
-
-        # return self.stage
-
+        return int(self._check_success())
 
     def _check_success(self):
-        # pot_pos = self.sim.data.body_xpos[self.obj_body_id["pot"]]
-        # target_pos = self.sim.data.body_xpos[self.obj_body_id["target"]]
-        # target_pot_xy_dist = np.linalg.norm(pot_pos[:2] - target_pos[:2])
-        # pot_touched = int(self.check_contact(self.robots[0].gripper, self.objects_dict["pot"]))
-        # pot_on_target = target_pot_xy_dist < 0.07 and not pot_touched
-        return self.meatball_in_pot and self.meatball_cook_status == 1 and not self.button_on # and pot_on_target
+        return self.meatball_in_pot and self.meatball_cook_status == 1 and not self.button_on
 
     def _load_fixtures_in_arena(self, mujoco_arena):
         self.table_body = mujoco_arena.table_body
@@ -321,11 +232,6 @@ class KitchenDownStreamTask(SingleArmEnv):
         stove_object = self.fixtures_dict["stove"].get_obj()
         stove_object.set("pos", array_to_string((0, 0, 0.003)))
         mujoco_arena.table_body.append(stove_object)
-
-        self.fixtures_dict["target"] = TargetObject(name="target")
-        target_object = self.fixtures_dict["target"].get_obj()
-        target_object.set("pos", array_to_string((0, 0, 0.003)))
-        mujoco_arena.table_body.append(target_object)
 
     def _load_objects_in_arena(self, mujoco_arena):
         self.objects_dict["pot"] = PotObject(name="pot")
@@ -696,7 +602,7 @@ class KitchenDownStreamTask(SingleArmEnv):
         sensors = [obj_pos, obj_quat, obj_to_eef_pos, obj_to_eef_quat]
         names = [f"{obj_name}_pos", f"{obj_name}_quat", f"{obj_name}_to_{pf}eef_pos", f"{obj_name}_to_{pf}eef_quat"]
 
-        if not obj_name in ["stove", "target"]:
+        if not obj_name in ["stove"]:
             sensors += [obj_grasped, object_touched]
             names += [f"{obj_name}_grasped", f"{obj_name}_touched"]
 
@@ -763,13 +669,12 @@ class KitchenDownStreamTask(SingleArmEnv):
 
         # fixtures reset
         for obj_name, obj_x_range, obj_y_range in [["button", self.button_x_range, self.button_y_range],
-                                                   ["stove", self.stove_x_range, self.stove_y_range],
-                                                   ["target", self.target_x_range, self.target_y_range]]:
+                                                   ["stove", self.stove_x_range, self.stove_y_range],]:
             obj = self.fixtures_dict[obj_name]
             body_id = self.sim.model.body_name2id(obj.root_body)
             obj_x = np.random.uniform(obj_x_range[0], obj_x_range[1])
             obj_y = np.random.uniform(obj_y_range[0], obj_y_range[1])
-            obj_z = 0.005 if obj_name == "target" else 0.02
+            obj_z = 0.02
             self.sim.model.body_pos[body_id] = (obj_x, obj_y, obj_z)
             if obj_name == "button":
                 self.sim.model.body_quat[body_id] = (0., 0., 0., 1.)
@@ -838,13 +743,11 @@ class KitchenDownStreamTask(SingleArmEnv):
     def reset(self):
         obs = super().reset()
         obs = self.normalize_obs(obs)
-        # obs["step_count"] = np.array([0.])
         return obs
 
     def observation_spec(self):
         obs_spec = super().observation_spec()
         obs_spec = self.normalize_obs(obs_spec, out_of_range_warning=False)
-        # obs_spec["step_count"] = np.array([0])
         return obs_spec
 
     def step(self, action):
@@ -861,7 +764,6 @@ class KitchenDownStreamTask(SingleArmEnv):
 
         next_obs, reward, done, info = super().step(action)
         next_obs = self.normalize_obs(next_obs)
-        # next_obs["step_count"] = np.array([float(self.timestep) / self.horizon])
 
         # info["success"] = self._check_success()
         # info["stage_completion"] = self.stage
@@ -910,8 +812,6 @@ class KitchenDownStreamTask(SingleArmEnv):
                            "stove_quat": [-max_delta_obj_quat, max_delta_obj_quat],
                            "pot_pos": [-max_delta_obj_pos, max_delta_obj_pos],
                            "pot_quat": [-max_delta_obj_quat, max_delta_obj_quat],
-                           "target_pos": [-max_delta_obj_pos, max_delta_obj_pos],
-                           "target_quat": [-max_delta_obj_quat, max_delta_obj_quat],
                            "button_pos": [-max_delta_obj_pos, max_delta_obj_pos],
                            "button_quat": [-max_delta_obj_quat, max_delta_obj_quat],
                            "button_joint_qpos": [np.array([-self.button_joint_qpos_scale]), np.array([self.button_joint_qpos_scale])],}

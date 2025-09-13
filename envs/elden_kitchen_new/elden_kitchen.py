@@ -1,5 +1,7 @@
-from envs.elden_kitchen.kitchen import Kitchen
-from envs.elden_kitchen.kitchen_downstream import KitchenDownStreamTask
+from envs.elden_kitchen_new.kitchen import Kitchen
+from envs.elden_kitchen_new.kitchen_w_mid import KitchenWithMid
+from envs.elden_kitchen_new.kitchen_downstream import KitchenDownStreamTask
+from envs.elden_kitchen_new.kitchen_w_mid_downstream import KitchenDownStreamTaskWithMid
 
 import copy
 from robosuite.controllers import load_controller_config
@@ -49,9 +51,10 @@ class EldenKitchen(GymWrapper, MujocoTrait):
         next_obs, reward, done, info = super().step(action)
         next_obs = self.permute_state(next_obs)
 
-        #### THIS SHOULD BE FIXED LATER!!!!
+        #### THIS SHOULD BE FIXED LATER!!!! (IT IS NOT IMPORTANT CURRENTLY.)
         coords = self.last_obs[3:5].copy()
         next_coords = next_obs[3:5].copy()
+
         info['coordinates'] = coords
         info['next_coordinates'] = next_coords
         info['ori_obs'] = self.last_obs
@@ -66,7 +69,7 @@ class EldenKitchen(GymWrapper, MujocoTrait):
         return eval_metrics
     
 
-def elden_kitchen(reward_scale=0.0, horizon=50, render=False, downstream_task=False): # reward_sacle = 1.0 is used for downstream task
+def elden_kitchen(reward_scale=0.0, horizon=50, render=False, downstream_task=0, use_kitchen_skills=False): # downstream_task = 0: pretraining, others activate
     manipulation_env_params = {
                 "robots": "UR5e",
                 "controller_name": "OSC_POSITION",
@@ -110,8 +113,6 @@ def elden_kitchen(reward_scale=0.0, horizon=50, render=False, downstream_task=Fa
                     "button_y_range": [0.15, 0.3],
                     "stove_x_range": [0.05, 0.25],
                     "stove_y_range": [-0.225, -0.1],
-                    "target_x_range": [0.05, 0.25],
-                    "target_y_range": [0.1, 0.2],
                     "table_full_size": [0.8, 1.2, 0.05],
                     "table_offset": [0.0, 0.0, 0.8],
                     "normalization_range": [[-0.5, -0.6, 0.7], [0.5, 0.6, 1.2]]
@@ -125,8 +126,9 @@ def elden_kitchen(reward_scale=0.0, horizon=50, render=False, downstream_task=Fa
     env_kwargs.pop("policy_additional_keys")
 
     if downstream_task:
-        env = KitchenDownStreamTask(robots=manipulation_env_params["robots"],
-                                    downstream_task=downstream_task,
+        if use_kitchen_skills:
+            env = KitchenDownStreamTaskWithMid(robots=manipulation_env_params["robots"],
+                    downstream_task=downstream_task,
                     controller_configs=load_controller_config(default_controller=manipulation_env_params["controller_name"]),
                     gripper_types=manipulation_env_params["gripper_types"],
                     has_renderer=False,
@@ -136,8 +138,9 @@ def elden_kitchen(reward_scale=0.0, horizon=50, render=False, downstream_task=Fa
                     control_freq=manipulation_env_params["control_freq"],
                     reward_scale=manipulation_env_params["reward_scale"],
                     **env_kwargs)
-    else:
-        env = Kitchen(robots=manipulation_env_params["robots"],
+        else:
+            env = KitchenDownStreamTask(robots=manipulation_env_params["robots"],
+                                        downstream_task=downstream_task,
                         controller_configs=load_controller_config(default_controller=manipulation_env_params["controller_name"]),
                         gripper_types=manipulation_env_params["gripper_types"],
                         has_renderer=False,
@@ -147,6 +150,29 @@ def elden_kitchen(reward_scale=0.0, horizon=50, render=False, downstream_task=Fa
                         control_freq=manipulation_env_params["control_freq"],
                         reward_scale=manipulation_env_params["reward_scale"],
                         **env_kwargs)
+    else:
+        if use_kitchen_skills:
+            env = KitchenWithMid(robots=manipulation_env_params["robots"],
+                        controller_configs=load_controller_config(default_controller=manipulation_env_params["controller_name"]),
+                        gripper_types=manipulation_env_params["gripper_types"],
+                        has_renderer=False,
+                        has_offscreen_renderer=render,
+                        use_camera_obs=False,
+                        ignore_done=False,
+                        control_freq=manipulation_env_params["control_freq"],
+                        reward_scale=manipulation_env_params["reward_scale"],
+                        **env_kwargs)
+        else:
+            env = Kitchen(robots=manipulation_env_params["robots"],
+                            controller_configs=load_controller_config(default_controller=manipulation_env_params["controller_name"]),
+                            gripper_types=manipulation_env_params["gripper_types"],
+                            has_renderer=False,
+                            has_offscreen_renderer=render,
+                            use_camera_obs=False,
+                            ignore_done=False,
+                            control_freq=manipulation_env_params["control_freq"],
+                            reward_scale=manipulation_env_params["reward_scale"],
+                            **env_kwargs)
                     
     return env
 
@@ -166,36 +192,37 @@ def kitchen_env(custom_order, reward_scale=1.0, horizon=50, render=True):
                 print(f"Error closing env: {e}")
 
 
-# env = elden_kitchen(reward_scale=1.0, horizon=50.0, render=True)
+env = elden_kitchen(reward_scale=1.0, horizon=50.0, render=True, use_kitchen_skills=True, downstream_task=1)
 
-# custom_order = list(range(0, 128))
-# env = EldenKitchen(env, custom_order=custom_order)
+custom_order = list(range(0, 128))
+env = EldenKitchen(env, custom_order=custom_order)
 
-# print(env.action_space)
-# print(env.observation_space)
+print(env.action_space)
+print(env.observation_space)
 
-# frames = []
-# obs = env.reset()
+frames = []
+obs = env.reset()
 
-# for i in range(50):
-#     frame = env.render()
-#     frames.append(frame)
+for i in range(50):
+    frame = env.render()
+    frames.append(frame)
     
-#     action = env.action_space.sample()
-#     obs, reward, done, info = env.step(action)
+    # action = env.action_space.sample()
+    action = np.random.uniform(low=-1, high=1, size=(5,)).astype(np.float32)
+    obs, reward, done, info = env.step(action)
 
-#     print(f"Step {i}:")
-#     print(f"  Reward: {reward}")
-#     print(f"  Done: {done}")
+    print(f"Step {i}:")
+    print(f"  Reward: {reward}")
+    print(f"  Done: {done}")
         
-#     if done:
-#         print("Episode finished!")
-#         obs = env.reset()
-#         break
+    if done:
+        print("Episode finished!")
+        obs = env.reset()
+        break
 
 
-# video_path = "envs/elden_kitchen/kitchen.mp4"
-# imageio.mimsave(video_path, frames, fps=30)
-# print(f"🎞️ Video saved to: {video_path}")
+video_path = "envs/elden_kitchen_new/kitchen.mp4"
+imageio.mimsave(video_path, frames, fps=30)
+print(f"🎞️ Video saved to: {video_path}")
 
-# env.close()
+env.close()
