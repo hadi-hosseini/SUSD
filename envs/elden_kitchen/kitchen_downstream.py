@@ -181,8 +181,8 @@ class KitchenDownStreamTask(SingleArmEnv):
         elif self.downstream_task == 2: # put meatball in pot
             if meatball_in_pot:
                 return 1
-        elif self.downstream_task == 3: # put pot on stove and turn on stove
-            if pot_on_stove and self.button_on:
+        elif self.downstream_task == 3: # put pot on stove
+            if pot_on_stove:
                 return 1
         elif self.downstream_task == 4: # put butter in pot and put pot on stove
             if self.butter_in_pot and pot_on_stove:
@@ -190,6 +190,9 @@ class KitchenDownStreamTask(SingleArmEnv):
         elif self.downstream_task == 5: # put meatball in pot and put pot on stove
             if meatball_in_pot and pot_on_stove:
                 return 1 
+        elif self.downstream_task == 6: # put pot on target
+            if pot_on_target:
+                return 1
             
         return 0
         

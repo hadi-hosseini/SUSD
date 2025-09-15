@@ -86,6 +86,7 @@ class SUSDConfig:
     discrete: int = 0  # 1: discrete skills, 0: continuous
     inner: int = 1  # Use inner loop training or not
     unit_length: int = 1  # Unit length constraints on continuous skills
+    use_image: bool = False
 
 
     # === Dual regularization parameters ===
@@ -199,7 +200,7 @@ class SUSDParticle(SUSDConfig):
     discrete: int = 0
     dim_option: int = 2
     sample_cpu: int = 0
-    dual_dist: str = 's2_from_s' 
+    dual_dist: str = 's2_from_s'
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
@@ -207,6 +208,8 @@ class SUSDParticle(SUSDConfig):
     susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
     susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
     susd_ablation_mode: int = 0
+    use_image: bool = False
+
 
 
 

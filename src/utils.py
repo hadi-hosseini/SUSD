@@ -27,6 +27,11 @@ EXP_DIR = 'exp'
 g_start_time = int(datetime.datetime.now().timestamp())
 
 
+def load_img_encoder(device):
+    from slot_attention.load_model import get_encoder
+    encoder = get_encoder(device)
+    return encoder
+
 def get_run_env_dict():
     d = {}
     d['timestamp'] = datetime.datetime.now().timestamp()
@@ -146,14 +151,19 @@ def make_env(args, max_path_length):
         base_env = gym.make('FetchPickAndPlace-v3', max_episode_steps=150, render_mode="rgb_array")
         env = FetchEnvironment(base_env, custom_order=custom_order)
 
-    elif args.env == "particle":        
+    elif args.env == "particle":     
+        if args.use_image:
+            image_encoder = load_img_encoder('cuda')
+        else:
+            image_encoder = None
+
         env = simple_heterogenous_v3.parallel_env(
             render_mode= "rgb_array",
             max_cycles=1000,
             continuous_actions=True,
             local_ratio=0,
             N=10,
-            img_encoder=None)
+            img_encoder=image_encoder)
 
         env = CentralizedWrapper(env, simplify_action_space=True)
 

@@ -303,10 +303,10 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
-    baseline: str = "DUSDI"
+    baseline: str = "CSD"
     max_path_length: int = 50
-    dim_option: int = 35 # 2 others, 35 DUSDI
-    downstream_task: str = "elden_downstream"
+    dim_option: int = 2 # 2 others, 35 DUSDI
+    downstream_task: str = "elden_MiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
     run_group: str = f"HRL_{baseline}_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
@@ -346,7 +346,7 @@ class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
 class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     max_path_length: int = 50
     dim_option: int = 2
-    downstream_task: str = "elden_MiP" # ['BiP', 'MiP', 'PoS_ToS', 'BiP_PoS', 'MiP_PoS']
+    downstream_task: str = "elden_PoT" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
     run_group: str = f"HRL_SUSD_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
@@ -407,7 +407,7 @@ def get_causal_vector(task_diff):
 
 ##### Elden Kitchen Config
 
-method = "susd_elden" # ["susd_elden", "baseline_elden"]
+method = "baseline_elden" # ["susd_elden", "baseline_elden"]
 
 if method == "susd_elden":
     args = SUSDHighLevelEldenKitchenConfig()
@@ -462,12 +462,14 @@ def make_env(max_path_length):
             downstream_task = 1
         elif args.downstream_task == "elden_MiP":
             downstream_task = 2
-        elif args.downstream_task == "elden_PoS_ToS":
+        elif args.downstream_task == "elden_PoS":
             downstream_task = 3
         elif args.downstream_task == "elden_BiP_PoS":
             downstream_task = 4
         elif args.downstream_task == "elden_MiP_PoS":
             downstream_task = 5
+        elif args.downstream_task == "elden_PoT":
+            downstream_task = 6
         env = elden_kitchen(reward_scale=1.0, horizon=250, render=False, downstream_task=downstream_task)
         env = EldenKitchen(env, custom_order=args.custom_order)
 
