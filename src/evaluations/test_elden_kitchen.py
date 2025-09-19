@@ -15,32 +15,39 @@ algo = "susd" # ["csd", "metra", "lsd", "diyan", "susd"]
 skill_dim = 2
 
 if algo == "susd":
-    option_policy_checkpoint_path = f'final_models/elden_kitchen/SUSD/option_policy6000.pt'
-    traj_encoder_checkpoint_path = f'final_models/elden_kitchen/SUSD/traj_encoder6000.pt'
+    high_option_policy_path = f'/home/hadi/rl/SUSD/exp/HRL_SUSD_elden_BiP/sd000_1757762930_elden_kitchen_sac/option_policy9000.pt'
+    traj_encoder_checkpoint_path = f'/home/hadi/rl/SUSD/exp/HRL_SUSD_elden_BiP/sd000_1757762930_elden_kitchen_sac/traj_encoder9000.pt'
+
+    low_level_policy_path = 'final_models/elden_kitchen/SUSD/option_policy10000.pt'    
     skill_dim = 14 # N=7 & d=2
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/elden_kitchen/METRA/option_policy6000.pt'    
+    high_option_policy_path = 'final_models/elden_kitchen/METRA/option_policy6000.pt'    
     traj_encoder_checkpoint_path = 'final_models/elden_kitchen/METRA/traj_encoder6000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/elden_kitchen/CSD/option_policy6000.pt'    
+    high_option_policy_path = 'final_models/elden_kitchen/CSD/option_policy6000.pt'    
     traj_encoder_checkpoint_path = 'final_models/elden_kitchen/CSD/traj_encoder6000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/elden_kitchen/LSD/option_policy6000.pt'    
+    high_option_policy_path = 'final_models/elden_kitchen/LSD/option_policy6000.pt'    
     traj_encoder_checkpoint_path = 'final_models/elden_kitchen/LSD/traj_encoder6000.pt'
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/elden_kitchen/DIAYN/option_policy6000.pt'    
+    high_option_policy_path = 'final_models/elden_kitchen/DIAYN/option_policy6000.pt'    
     traj_encoder_checkpoint_path = 'final_models/elden_kitchen/DIAYN/traj_encoder6000.pt'
 
 
-option_ckpt = torch.load(option_policy_checkpoint_path)
+high_policy = torch.load(high_option_policy_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
-option_policy = option_ckpt["policy"]
+
+low_policy = torch.load(low_level_policy_path)
+
+high_option_policy = high_policy["policy"]
+low_option_policy = low_policy["policy"]
 traj_encoder = traj_ckpt["traj_encoder"]
-option_policy = option_policy.to(device).eval()
+high_option_policy = high_option_policy.to(device).eval()
+low_level_policy = low_option_policy.to(device).eval()
 traj_encoder = traj_encoder.to(device).eval()
 
 custom_order = [113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 0, 1, 2, 3] # 29 arm + 4 don't know
@@ -57,35 +64,33 @@ def test_elden_policy(env):
     done = True
     frames = []
     steps = 0
-    z_period = 50
     max_steps = 1000
 
     while steps <= max_steps:
         if done:
             obs = env.reset()
             done = False
-            random_z = np.random.randn(1, skill_dim)
-            random_z /= np.linalg.norm(random_z)
-            random_z = torch.tensor(random_z, dtype=torch.float32).to(device)
         else:
-            if steps % z_period == 0:
-                random_z = np.random.randn(1, skill_dim)
-                random_z /= np.linalg.norm(random_z)
-                random_z = torch.tensor(random_z, dtype=torch.float32).to(device)
-
             obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(device)
 
-            input_tensor = torch.cat([obs, random_z], dim=-1)
             with torch.no_grad():
-                action_np, _ = option_policy.get_action(input_tensor)
-            action = action_np[0]
+                skill_np, _ = high_option_policy.get_action(obs)
+                skill_torch = torch.tensor(skill_np, dtype=torch.float32).to(device)
+                input_tensor = torch.cat([obs, skill_torch], dim=-1)
 
-            obs, reward, done, info = env.step(action)
-
-            print(f"Step {steps}:")
-            print(f"  Reward: {reward}")
-            print(f"  Done: {done}")
-            print(f"  Stage Completion: {info['stage_completion']}")
+                for _ in range(5):
+                    action_np, _ = low_option_policy.get_action(input_tensor)
+                    cp_action_norm = np.linalg.norm(action_np[0])
+                    action_np = action_np[0] / cp_action_norm
+                    lb, ub = env.action_space.low, env.action_space.high
+                    action = lb + (action_np + 1) * (0.5 * (ub - lb))
+                    action = np.clip(action, lb, ub)
+                    obs, reward, done, info = env.step(action)
+                    print(f"Step {steps}:")
+                    print(f"  Reward: {reward}")
+                    print(f"  Done: {done}")
+                    if reward:
+                        return
 
             if done:
                 print("Episode finished!")
@@ -104,5 +109,5 @@ def test_elden_policy(env):
         print(f"🎞️ Video saved to: {video_path}")
 
 
-with kitchen_env(custom_order=custom_order, reward_scale=1.0, horizon=1000, render=True) as env:
+with kitchen_env(custom_order=custom_order, reward_scale=1.0, horizon=1000, render=True, downstream_task=1) as env:
     test_elden_policy(env)

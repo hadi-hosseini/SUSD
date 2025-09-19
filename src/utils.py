@@ -8,6 +8,15 @@ import numpy as np
 from garagei.torch.q_functions.continuous_mlp_q_function_ex import ContinuousMLPQFunctionEx
 from garagei.torch.modules.parameter_module import ParameterModule
 
+from torchvision import transforms
+import torch
+
+from slot_attention.data import CLEVRDataModule
+from slot_attention.model import SlotAttentionModel
+from slot_attention.params import SlotAttentionParams
+from slot_attention.method import SlotAttentionMethod
+from slot_attention.utils import rescale
+
 
 from garage.experiment.experiment import get_metadata
 from garagei.envs.consistent_normalized_env import consistent_normalize
@@ -25,12 +34,6 @@ import global_context
 
 EXP_DIR = 'exp'
 g_start_time = int(datetime.datetime.now().timestamp())
-
-
-def load_img_encoder(device):
-    from slot_attention.load_model import get_encoder
-    encoder = get_encoder(device)
-    return encoder
 
 def get_run_env_dict():
     d = {}
@@ -182,9 +185,13 @@ def make_env(args, max_path_length):
         env.reset(seed=args.seed)
 
     elif args.env == "gunner":
-        custom_order = [0, 1, 2, 3, 12, 13,
-                        4, 5, 6, 7, 14, 15, 16,
-                        8, 9, 10, 11, 17] # base, arm, view
+        # custom_order = [0, 1, 2, 3, 12, 13,
+        #                 4, 5, 6, 7, 14, 15, 16,
+        #                 8, 9, 10, 11, 17] # base, arm, view (ORIGINAL)
+
+        custom_order = [0, 1, 2, 3,
+                        4, 5, 6, 7,
+                        8, 9, 10, 11] # base, arm, view (SIMPLE V4)
         env = MoMa2DGymEnv(max_step=1000, custom_order=custom_order)
         env.reset()
 
@@ -233,3 +240,74 @@ def make_q_function(input_dim, action_dim, master_dims, nonlinearity, alpha):
     # log_alpha = ParameterModule(torch.Tensor([np.log(alpha)]))
     # return qf1, alpha
     return qf1
+
+
+
+
+
+
+def load_model():
+    ckpt_path = "slot_attention/slot_attention-epoch=99.ckpt"
+    params = SlotAttentionParams()
+
+    clevr_transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Lambda(rescale),  # rescale between -1 and 1
+                transforms.Resize(params.resolution),
+            ]
+    )
+    
+
+    clevr_datamodule = CLEVRDataModule(
+            data_root=params.data_root,
+            max_n_objects=params.num_slots - 1,
+            train_batch_size=params.batch_size,
+            val_batch_size=params.val_batch_size,
+            clevr_transforms=clevr_transform,
+            num_train_images=params.num_train_images,
+            num_val_images=params.num_val_images,
+            num_workers=params.num_workers,
+        )
+
+
+    model = SlotAttentionModel(
+            resolution=params.resolution,
+            num_slots=params.num_slots,
+            num_iterations=params.num_iterations,
+            empty_cache=params.empty_cache,
+        )
+
+    method = SlotAttentionMethod.load_from_checkpoint(
+        ckpt_path,
+        model=model,
+        datamodule=clevr_datamodule,
+        params=params
+    )
+    method.eval()
+
+    return method
+
+
+def get_image_embeddings(img, method):
+    params = SlotAttentionParams()
+    clevr_transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Lambda(rescale),  # rescale between -1 and 1
+                transforms.Resize(params.resolution),
+            ]
+    )
+    
+    x = clevr_transform(img).unsqueeze(0)
+
+    with torch.no_grad():
+        encoder_out = method.model.encoder(x)
+        encoder_out = method.model.encoder_pos_embedding(encoder_out)
+        encoder_out = torch.flatten(encoder_out, start_dim=2, end_dim=3)        
+        encoder_out = encoder_out.permute(0, 2, 1)
+        encoder_out = method.model.encoder_out_layer(encoder_out)
+        slots = method.model.slot_attention(encoder_out)
+        return slots
+
+

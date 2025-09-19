@@ -18,8 +18,7 @@ class Particle(MujocoTrait, CentralizedWrapper):
         frame = self._env.render()
         img = Image.fromarray(frame)
         img = img.resize(self.frame_size, Image.BILINEAR)
-
-
+    
         margin_size = 10
         new_width = self.frame_size[0] + 2 * margin_size
         new_height = self.frame_size[1] + 2 * margin_size
@@ -28,6 +27,8 @@ class Particle(MujocoTrait, CentralizedWrapper):
         resized_frame_with_margin = np.array(new_img)
 
         return resized_frame_with_margin
+
+        # return img
     
 
     def permute_state(self, state):

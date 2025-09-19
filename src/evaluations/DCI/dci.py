@@ -27,11 +27,13 @@ import scipy
 # from six.moves import range
 from sklearn import ensemble
 
+from src.dusdi_utils import Actor
 
-def compute_dci(mus_train, ys_train, partition):
+
+def compute_dci(mus_train, ys_train):
   """Computes score based on both training and testing codes and factors."""
   scores = {}
-  importance_matrix, train_err = compute_importance_gbt(mus_train, ys_train, partition)
+  importance_matrix, train_err = compute_importance_gbt(mus_train, ys_train)
   assert importance_matrix.shape[0] == mus_train.shape[0]
   assert importance_matrix.shape[1] == ys_train.shape[0]
   scores["informativeness_train"] = train_err
@@ -40,7 +42,7 @@ def compute_dci(mus_train, ys_train, partition):
   return scores
 
 
-def compute_importance_gbt(x_train, y_train, partition):
+def compute_importance_gbt(x_train, y_train):
   """Compute importance based on gradient boosted trees."""
   num_factors = y_train.shape[0]
   num_codes = x_train.shape[0]
@@ -101,18 +103,14 @@ def dci(fn):
     print(f"evaluating on {n_points} data")
 
     code = obs
-
-
-    partition = [0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70]
-
-
+    
     x = code.T
     y = skill.T
 
     # x = discretize(x, 2)
     # y = discretize(y, 2)
 
-    print(compute_dci(x, y, partition))
+    print(compute_dci(x, y))
 
 
 def discretize(X, num_bins=5):
@@ -135,51 +133,78 @@ os.environ["MUJOCO_GL"] = "egl"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-algo = "susd" # ["csd", "metra", "lsd", "diyan", "susd"]
+algo = "dusdi" # ["csd", "metra", "lsd", "diyan", "susd", "dusdi"]
+env_name = "particle" # ["elden", "particle"]
 skill_dim = 2
 
-if algo == "susd":
-    option_policy_checkpoint_path = f'../../../final_models/particle/SUSD/option_policy6000.pt'
-    traj_encoder_checkpoint_path = f'../../../final_models/particle/SUSD/traj_encoder6000.pt'
-    skill_dim = 20 # N=10 & d=2
+if algo == "csd":
+    if env_name == "elden":
+        option_policy_checkpoint_path = f'final_models/elden_kitchen/SUSD/option_policy10000.pt'
+        skill_dim = 14 # elden
+    else:
+        option_policy_checkpoint_path = f'final_models/particle/SUSD/option_policy10000.pt'
+        skill_dim = 20 # N=10 & d=2 particle
+
+elif algo == "dusdi":
+    if env_name == "elden":
+        option_policy_checkpoint_path = f'final_models/elden_kitchen/DUSDI/option_policy10000.pt'
+        skill_dim= 35 # elden N=7 & d=5 
+    else:
+        option_policy_checkpoint_path = f'final_models/particle/DUSDI/option_policy10000.pt'
+        skill_dim = 50 # N=10 & d=5
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = '../../../final_models/particle/METRA/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = '../../../final_models/particle/METRA/traj_encoder10000.pt'
+    if env_name == "elden":
+        option_policy_checkpoint_path = 'final_models/elden_kitchen/METRA/option_policy10000.pt' 
+    else:   
+        option_policy_checkpoint_path = 'final_models/particle/METRA/option_policy10000.pt'    
 
 elif algo == "csd":
-    option_policy_checkpoint_path = '../../../final_models/particle/CSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = '../../../final_models/particle/CSD/traj_encoder10000.pt'
+    if env_name == "elden":
+        option_policy_checkpoint_path = 'final_models/elden_kitchen/CSD/option_policy10000.pt'    
+    else:
+        option_policy_checkpoint_path = 'final_models/particle/CSD/option_policy10000.pt'    
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = '../../../final_models/particle/LSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = '../../../final_models/particle/LSD/traj_encoder10000.pt'
+    if env_name == "elden":
+        option_policy_checkpoint_path = 'final_models/elden_kitchen/LSD/option_policy10000.pt'    
+    else:
+        option_policy_checkpoint_path = 'final_models/particle/LSD/option_policy10000.pt'    
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = '../../../final_models/particle/DIAYN/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = '../../../final_models/particle/DIAYN/traj_encoder10000.pt'
+    if env_name == "elden":
+        option_policy_checkpoint_path = 'final_models/elden_kitchen/DIAYN/option_policy10000.pt'    
+    else:
+        option_policy_checkpoint_path = 'final_models/particle/DIAYN/option_policy10000.pt'    
 
 
-option_ckpt = torch.load(option_policy_checkpoint_path)
-traj_ckpt = torch.load(traj_encoder_checkpoint_path)
-option_policy = option_ckpt["policy"]
-traj_encoder = traj_ckpt["traj_encoder"]
-option_policy = option_policy.to(device).eval()
-traj_encoder = traj_encoder.to(device).eval()
-
-distances = list(range(0, 10))       # 0–9
-agent_info = list(range(10, 50))     # 10–49
-station_info = list(range(50, 70))   # 50–69
-
-custom_order = []
-
-for i in range(10):
-    custom_order.append(distances[i])                       
-    custom_order.extend(agent_info[i*4:(i+1)*4])            
-    custom_order.extend(station_info[i*2:(i+1)*2])
+if algo == "dusdi":
+    if env_name == "elden":
+        option_policy = Actor("state", 177, 4, 35, 1024, True, [-10, 2], "elden")
+    else:
+        option_policy = Actor("state", 120, 20, 50, 1024, True, [-10, 2], "particle")
+    cp_dict = torch.load(option_policy_checkpoint_path, map_location='cpu')
+    option_policy.load_state_dict(cp_dict)
+    option_policy = option_policy.to(device).eval()
+else:
+    option_ckpt = torch.load(option_policy_checkpoint_path)
+    option_policy = option_ckpt["policy"]
+    option_policy = option_policy.to(device).eval()
 
 
 def create_particle_env(seed=0):
+
+    distances = list(range(0, 10))       # 0–9
+    agent_info = list(range(10, 50))     # 10–49
+    station_info = list(range(50, 70))   # 50–69
+
+    custom_order = []
+
+    for i in range(10):
+        custom_order.append(distances[i])                       
+        custom_order.extend(agent_info[i*4:(i+1)*4])            
+        custom_order.extend(station_info[i*2:(i+1)*2])
+
     env = simple_heterogenous_v3.parallel_env(
             render_mode= "rgb_array",
             max_cycles=1000,
@@ -190,6 +215,25 @@ def create_particle_env(seed=0):
 
     env = CentralizedWrapper(env, simplify_action_space=True)
     env = Particle(env, custom_order, (512, 480))
+
+    print(env.observation_space)
+    exit()
+
+    return env
+
+
+def create_elden_env(seed=0):
+    from envs.elden_kitchen.elden_kitchen import elden_kitchen, EldenKitchen
+    env = elden_kitchen(reward_scale=0.0, horizon=50, render=False) # reward_scale = 0.0 is used for USD
+    custom_order = [113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 0, 1, 2, 3] # 29 arm + 4 don't know
+    custom_order += [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 101, 102, 103, 104, 105, 106]  # 22 pot
+    custom_order += [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37] # 18 butter
+    custom_order += [38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56] # 19 meatball
+    custom_order += [57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 107, 108, 109, 110, 111, 112] # 22 button
+    custom_order += [73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86] # 14 stove
+    custom_order += [87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100] # 14 target 
+    
+    env = EldenKitchen(env, custom_order=custom_order) 
     return env
 
 
@@ -198,18 +242,22 @@ def eval_and_save(fn):
     steps = 0
     z_period = 50
     seed = 0
-    env = create_particle_env(seed)
+    if env_name == "elden":
+        env = create_elden_env(seed)
+    else:
+        env = create_particle_env(seed)
     obs_list = []
     skill_list = []
 
-    with tqdm(total=int(50000), desc="Evaluating env") as pbar:
-        while steps <= 50000:
-            if done:
-                obs = env.reset(seed)
+    with tqdm(total=int(100000), desc="Evaluating env") as pbar:
+        while steps <= 100000: # 100K rollout steps
+            if done or steps % 250 == 0:
+                obs = env.reset()
                 done = False
                 random_z = np.random.randn(1, skill_dim)
                 random_z /= np.linalg.norm(random_z)
                 random_z = torch.tensor(random_z, dtype=torch.float32).to(device)
+                steps += 1
             else:
                 if steps % z_period ==0:
                     random_z = np.random.randn(1, skill_dim)
@@ -219,8 +267,13 @@ def eval_and_save(fn):
                 obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(device)
 
                 input_tensor = torch.cat([obs, random_z], dim=-1)
+
                 with torch.no_grad():
-                    action_np, _ = option_policy.get_action(input_tensor)
+                    if algo == "dusdi":
+                       action_dist = option_policy(input_tensor)
+                       action_np = action_dist.mean.detach().cpu().numpy()
+                    else:
+                        action_np, _ = option_policy.get_action(input_tensor)
                 action = action_np[0]
 
                 obs, _, done, info = env.step(action)
@@ -239,7 +292,6 @@ def eval_and_save(fn):
     print(f"Saved {obs_array.shape[0]} steps to {fn}")
 
 
-fn = f"test_disentanglement/{algo}.npz"
+fn = f"src/evaluations/DCI/test_disentanglement/{algo}.npz"
 eval_and_save(fn)
-
 dci(fn)

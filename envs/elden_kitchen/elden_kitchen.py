@@ -152,10 +152,10 @@ def elden_kitchen(reward_scale=0.0, horizon=50, render=False, downstream_task=Fa
 
 
 @contextmanager
-def kitchen_env(custom_order, reward_scale=1.0, horizon=50, render=True):
+def kitchen_env(custom_order, reward_scale=1.0, horizon=50, render=True, downstream_task=0):
     env = None
     try:
-        base_env = elden_kitchen(reward_scale=reward_scale, horizon=horizon, render=render)
+        base_env = elden_kitchen(reward_scale=reward_scale, horizon=horizon, render=render, downstream_task=downstream_task)
         env = EldenKitchen(base_env, custom_order=custom_order)
         yield env
     finally:

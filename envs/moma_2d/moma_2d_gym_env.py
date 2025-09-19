@@ -42,13 +42,13 @@ class MoMa2DGymEnv(MujocoTrait, gym.Env):
 
 		self.action_space = spaces.Box(low=-self.action_range, high=self.action_range, shape=(6,), dtype=np.float32)
 
-		obs_low = np.array([0]*17 + [-self.view_limit], dtype=np.float32)
-		obs_high = np.array([1]*12 + [self.limit]*4 + [self.gripper_limit, self.view_limit], dtype=np.float32)
-		self.observation_space = spaces.Box(low=obs_low, high=obs_high, shape=(18,), dtype=np.float32)
+		# obs_low = np.array([0]*17 + [-self.view_limit], dtype=np.float32)
+		# obs_high = np.array([1]*12 + [self.limit]*4 + [self.gripper_limit, self.view_limit], dtype=np.float32)
+		# self.observation_space = spaces.Box(low=obs_low, high=obs_high, shape=(18,), dtype=np.float32)
 
-		# obs_low = np.array([0]*17 + [-self.view_limit] + [0]*17 + [-self.view_limit], dtype=np.float32) # DELETE THIS!!!
-		# obs_high = np.array([1]*12 + [self.limit]*4 + [self.gripper_limit, self.view_limit] + [1]*12 + [self.limit]*4 + [self.gripper_limit, self.view_limit], dtype=np.float32) # DELETE THIS!!!
-		# self.observation_space = spaces.Box(low=obs_low, high=obs_high, shape=(36,), dtype=np.float32) # DELETE THIS!!!
+		obs_low = np.array([0]*12, dtype=np.float32) # DELETE THIS!!!
+		obs_high = np.array([1]*12, dtype=np.float32) # DELETE THIS!!!
+		self.observation_space = spaces.Box(low=obs_low, high=obs_high, shape=(12,), dtype=np.float32) # DELETE THIS!!!
 
 
 		# Visualize rotated to left by 90 degrees
@@ -114,13 +114,12 @@ class MoMa2DGymEnv(MujocoTrait, gym.Env):
 	
 
 	def permute_state(self, state):
+		vector = np.asarray(state[:12]) # DELETE THIS!!!
+
 		vector = np.asarray(state)
 		if self.custom_order is not None:
 			vector = self.rearrange_vector(vector, self.custom_order)
 
-		# if vector.ndim == 2: # DELETE THIS!!!
-		# 	vector = np.squeeze(vector) # DELETE THIS!!!
-		# vector = np.concatenate([vector, state]) # DELETE THIS!!!
 		return vector
     
 
@@ -200,7 +199,7 @@ class MoMa2DGymEnv(MujocoTrait, gym.Env):
 	def get_reward(self):
 		return 0
  
-	def reset(self, seed=3): # None is pretrain; 0/1/3 is train
+	def reset(self, seed=None): # None is pretrain; 0/1/3 is train
 		self.step_count = 0
 		self.agent_traj = []
 

@@ -5,9 +5,7 @@ import numpy as np
 import math
 
 # downstream_task = "elden_BiP" ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
-# methods = ["CSD", "METRA", "LSD", "DIAYN", "SUSD", "DUSDI"]
-
-methods = ["CSD", "SUSD", "DUSDI"]
+methods = ["CSD", "METRA", "LSD", "DIAYN", "SUSD", "DUSDI"]
 
 def elden_BiP(): 
     all_dfs = []
@@ -133,21 +131,22 @@ plot_result(bip, save_path, title="Put Butter in Pot Task")
 
 
 ### elden_Mip
-save_path = "visualization/vis/elden_Mip.png" 
+save_path = "visualization/vis/elden_MiP.png" 
 mip = elden_MiP()
 plot_result(mip, save_path, title="Put Meatball in Pot Task")
 
 
-### elden_Mip
-save_path = "visualization/vis/elden_Mip.png" 
+### elden_PoS
+save_path = "visualization/vis/elden_PoS.png" 
 pos = elden_PoS()
 plot_result(pos, save_path, title="Put Meatball in Pot Task")
 
 
-### elden_PoT
-save_path = "visualization/vis/elden_PoT.png" 
-pot = elden_PoT()
-plot_result(pot, save_path, title="Put Pot in Target Task")
+# ### elden_PoT
+# save_path = "visualization/vis/elden_PoT.png" 
+# pot = elden_PoT()
+# plot_result(pot, save_path, title="Put Pot in Target Task")
+
 
 ### plot_groups
 dfs = [bip, mip, pos]

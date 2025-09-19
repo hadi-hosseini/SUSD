@@ -28,7 +28,7 @@ class ChildPolicyEnvParticle(gym.Wrapper):
         super().__init__(env)
 
 
-        mode = 2 # 0:susd   1: dsd baselines  2:dusdi
+        mode = 0 # 0: susd  1: dsd  2:dusdi
         self.mode = mode
 
         if mode == 2: # dusdi
@@ -44,7 +44,7 @@ class ChildPolicyEnvParticle(gym.Wrapper):
             self.cp_discrete = cp_dict['discrete']
         
             if mode == 0: # susd
-                self.cp_N = getattr(cp_dict, 'N', 10) # susd
+                self.cp_N = getattr(cp_dict, 'N', 20) # susd (10)
             else: # dsd-baselines
                 self.cp_N = getattr(cp_dict, 'N', 1) # baselines
     

@@ -20,29 +20,29 @@ os.environ["MUJOCO_GL"] = "egl"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 mode = "plot" # ["plot", "eval"]
-algo = "lsd" # ["csd", "metra", "lsd", "diyan", "susd"]
+algo = "susd" # ["csd", "metra", "lsd", "diyan", "susd"]
 skill_dim = 2
 
 if algo == "susd":
-    option_policy_checkpoint_path = f'final_models/particle/SUSD/option_policy6000.pt'
-    traj_encoder_checkpoint_path = f'final_models/particle/SUSD/traj_encoder6000.pt'
+    option_policy_checkpoint_path = f'final_models/particle/SUSD/option_policy10000.pt'
+    traj_encoder_checkpoint_path = f'final_models/particle/SUSD/traj_encoder10000.pt'
     skill_dim = 20 # N=10 & d=2
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/particle/METRA/option_policy6000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/METRA/traj_encoder6000.pt'
+    option_policy_checkpoint_path = 'final_models/particle/METRA/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/METRA/traj_encoder10000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/particle/CSD/option_policy6000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/CSD/traj_encoder6000.pt'
+    option_policy_checkpoint_path = 'final_models/particle/CSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/CSD/traj_encoder10000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/particle/LSD/option_policy6000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/LSD/traj_encoder6000.pt'
+    option_policy_checkpoint_path = 'final_models/particle/LSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/LSD/traj_encoder10000.pt'
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/particle/DIAYN/option_policy6000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/DIAYN/traj_encoder6000.pt'
+    option_policy_checkpoint_path = 'final_models/particle/DIAYN/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/DIAYN/traj_encoder10000.pt'
 
 
 csv_path = f"final_models/particle/COVERAGE/state_coverage_{algo}_particle.csv"
@@ -61,11 +61,14 @@ custom_order = []
 
 for i in range(10):
     custom_order.append(distances[i])                       
-    custom_order.extend(agent_info[i*4:(i+1)*4])            
+    custom_order.extend(agent_info[i*4:(i+1)*4])           
     custom_order.extend(station_info[i*2:(i+1)*2])
 
+# agent_positions = {0: (12, 13), 1: (16, 17), 2: (20, 21), 3: (24, 25), 4: (28, 29), 5: (32, 33), 6: (36, 37), 7: (40, 41), 8: (44, 45), 9: (48, 49)}
+agent_positions = {0: (3, 4), 1: (10, 11), 2: (17, 18), 3: (24, 25), 4: (31, 32), 5: (38, 39), 6: (45, 46), 7: (52, 53), 8: (59, 60), 9: (66, 67)}
 
-def create_particle_env(seed=0):
+
+def create_particle_env():
     env = simple_heterogenous_v3.parallel_env(
             render_mode= "rgb_array",
             max_cycles=1000,
@@ -78,21 +81,19 @@ def create_particle_env(seed=0):
     env = Particle(env, custom_order, (512, 480))
     return env
 
-max_steps = 50
 
-
-def eval(env, seed):
+def eval(env):
     log = []
     record_video = False
     done = True
     frames = []
     steps = 0
-    z_period = 50
-    unique_pairs = set()
+    z_period = 200
+    unique_pairs= [set() for _ in range(10)]
 
-    while steps <= 1e4:
+    while steps <= 2e4:
         if done:
-            obs = env.reset(seed)
+            obs = env.reset()
             done = False
             random_z = np.random.randn(1, skill_dim)
             random_z /= np.linalg.norm(random_z)
@@ -102,6 +103,7 @@ def eval(env, seed):
                 random_z = np.random.randn(1, skill_dim)
                 random_z /= np.linalg.norm(random_z)
                 random_z = torch.tensor(random_z, dtype=torch.float32).to(device)
+                obs = env.reset() # RESET EACH 200 STEPS
 
             obs = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(device)
 
@@ -113,17 +115,23 @@ def eval(env, seed):
             obs, _, done, info = env.step(action)
             steps += 1
 
-            x, y = info['next_coordinates']
-            pair = (round(x, 2), round(y, 2))
-            unique_pairs.add(pair)
+            for i in range(10):
+                x_index, y_index = agent_positions[i]
+                x = obs[x_index]
+                y = obs[y_index]
+                pair = (round(x, 2), round(y, 2))
+                unique_pairs[i].add(pair)
 
             if record_video:
                 frame = env.render()
                 frames.append(frame)
 
-            log.append((steps, len(unique_pairs)))
+            min_len = min(len(s) for s in unique_pairs)
+            log.append((steps, min_len))
 
-    print(f"unique pairs: {len(unique_pairs):.2f}")
+    min_len = min(len(s) for s in unique_pairs)
+    print([len(s) for s in unique_pairs])
+    print(f"unique pairs: {min_len}")
 
     if record_video:
         video_path = f"eval_state_coverage_ant_{algo}.mp4"
@@ -137,18 +145,18 @@ def run_multiple_seeds(num_runs=8):
     all_logs = []
     csv_rows = []
     
-    for seed in tqdm(range(num_runs)):
-        print(f"Running seed {seed}...")
-        env = create_particle_env(seed)
+    for iteration in tqdm(range(num_runs)):
+        print(f"Iteration {iteration}...")
+        env = create_particle_env()
                 
-        time_reward_log = eval(env, seed)
+        time_reward_log = eval(env)
         all_logs.append(time_reward_log)
 
         for time_val, unique_steps in time_reward_log:
-            csv_rows.append({'seed': seed, 'time': time_val, 'unique_steps': unique_steps})
+            csv_rows.append({'iter': iteration, 'time': time_val, 'min_unique_steps': unique_steps})
 
 
-    fieldnames = ['seed', 'time', 'unique_steps']
+    fieldnames = ['iter', 'time', 'min_unique_steps']
     with open(csv_path, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -156,6 +164,7 @@ def run_multiple_seeds(num_runs=8):
 
     print(f"\n📁 Logs saved to {csv_path}")
     return all_logs
+
 
 def smooth_curve(values, alpha=0.6):
     """Exponential moving average smoothing."""
@@ -166,6 +175,71 @@ def smooth_curve(values, alpha=0.6):
         smoothed.append(last)
     return np.array(smoothed)
 
+
+
+
+
+
+# def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, confidence=0.95, save_path=None):
+#     common_times = np.arange(0, max_duration + dt, dt)
+
+#     plt.figure(figsize=(10, 6))
+
+#     for method, all_logs in logs_by_method.items():
+#         interp_rewards = []
+#         for log in all_logs:
+#             times, rewards = zip(*log)
+#             times = np.array(times)
+#             rewards = np.array(rewards)
+            
+#             interp = np.interp(common_times, times, rewards)
+#             interp_rewards.append(interp)
+        
+#         interp_rewards = np.array(interp_rewards)
+#         mean_rewards = np.mean(interp_rewards, axis=0)
+
+#         mean_rewards = smooth_curve(mean_rewards, alpha=0.15)
+
+#         plt.plot(common_times, mean_rewards, label=method, linewidth=0.8)
+
+#     plt.xlabel('Steps')
+#     plt.ylabel('State Coverage')
+#     plt.title('Average State Coverage over Steps')
+#     plt.legend()
+#     plt.grid(True)
+#     plt.tight_layout()
+
+#     if save_path:
+#         plt.savefig(save_path)
+#         print(f"✅ Plot saved to: {save_path}")
+#     else:
+#         plt.show()
+
+
+
+
+def smooth_rewards(values, alpha=0.6, context=5):
+    smoothed = []
+    for i, v in enumerate(values):
+        if i == 0:
+            smoothed.append(v)
+        else:
+            # Exponential smoothing
+            smoothed_val = alpha * v + (1 - alpha) * smoothed[-1]
+            smoothed.append(smoothed_val)
+    smoothed = np.array(smoothed)
+
+    # Apply rolling mean with context window (without dropping at the ends)
+    if context > 1:
+        smoothed_context = []
+        for i in range(len(smoothed)):
+            start = max(0, i - context + 1)
+            window = smoothed[start:i+1]
+            smoothed_context.append(np.mean(window))
+        smoothed = np.array(smoothed_context)
+
+    return smoothed
+
 def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, confidence=0.95, save_path=None):
     common_times = np.arange(0, max_duration + dt, dt)
 
@@ -175,22 +249,24 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
         interp_rewards = []
         for log in all_logs:
             times, rewards = zip(*log)
-            times = np.array(times)
-            rewards = np.array(rewards)
-            
-            interp = np.interp(common_times, times, rewards)
-            interp_rewards.append(interp)
+            f = interp1d(times, rewards, kind='previous', bounds_error=False,
+                         fill_value=(rewards[0], rewards[-1]))
+            interp_rewards.append(f(common_times))
         
         interp_rewards = np.array(interp_rewards)
         mean_rewards = np.mean(interp_rewards, axis=0)
+        sem = stats.sem(interp_rewards, axis=0)
+        margin = sem * stats.t.ppf((1 + confidence) / 2., interp_rewards.shape[0] - 1)
 
-        mean_rewards = smooth_curve(mean_rewards, alpha=0.15)
+        mean_rewards = smooth_rewards(mean_rewards, alpha=0.6, context=200)
 
-        plt.plot(common_times, mean_rewards, label=method, linewidth=0.8)
+        # Plot mean and confidence interval
+        plt.plot(common_times, mean_rewards, label=method)
+        plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.2)
 
     plt.xlabel('Steps')
     plt.ylabel('State Coverage')
-    plt.title('Average State Coverage over Steps')
+    plt.title('Average State Coverage (Minimum Across Factors)')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -206,9 +282,9 @@ def load_logs_from_csv(csv_path):
     df = pd.read_csv(csv_path)
     all_logs = []
 
-    for seed, group in df.groupby("seed"):
+    for iter, group in df.groupby("iter"):
         sorted_group = group.sort_values("time")
-        log = list(zip(sorted_group["time"], sorted_group["unique_steps"]))
+        log = list(zip(sorted_group["time"], sorted_group["min_unique_steps"]))
         all_logs.append(log)
 
     return all_logs
@@ -221,18 +297,20 @@ elif mode == "plot":
     metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_metra_particle.csv")
     csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle.csv")
     lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
+    diayn_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_diayn_particle.csv")
 
 
     logs_by_method = {
         "SUSD": susd_logs,
         "METRA": metra_logs,
         "CSD": csd_logs,
-        "LSD": lsd_logs
+        "LSD": lsd_logs,
+        "DIAYN": diayn_logs
     }
 
     plot_multiple_methods_unique_steps(
         logs_by_method,
-        max_duration=1e4,
+        max_duration=2e4,
         dt=1.0,
         save_path=f"final_models/particle/COVERAGE/state_coverage_particle_comparison_ours.png"
     )

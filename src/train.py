@@ -174,10 +174,10 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
 @dataclass
 class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     max_path_length: int = 10 # 10
-    dim_option: int = 20 # susd
+    dim_option: int = 40 # susd (20)
     task_diff: int = 7 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
     downstream_task: str = "seq" # fp: food&poison seq: sequential
-    run_group: str = f"HRL_SUSD_{downstream_task}_{task_diff}"
+    run_group: str = f"HRL_SUSD_{downstream_task}_{task_diff}_V2"
     n_parallel: int = 4 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -199,7 +199,8 @@ class SUSDHighLevelParticleConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    cp_path: str = "final_models/particle/SUSD/option_policy10000.pt" # ORIGINAL
+    # cp_path: str = "final_models/particle/SUSD/option_policy10000.pt" # ORIGINAL
+    cp_path: str = "final_models/particle/SUSD/option_policy10000_V2.pt" # V2 (MORE Factors)
     # cp_path: str = "final_models/particle/ABLATION1/option_policy10000.pt" # ABLATION1
     # cp_path: str = "final_models/particle/ABLATION2/option_policy10000.pt" # ABLATION1
     cp_unit_length: int = 1
@@ -303,10 +304,10 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
-    baseline: str = "CSD"
+    baseline: str = "DIAYN"
     max_path_length: int = 50
     dim_option: int = 2 # 2 others, 35 DUSDI
-    downstream_task: str = "elden_MiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
+    downstream_task: str = "elden_PoS" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
     run_group: str = f"HRL_{baseline}_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
@@ -346,7 +347,7 @@ class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
 class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     max_path_length: int = 50
     dim_option: int = 2
-    downstream_task: str = "elden_PoT" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
+    downstream_task: str = "elden_BiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
     run_group: str = f"HRL_SUSD_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
@@ -364,9 +365,9 @@ class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     sac_max_buffer_size: int = 1000000
     sac_min_buffer_size: int = 1000
     n_epochs_per_log: int = 25
-    n_epochs_per_eval: int = 250 # 250
-    n_epochs_per_save: int = 1000 # 1000
-    n_epochs_per_pt_save: int = 1000 # 1000
+    n_epochs_per_eval: int = 250 
+    n_epochs_per_save: int = 1000 
+    n_epochs_per_pt_save: int = 1000 
     te_only_last_frame: int  = 0
     alpha: float = 0.1
     cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy10000.pt" # SUSD
@@ -415,7 +416,7 @@ elif method == "baseline_elden":
     args = BaseHighLevelEldenKitchenConfig()
 
 
-# method = "baseline_particle" # ["susd_particle", "baseline_particle"]
+# method = "susd_particle" # ["susd_particle", "baseline_particle"]
 
 # if method == "susd_particle":
 #     args = SUSDHighLevelParticleConfig()

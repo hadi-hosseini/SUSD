@@ -216,3 +216,5 @@ final_models
 dsd_models
 playground.py
 src/evaluations/DCI/test_disentanglement
+data
+slot_attention
