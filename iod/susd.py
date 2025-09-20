@@ -118,8 +118,17 @@ class SUSD(IOD):
         batch_size = runner._train_args.batch_size
 
         if self.discrete:
-            random_indices = np.random.randint(0, self.dim_option, size=(batch_size, self.N))
-            random_options = np.eye(self.dim_option)[random_indices]  # Shape: (batch_size, N, dim_option)
+            skill_list = []
+
+            for _ in range(self.N):
+                indices = np.random.randint(0, self.dim_option, runner._train_args.batch_size)                
+                one_hot = np.eye(self.dim_option)[indices]                
+                skill_list.append(one_hot)
+
+            skills = np.concatenate(skill_list, axis=1)
+            extras = self._generate_option_extras(skills)
+
+            
         else:
             random_options = np.random.randn(batch_size, self.N * self.dim_option)
             if self.unit_length:
@@ -275,12 +284,12 @@ class SUSD(IOD):
             target_z = next_z - cur_z
 
             if self.discrete:
-                batch_size = v['options'].shape[0]
-                option_vec = v['options'].reshape(batch_size, self.N, self.dim_option)  # (batch_size, N, dim_option)
-                per_factor_mean = option_vec.mean(dim=2, keepdim=True)  # (batch_size, N, 1)
-                masks = (option_vec - per_factor_mean) * self.dim_option / (self.dim_option - 1 if self.dim_option != 1 else 1)
-                masks = masks.reshape(batch_size, self.N * self.dim_option)  # back to (batch_size, total_option_dim)
-                rewards = (target_z * masks).sum(dim=1)
+                batch_size, _ = target_z.shape
+                options_reshaped = v['options'].view(batch_size, self.N, self.dim_option)
+                masks = options_reshaped - options_reshaped.mean(dim=2, keepdim=True)
+                masks = (masks * self.dim_option) / (self.dim_option - 1 if self.dim_option != 1 else 1)
+                target_z_reshaped = target_z.view(batch_size, self.N, self.dim_option)
+                rewards = (target_z_reshaped * options_reshaped).sum(dim=2)  # shape: [batch_size, N]
 
             else:
                 batch_size, _ = target_z.shape
@@ -703,26 +712,32 @@ class SUSD(IOD):
     def _evaluate_policy(self, runner):
 
         if self.discrete:
-            eye_options = np.eye(self.dim_option)  # (dim_option, dim_option)
+
+            skill_list = []
+            for _ in range(self.N):
+                indices = np.random.randint(0, self.dim_option, self.dim_option)                
+                one_hot = np.eye(self.dim_option)[indices]                
+                skill_list.append(one_hot)
+            skills = np.concatenate(skill_list, axis=1)
+
             random_options = []
             colors = []
-
             for i in range(self.dim_option):
-                num_trajs = self.num_random_trajectories // self.dim_option + (i < self.num_random_trajectories % self.dim_option)
-                one_hot = eye_options[i]  # shape (dim_option,)
-                for _ in range(num_trajs):
-                    # Repeat the one-hot N times → shape (N, dim_option)
-                    multi_factor_option = np.tile(one_hot, (self.N, 1))  # (N, dim_option)
-                    random_options.append(multi_factor_option)
+                num_trajs_per_option = self.num_random_trajectories // self.dim_option + (i < self.num_random_trajectories % self.dim_option)
+                for _ in range(num_trajs_per_option):
+                    random_options.append(skills[i])
                     colors.append(i)
+            random_options = np.array(random_options)
 
-            random_options = np.stack(random_options, axis=0)  # (num_trajs, N, dim_option)
+
             colors = np.array(colors)
-
+            num_evals = len(random_options)
             from matplotlib import cm
-            cmap_name = 'tab10' if self.dim_option <= 10 else 'tab20'
-            cmap = cm.get_cmap(cmap_name)
-            random_option_colors = np.array([cmap(c)[:3] for c in colors])
+            cmap = 'tab10' if self.dim_option <= 10 else 'tab20'
+            random_option_colors = []
+            for i in range(num_evals):
+                random_option_colors.extend([cm.get_cmap(cmap)(colors[i])[:3]])
+            random_option_colors = np.array(random_option_colors)
 
         else:
             random_options = np.random.randn(self.num_random_trajectories, self.N * self.dim_option)
@@ -779,7 +794,13 @@ class SUSD(IOD):
         if not self.env_name == "elden_kitchen":
             if self.eval_record_video:
                 if self.discrete:
-                    video_options = np.eye(self.dim_option)
+                    skill_list = []
+                    for _ in range(self.N):
+                        indices = np.random.randint(0, self.dim_option, self.dim_option + 1)                
+                        one_hot = np.eye(self.dim_option)[indices]                
+                        skill_list.append(one_hot)
+                    video_options = np.concatenate(skill_list, axis=1)
+
                     video_options = video_options.repeat(self.num_video_repeats, axis=0)
                 else:
                     if self.dim_option * self.N == 2:

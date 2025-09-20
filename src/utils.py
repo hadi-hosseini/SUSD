@@ -185,13 +185,13 @@ def make_env(args, max_path_length):
         env.reset(seed=args.seed)
 
     elif args.env == "gunner":
-        # custom_order = [0, 1, 2, 3, 12, 13,
-        #                 4, 5, 6, 7, 14, 15, 16,
-        #                 8, 9, 10, 11, 17] # base, arm, view (ORIGINAL)
+        custom_order = [0, 1, 2, 3, 12, 13,
+                        4, 5, 6, 7, 14, 15, 16,
+                        8, 9, 10, 11, 17] # base, arm, view (ORIGINAL)
 
-        custom_order = [0, 1, 2, 3,
-                        4, 5, 6, 7,
-                        8, 9, 10, 11] # base, arm, view (SIMPLE V4)
+        # custom_order = [0, 1, 2, 3,
+        #                 4, 5, 6, 7,
+        #                 8, 9, 10, 11] # base, arm, view (SIMPLE V4)
         env = MoMa2DGymEnv(max_step=1000, custom_order=custom_order)
         env.reset()
 

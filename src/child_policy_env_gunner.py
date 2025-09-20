@@ -34,7 +34,7 @@ class ChildPolicyEnvGunner(gym.Wrapper):
             self.child_policy.load_state_dict(cp_dict)
             self.cp_dim_action = 5
             self.cp_N = 4
-            self.cp_discrete = False
+            self.cp_discrete = True
 
         else:
             self.cp_dim_action = cp_dict['dim_option']
@@ -43,7 +43,7 @@ class ChildPolicyEnvGunner(gym.Wrapper):
 
             if mode == 0: # susd
                 self.cp_N = getattr(cp_dict, 'N', 3) # susd
-                # self.cp_N = getattr(cp_dict, 'N', 4) # DELTE THIS!!!
+                self.cp_discrete = True # DISCRETE
 
             else: # dsd-baselines
                 self.cp_N = getattr(cp_dict, 'N', 1) # baselines
@@ -59,8 +59,8 @@ class ChildPolicyEnvGunner(gym.Wrapper):
 
         self.observation_space = self.env.observation_space
 
-        if 'discrete' in cp_dict and cp_dict['discrete']:
-            self.action_space = akro.Discrete(n=cp_dict['dim_option'])
+        if self.cp_discrete:
+            self.action_space = akro.Box(low=0, high=1, shape=(self.cp_dim_action * self.cp_N,), dtype=np.int8)
         else:
             self.action_space = akro.Box(low=-1., high=1., shape=(self.cp_dim_action * self.cp_N,))
 
@@ -73,7 +73,7 @@ class ChildPolicyEnvGunner(gym.Wrapper):
     def get_full_state(self, obs):
         full_obs = np.concatenate([obs, self.env.get_additional_states()])
         return full_obs
-    
+
     def reset(self, **kwargs):
         observation = self.env.reset(**kwargs)
         self.cycle_reward = 0
@@ -90,7 +90,8 @@ class ChildPolicyEnvGunner(gym.Wrapper):
                 cp_action = cp_action / cp_action_norm
             else:
                 cp_action = cp_action * self.cp_action_range
-
+        else:
+            cp_action = (cp_action > 0.5).astype(np.int8) 
 
         for i in range(self.cp_multi_step):
             self.step_count += 1

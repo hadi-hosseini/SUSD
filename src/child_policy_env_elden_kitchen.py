@@ -34,7 +34,7 @@ class ChildPolicyEnvEldenKitchen(gym.Wrapper):
             self.child_policy.load_state_dict(cp_dict)
             self.cp_dim_action = 5
             self.cp_N = 7
-            self.cp_discrete = False
+            self.cp_discrete = True
 
         else:
             self.cp_dim_action = cp_dict['dim_option']
@@ -57,8 +57,9 @@ class ChildPolicyEnvEldenKitchen(gym.Wrapper):
 
         self.observation_space = self.env.observation_space
 
-        if 'discrete' in cp_dict and cp_dict['discrete']:
-            self.action_space = akro.Discrete(n=cp_dict['dim_option'])
+        if self.cp_discrete:
+            self.action_space = akro.Box(low=0, high=1, shape=(self.cp_dim_action * self.cp_N,), dtype=np.int8)
+            # self.action_space = akro.Discrete(n=cp_dict['dim_option'])
         else:
             self.action_space = akro.Box(low=-1., high=1., shape=(self.cp_dim_action * self.cp_N,))
 
@@ -83,6 +84,9 @@ class ChildPolicyEnvEldenKitchen(gym.Wrapper):
                 cp_action = cp_action / cp_action_norm
             else:
                 cp_action = cp_action * self.cp_action_range
+        else:
+            cp_action = (cp_action > 0.5).astype(np.int8) 
+
 
 
         for i in range(self.cp_multi_step):

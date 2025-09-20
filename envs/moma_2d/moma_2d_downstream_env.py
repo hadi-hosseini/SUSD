@@ -30,13 +30,14 @@ class MoMa2DGymDSEnv(MoMa2DGymEnv):
 	def __init__(self, max_step, show_empty, version):
 		self.version = version
 		super(MoMa2DGymDSEnv, self).__init__(max_step, show_empty)
+
 		obs_low = np.array([0]*17 + [-self.view_limit, 0], dtype=np.float32)
 		obs_high = np.array([1]*12 + [self.limit]*4 + [self.gripper_limit, self.view_limit, 1000], dtype=np.float32)
 		self.observation_space = spaces.Box(low=obs_low, high=obs_high, shape=(19,), dtype=np.float32)
 
-		# obs_low = np.array([0]*17 + [-self.view_limit] + [0]*17 + [-self.view_limit, 0], dtype=np.float32) # DELETE THIS!!!
-		# obs_high = np.array([1]*12 + [self.limit]*4 + [self.gripper_limit, self.view_limit] + [1]*12 + [self.limit]*4 + [self.gripper_limit, self.view_limit, 1000], dtype=np.float32) # DELETE THIS!!!
-		# self.observation_space = spaces.Box(low=obs_low, high=obs_high, shape=(37,), dtype=np.float32) # DELETE THIS!!!
+		# obs_low = np.array([0]*13, dtype=np.float32) # DELETE THIS!!!
+		# obs_high = np.array([1]*13 , dtype=np.float32) # DELETE THIS!!!
+		# self.observation_space = spaces.Box(low=obs_low, high=obs_high, shape=(13,), dtype=np.float32) # DELETE THIS!!!
 		
 		self.max_step = max_step
 

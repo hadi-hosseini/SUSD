@@ -20,12 +20,10 @@ class Decoder(nn.Module):
         super().__init__()
         self.fc1 = nn.Linear(skill_dim, hidden_sizes[0])
         self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
-        self.fc_out = nn.Linear(hidden_sizes[1], 70)  
 
     def forward(self, x: torch.Tensor):
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc_out(x)
+        x = self.fc2(x)
         return x
 
 
@@ -97,7 +95,7 @@ def load_model(d: int, path: str, hidden_sizes=(35, 70), device=None):
     return model
 
 
-def train_decoder(algo, skill_dim, save_path, obs_list=None, phi_list= None):
+def train_decoder(algo, skill_dim, save_path, hidden_sizes, obs_list=None, phi_list= None):
     partitions = [0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70]
 
     if obs_list is None:
@@ -113,36 +111,48 @@ def train_decoder(algo, skill_dim, save_path, obs_list=None, phi_list= None):
     print("Train shape:", X_train.shape, y_train.shape)
     print("Validation shape:", X_val.shape, y_val.shape)
 
-    model = Decoder(skill_dim=skill_dim)
+    model = Decoder(skill_dim=skill_dim, hidden_sizes=hidden_sizes)
     model = train_model_mse(model, X_train, y_train, X_val, y_val, partitions, batch_size=1024, epochs=100, lr=1e-3)
 
     save_model(model, save_path)
 
 
-def rollouts(algo):
-    skill_dim = 2
+def rollouts(algo, env_name, skill_dim=2):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     if algo == "susd":
-        option_policy_checkpoint_path = f'final_models/particle/SUSD/option_policy10000.pt'
-        traj_encoder_checkpoint_path = f'final_models/particle/SUSD/traj_encoder10000.pt'
-        skill_dim = 20 # N=10 & d=2
+        option_policy_checkpoint_path = f'final_models/{env_name}/SUSD/option_policy10000.pt'
+        traj_encoder_checkpoint_path = f'final_models/{env_name}/SUSD/traj_encoder10000.pt'
 
     elif algo == "metra": 
-        option_policy_checkpoint_path = 'final_models/particle/METRA/option_policy10000.pt'    
-        traj_encoder_checkpoint_path = 'final_models/particle/METRA/traj_encoder10000.pt'
+        if skill_dim == 2:
+            option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000.pt'    
+            traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000.pt'
+        elif skill_dim == 5:
+            option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000_dim_5.pt'    
+            traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000_dim_5.pt'
+        elif skill_dim == 10:
+            option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000_dim_10.pt'    
+            traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000_dim_10.pt'
+        elif skill_dim == 20:
+            option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000_dim_20.pt'    
+            traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000_dim_20.pt'
 
     elif algo == "csd":
-        option_policy_checkpoint_path = 'final_models/particle/CSD/option_policy10000.pt'    
-        traj_encoder_checkpoint_path = 'final_models/particle/CSD/traj_encoder10000.pt'
+        if skill_dim == 2:
+            option_policy_checkpoint_path = f'final_models/{env_name}/CSD/option_policy10000.pt'    
+            traj_encoder_checkpoint_path = f'final_models/{env_name}/CSD/traj_encoder10000.pt'
+        elif skill_dim == 5:
+            option_policy_checkpoint_path = f'final_models/{env_name}/CSD/option_policy10000_dim_5.pt'    
+            traj_encoder_checkpoint_path = f'final_models/{env_name}/CSD/traj_encoder10000_dim_5.pt'
 
     elif algo == "lsd":
-        option_policy_checkpoint_path = 'final_models/particle/LSD/option_policy10000.pt'    
-        traj_encoder_checkpoint_path = 'final_models/particle/LSD/traj_encoder10000.pt'
+        option_policy_checkpoint_path = f'final_models/{env_name}/LSD/option_policy10000.pt'    
+        traj_encoder_checkpoint_path = f'final_models/{env_name}/LSD/traj_encoder10000.pt'
 
     elif algo == "diayn":
-        option_policy_checkpoint_path = 'final_models/particle/DIAYN/option_policy10000.pt'    
-        traj_encoder_checkpoint_path = 'final_models/particle/DIAYN/traj_encoder10000.pt'
+        option_policy_checkpoint_path = f'final_models/{env_name}/DIAYN/option_policy10000.pt'    
+        traj_encoder_checkpoint_path = f'final_models/{env_name}/DIAYN/traj_encoder10000.pt'
 
     # Load checkpoints
     option_ckpt = torch.load(option_policy_checkpoint_path)
@@ -153,10 +163,14 @@ def rollouts(algo):
     obs_list, phi_list = [], []
     done, steps = True, 0
     z_period = 200
-    env = create_particle_env()
+
+    if env_name == "particle":
+        env = create_particle_env()
+    elif env_name == "elden_kitchen":
+        env = create_elden_env()
 
     # tqdm progress bar
-    with tqdm(total=100000, desc=f"Rollouts ({algo})") as pbar:
+    with tqdm(total=100000, desc=f"Rollouts ({algo})") as pbar: # 10000000
         while steps < 100000:
             if done:
                 obs = env.reset()
@@ -222,14 +236,29 @@ def create_particle_env():
     env = Particle(env, custom_order, (512, 480))
     return env
 
-# algo = "susd"
-# train_decoder(algo, 20, save_path=f"results/decoder/{algo}.pth")
 
-
-# algo = "metra"
-# train_decoder(algo, 2, save_path=f"results/decoder/{algo}.pth")
+def create_elden_env(seed=0):
+    from envs.elden_kitchen.elden_kitchen import elden_kitchen, EldenKitchen
+    env = elden_kitchen(reward_scale=0.0, horizon=50, render=False) # reward_scale = 0.0 is used for USD
+    custom_order = [113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 0, 1, 2, 3] # 29 arm + 4 don't know
+    custom_order += [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 101, 102, 103, 104, 105, 106]  # 22 pot
+    custom_order += [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37] # 18 butter
+    custom_order += [38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56] # 19 meatball
+    custom_order += [57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 107, 108, 109, 110, 111, 112] # 22 button
+    custom_order += [73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86] # 14 stove
+    custom_order += [87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100] # 14 target   
+    env = EldenKitchen(env, custom_order=custom_order) 
+    return env
 
 
 algo = "lsd"
-skill_dim, obs_list, phi_list = rollouts(algo=algo)
-train_decoder(algo, skill_dim, save_path=f"results/decoder/{algo}.pth", obs_list=obs_list, phi_list=phi_list)
+skill_dim = 2
+env_name = "particle"
+
+if env_name == "particle":
+    hidden_sizes = (35, 70)
+elif env_name == "elden_kitchen":
+    hidden_sizes = (64, 142)
+
+skill_dim, obs_list, phi_list = rollouts(algo=algo, env_name=env_name, skill_dim=skill_dim)
+train_decoder(algo=algo, skill_dim=skill_dim, hidden_sizes=hidden_sizes ,save_path=f"results/decoder/{algo}.pth")

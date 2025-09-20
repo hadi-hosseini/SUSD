@@ -124,13 +124,13 @@ class SUSDHighLevelKitchenConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
-    baseline: str = "DUSDI"
+    baseline: str = "METRA"
     max_path_length: int =  10 # 10
-    dim_option: int = 50 # 2 (others), 50 (dusdi)
+    dim_option: int = 20 # 2 (others), 50 (dusdi)
     n_parallel: int = 1  # 1
-    task_diff: int = 7 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
+    task_diff: int = 5 # fp: 1: easy 2: medium 3: hard 4: diff  |  seq: 5: easy 6: medium 7:hard
     downstream_task: str = "seq" # fp: food&poison seq: sequential
-    run_group: str = f"HRL_{baseline}_{downstream_task}_{task_diff}"
+    run_group: str = f"HRL_{baseline}_{downstream_task}_{task_diff}_TEST"
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100
     cp_multi_step: int = 5 # 5
@@ -151,7 +151,7 @@ class BaselineHighLevelParticleConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    cp_path: str = f"final_models/particle/{baseline}/option_policy10000.pt"
+    cp_path: str = f"final_models/particle/{baseline}/option_policy10000_dim_20.pt"
     cp_unit_length: int = 1
 
     env: str = "particle"
@@ -226,7 +226,7 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
     max_path_length: int = 500
     dim_option: int = 15 
     downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
-    run_group: str = f"HRL_{baseline}_{downstream_task}_V2"
+    run_group: str = f"HRL_{baseline}_{downstream_task}_TEST"
     n_parallel: int = 1 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -264,10 +264,10 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
 @dataclass
 class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     max_path_length: int = 500
-    dim_option: int = 2 # susd # dim=2 or dim=5
-    downstream_task: str = "nolim" # lim: with limitation; nolim: no limitation
+    dim_option: int = 5 # susd # dim=2 or dim=5 or dim=1 or dim=5 for discrete
+    downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
     # run_group: str = f"HRL_SUSD_{downstream_task}_dim_{dim_option}"
-    run_group: str = f"HRL_SUSD_{downstream_task}_V3"
+    run_group: str = f"HRL_SUSD_{downstream_task}_DISC" # V4 is 12 dimension and 3 factors
     n_parallel: int = 4 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -290,8 +290,10 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     te_only_last_frame: int  = 0
     alpha: float = 0.1
     # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_dim_{dim_option}.pt" # SUSD
+    cp_path: str = f"final_models/gunner/SUSD/option_policy10000_dim_{dim_option}_disc.pt" # SUSD
     # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_V2.pt" # SUSD
-    cp_path: str = f"final_models/gunner/SUSD/option_policy10000_V3.pt" # SUSD
+    # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_V3.pt" # SUSD
+    # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_V4.pt" # SUSD
     # cp_path: str = "final_models/gunner/ABLATION1/option_policy10000.pt" # ablation1
     # cp_path: str = "final_models/gunner/ABLATION2/option_policy10000.pt" # ablation2
     cp_unit_length: int = 1
@@ -302,12 +304,16 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
                         4, 5, 6, 7, 14, 15, 16,
                         8, 9, 10, 11, 17] # base, arm, view
 
+    # custom_order = [0, 1, 2, 3,
+    #                 4, 5, 6, 7,
+    #                 8, 9, 10, 11,] # base, arm, view
+
 @dataclass
 class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
-    baseline: str = "DIAYN"
+    baseline: str = "CSD"
     max_path_length: int = 50
     dim_option: int = 2 # 2 others, 35 DUSDI
-    downstream_task: str = "elden_PoS" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
+    downstream_task: str = "elden_PoT" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
     run_group: str = f"HRL_{baseline}_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
@@ -406,17 +412,15 @@ def get_causal_vector(task_diff):
     return causal_vector, agent_list
 
 
-##### Elden Kitchen Config
+# method = "baseline_elden" # ["susd_elden", "baseline_elden"]
 
-method = "baseline_elden" # ["susd_elden", "baseline_elden"]
-
-if method == "susd_elden":
-    args = SUSDHighLevelEldenKitchenConfig()
-elif method == "baseline_elden":
-    args = BaseHighLevelEldenKitchenConfig()
+# if method == "susd_elden":
+#     args = SUSDHighLevelEldenKitchenConfig()
+# elif method == "baseline_elden":
+#     args = BaseHighLevelEldenKitchenConfig()
 
 
-# method = "susd_particle" # ["susd_particle", "baseline_particle"]
+# method = "baseline_particle" # ["susd_particle", "baseline_particle"]
 
 # if method == "susd_particle":
 #     args = SUSDHighLevelParticleConfig()
@@ -424,12 +428,12 @@ elif method == "baseline_elden":
 #     args = BaselineHighLevelParticleConfig()
 
 
-# method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
+method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
 
-# if method == "susd_gunner":
-#     args = SUSDHighLevelGunnerConfig()
-# else:
-#     args = BaseHighLevelGunnerConfig()
+if method == "susd_gunner":
+    args = SUSDHighLevelGunnerConfig()
+else:
+    args = BaseHighLevelGunnerConfig()
 
 
 if args.env == "particle":

@@ -6,7 +6,9 @@ import math
 
 # methods = ["CSD", "ABLATION1", "ABLATION2", "SUSD", "DUSDI", "SUSD V2"]
 # methods = ["SUSD", "SUSD V2", "DUSDI"]
-methods = ["SUSD", "SUSD V2", "DUSDI"]
+# methods = ["SUSD", "SUSD V2", "DUSDI"]
+# methods = ["SUSD (D=1)", "SUSD (D=2)", "SUSD (D=5)"]
+methods = ["SUSD Continuous", "SUSD Discrete"]
 
 
 def fp_diff(): # task_diff = 4
@@ -152,6 +154,14 @@ def lim():
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_ABLATION2", pivot=True)
         elif method == "DUSDI":
             reader = SummaryReader(f"./exp/HRL_{method}_lim_V2", pivot=True)
+        elif method == "SUSD (D=1)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim_DIM_1", pivot=True)
+        elif method == "SUSD (D=2)" or method == "SUSD Continuous":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim", pivot=True)
+        elif method == "SUSD Discrete":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim_DISC", pivot=True)            
+        elif method == "SUSD (D=5)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim_dim_5", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -173,6 +183,14 @@ def nolim():
             reader = SummaryReader(f"./exp/HRL_{method}_nolim_V2", pivot=True)
         elif method == "SUSD V2":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_V2", pivot=True)
+        elif method == "SUSD (D=1)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_nolim_DIM_1", pivot=True)
+        elif method == "SUSD (D=2)" or method == "SUSD Continuous":
+            reader = SummaryReader(f"./exp/HRL_SUSD_nolim", pivot=True)
+        elif method == "SUSD Discrete":
+            reader = SummaryReader(f"./exp/HRL_SUSD_nolim_DISC", pivot=True)    
+        elif method == "SUSD (D=5)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_nolim_dim_5", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_nolim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -273,13 +291,13 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
 # plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
 
 
-# ### gunner_lim
-# save_path = "visualization/ablation/gunner_lim.png" 
-# gunner_lim = lim()
-# plot_result(gunner_lim, save_path, title="Gunner Limitation")
+### gunner_lim
+save_path = "visualization/ablation/gunner_lim.png" 
+gunner_lim = lim()
+plot_result(gunner_lim, save_path, title="Gunner Limitation")
 
 
-### gunner_nolim
+## gunner_nolim
 save_path = "visualization/ablation/gunner_nolim.png" 
 gunner_nolim = nolim()
 plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
@@ -316,3 +334,15 @@ plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
 
 # save_path = "visualization/ablation/grouped_results.png"
 # plot_grouped_results(dfs, titles, save_path=save_path, ncols=3)
+
+
+
+## plot_groups
+dfs = [gunner_lim, gunner_nolim]
+titles = [
+    "Gunner with Limitation",
+    "Gunner without Limitation"
+]
+
+save_path = "visualization/ablation/grouped_results.png"
+plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)

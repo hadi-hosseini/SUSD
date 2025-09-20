@@ -52,7 +52,7 @@ class SUSDConfig:
     # === Use Weights & Biases logging ===
     use_wandb: bool = False  # Whether to enable wandb logging (True/False)
     wandb_project: str = 'DSD'  # WandB project name
-    wandb_entity: str = 'hadi-hosseini0171-sharif-university-of-technology'  # WandB entity / username
+    wandb_entity: str = ''  # WandB entity / username
 
     # === Learning rates and optimizer settings ===
     common_lr: float = 1e-4  # Default learning rate for optimizers
@@ -215,7 +215,7 @@ class SUSDParticle(SUSDConfig):
 
 @dataclass
 class SUSDGunner(SUSDConfig):
-    run_group: str = 'SUSD_GUNNER'
+    run_group: str = 'SUSD_GUNNER_DIS'
     env: str = 'gunner'
     max_path_length: int = 50
     seed: int = 0
@@ -229,17 +229,18 @@ class SUSDGunner(SUSDConfig):
     n_epochs_per_log: int = 25
     n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
-    discrete: int = 0
-    dim_option: int = 2
+    dim_option: int = 5  # 5
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_dist_norm: int = 0 # using normalization for marginal distribution
-    susd_input_factor0: int = 0 # input factor zero (robot) to the other phi functions
+    susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
     susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
     susd_ablation_mode: int = 0
+    discrete: int = 1  # 1: discrete skills, 0: continuous
+
 
 
 @dataclass
