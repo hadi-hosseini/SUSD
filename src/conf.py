@@ -177,13 +177,42 @@ class SUSDAntConfig(SUSDConfig):
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    csd_coeff: bool = 1 # 1: apply csd value, 0: don't apply it
+    susd_ablation_mode: bool = 1 # 1: apply csd value, 0: don't apply it
 
+
+@dataclass
+class SUSDHalfCheetahConfig(SUSDConfig):
+    run_group: str = 'SUSD_HALF_CHEETAH'
+    env: str = 'half_cheetah'
+    max_path_length: int = 200
+    seed: int = 0
+    traj_batch_size: int = 8
+    n_parallel: int = 8 # 4
+    normalizer_type: str = 'preset'
+    eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
+    trans_optimization_epochs: int = 50 # 100 (I change this)
+    n_epochs_per_log: int = 100
+    n_epochs_per_eval: int = 1000
+    n_epochs_per_save: int = 1000 # 10000 phi encoder
+    n_epochs_per_pt_save: int = 1000 # 1000 option policy 
+    n_epochs_per_pkl_update: 1000 # 1000 parameters save
+    sac_max_buffer_size: int = 1000000
+    algo: str = 'metra'
+    discrete: int = 0
+    dim_option: int = 2    
+    dual_dist: str = 's2_from_s' 
+    dual_lam: float = 3000
+    dual_slack: float =  1e-06 
+    sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
+    susd_dist_norm: int = 0 # using normalization for marginal distribution
+    susd_input_factor0: int = 0 # input factor zero (robot) to the other phi functions
+    susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
+    susd_ablation_mode: int = 1 #  mode=0, off, mode=1, just CSD weight; mode=2, Without weight, mode=3, Oversampling, 
 
 
 @dataclass
 class SUSDParticle(SUSDConfig):
-    run_group: str = 'SUSD_PARTICLE'
+    run_group: str = 'SUSD_PARTICLE_Q'
     env: str = 'particle'
     max_path_length: int = 50
     seed: int = 0
@@ -206,7 +235,7 @@ class SUSDParticle(SUSDConfig):
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_dist_norm: int = 0 # using normalization for marginal distribution
     susd_input_factor0: int = 0 # input factor zero (robot) to the other phi functions
-    susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
+    susd_q_function: int = 1 # 1: use q-function for reward estimation 0: off
     susd_ablation_mode: int = 0
     use_image: bool = False
 
@@ -215,7 +244,7 @@ class SUSDParticle(SUSDConfig):
 
 @dataclass
 class SUSDGunner(SUSDConfig):
-    run_group: str = 'SUSD_GUNNER_DIS'
+    run_group: str = 'SUSD_GUNNER_Q'
     env: str = 'gunner'
     max_path_length: int = 50
     seed: int = 0
@@ -229,17 +258,17 @@ class SUSDGunner(SUSDConfig):
     n_epochs_per_log: int = 25
     n_epochs_per_eval: int = 250
     n_epochs_per_save: int = 1000
-    dim_option: int = 5  # 5
+    dim_option: int = 2  # 5
     sample_cpu: int = 0
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
     sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
     susd_dist_norm: int = 0 # using normalization for marginal distribution
-    susd_input_factor0: int = 1 # input factor zero (robot) to the other phi functions
-    susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
+    susd_input_factor0: int = 0 # input factor zero (robot) to the other phi functions
+    susd_q_function: int = 1 # 1: use q-function for reward estimation 0: off
     susd_ablation_mode: int = 0
-    discrete: int = 1  # 1: discrete skills, 0: continuous
+    discrete: int = 0  # 1: discrete skills, 0: continuous
 
 
 

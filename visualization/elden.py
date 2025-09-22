@@ -142,18 +142,19 @@ pos = elden_PoS()
 plot_result(pos, save_path, title="Put Meatball in Pot Task")
 
 
-# ### elden_PoT
-# save_path = "visualization/vis/elden_PoT.png" 
-# pot = elden_PoT()
-# plot_result(pot, save_path, title="Put Pot in Target Task")
+### elden_PoT
+save_path = "visualization/vis/elden_PoT.png" 
+pot = elden_PoT()
+plot_result(pot, save_path, title="Put Pot in Target Task")
 
 
 ### plot_groups
-dfs = [bip, mip, pos]
+dfs = [bip, mip, pos, pot]
 titles = [
     "Put Butter in Pot Task",
     "Put Meatball in Pot Task",
     "Put Pot on Stove",
+    "Put Pot on Target"
 ]
 
 save_path = "visualization/vis/elden_grouped_results.png"

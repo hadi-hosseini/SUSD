@@ -23,6 +23,7 @@ class ChildPolicyEnvGunner(gym.Wrapper):
             cp_num_truncate_obs,
             cp_omit_obs_idxs=None,
             cp_multitask = False,
+            cp_discrete = False
     ):
         super().__init__(env)
 
@@ -43,7 +44,7 @@ class ChildPolicyEnvGunner(gym.Wrapper):
 
             if mode == 0: # susd
                 self.cp_N = getattr(cp_dict, 'N', 3) # susd
-                self.cp_discrete = True # DISCRETE
+                self.cp_discrete = cp_discrete # DISCRETE
 
             else: # dsd-baselines
                 self.cp_N = getattr(cp_dict, 'N', 1) # baselines
@@ -73,7 +74,8 @@ class ChildPolicyEnvGunner(gym.Wrapper):
     def get_full_state(self, obs):
         full_obs = np.concatenate([obs, self.env.get_additional_states()])
         return full_obs
-
+    
+    
     def reset(self, **kwargs):
         observation = self.env.reset(**kwargs)
         self.cycle_reward = 0

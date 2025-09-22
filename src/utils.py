@@ -191,7 +191,7 @@ def make_env(args, max_path_length):
 
         # custom_order = [0, 1, 2, 3,
         #                 4, 5, 6, 7,
-        #                 8, 9, 10, 11] # base, arm, view (SIMPLE V4)
+        #                 8, 9, 10, 11] # base, arm, view (DISCRETE)
         env = MoMa2DGymEnv(max_step=1000, custom_order=custom_order)
         env.reset()
 

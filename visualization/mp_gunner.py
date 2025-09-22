@@ -131,7 +131,7 @@ def plot_result(df, save_path, title):
 
 
 def plot_result_on_ax(df, ax, title):
-    window = 5
+    window = 10
     for method, group in df.groupby("method"):
         group_sorted = group.sort_values("step").copy()
 

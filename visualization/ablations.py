@@ -4,11 +4,11 @@ from tbparse import SummaryReader
 import numpy as np
 import math
 
-# methods = ["CSD", "ABLATION1", "ABLATION2", "SUSD", "DUSDI", "SUSD V2"]
-# methods = ["SUSD", "SUSD V2", "DUSDI"]
-# methods = ["SUSD", "SUSD V2", "DUSDI"]
-# methods = ["SUSD (D=1)", "SUSD (D=2)", "SUSD (D=5)"]
-methods = ["SUSD Continuous", "SUSD Discrete"]
+# methods = ["CSD", "ABLATION1", "ABLATION2", "SUSD", "DUSDI", "SUSD (N=20)"]
+# methods = ["SUSD", "SUSD (N=20)", "DUSDI"]
+methods = ["SUSD", "SUSD (N=20)"]
+# methods = ["SUSD (D=2)", "SUSD (D=5)"]
+# methods = ["SUSD Continuous", "SUSD Discrete"]
 
 
 def fp_diff(): # task_diff = 4
@@ -18,7 +18,7 @@ def fp_diff(): # task_diff = 4
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_4_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_4_ABLATION2", pivot=True)
-        elif method == "SUSD V2":
+        elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_4_V2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_4", pivot=True)
@@ -37,7 +37,7 @@ def fp_hard(): # task_diff = 3
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_3_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_3_ABLATION2", pivot=True)
-        elif method == "SUSD V2":
+        elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_3_V2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_3", pivot=True)
@@ -56,7 +56,7 @@ def fp_medium(): # task_diff = 2
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_2_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_2_ABLATION2", pivot=True)
-        elif method == "SUSD V2":
+        elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_2_V2", pivot=True)
         else:            
             reader = SummaryReader(f"./exp/HRL_{method}_fp_2", pivot=True)
@@ -75,7 +75,7 @@ def fp_easy(): # task_diff = 1
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_1_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_1_ABLATION2", pivot=True)
-        elif method == "SUSD V2":
+        elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_1_V2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_1", pivot=True)
@@ -94,7 +94,7 @@ def seq_easy(): # task_diff = 5
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_5_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_5_ABLATION2", pivot=True)
-        elif method == "SUSD V2":
+        elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_5_V2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_5", pivot=True)
@@ -113,7 +113,7 @@ def seq_medium(): # task_diff = 6
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_6_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_6_ABLATION2", pivot=True)
-        elif method == "SUSD V2":
+        elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_6_V2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_6", pivot=True)
@@ -132,7 +132,7 @@ def seq_hard(): # task_diff = 7
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_7_ABLATION1", pivot=True)
         elif method == "ABLATION2":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_7_ABLATION2", pivot=True)
-        elif method == "SUSD V2":
+        elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_7_V2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_7", pivot=True)
@@ -159,7 +159,8 @@ def lim():
         elif method == "SUSD (D=2)" or method == "SUSD Continuous":
             reader = SummaryReader(f"./exp/HRL_SUSD_lim", pivot=True)
         elif method == "SUSD Discrete":
-            reader = SummaryReader(f"./exp/HRL_SUSD_lim_DISC", pivot=True)            
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim_DISC", pivot=True)     
+            # reader = SummaryReader(f"./exp/HRL_SUSD_lim_dusdi", pivot=True)                   
         elif method == "SUSD (D=5)":
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_dim_5", pivot=True)
         else:
@@ -181,7 +182,7 @@ def nolim():
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_ABLATION2", pivot=True)
         elif method == "DUSDI":
             reader = SummaryReader(f"./exp/HRL_{method}_nolim_V2", pivot=True)
-        elif method == "SUSD V2":
+        elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_V2", pivot=True)
         elif method == "SUSD (D=1)":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_DIM_1", pivot=True)
@@ -189,6 +190,7 @@ def nolim():
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim", pivot=True)
         elif method == "SUSD Discrete":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_DISC", pivot=True)    
+            # reader = SummaryReader(f"./exp/HRL_SUSD_n`olim_dusdi", pivot=True)    
         elif method == "SUSD (D=5)":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_dim_5", pivot=True)
         else:
@@ -213,7 +215,7 @@ def plot_result(df, save_path, title):
 
 
 def plot_result_on_ax(df, ax, title):
-    window = 5
+    window = 10
     for method, group in df.groupby("method"):
         group_sorted = group.sort_values("step").copy()
 
@@ -229,6 +231,8 @@ def plot_result_on_ax(df, ax, title):
         # if method == "ABLATION2":
         #     ax.plot(group_sorted["step"], smoothed, label="Ablation", linewidth=2, alpha=0.8)
         # else:
+        if method == "SUSD":
+            method = "SUSD (N=10)"
         ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
 
         max_margin = 3
@@ -269,53 +273,53 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
 
 
 
-# ### mp_fp_diff
-# save_path = "visualization/ablation/mp_fp_diff.png" 
-# mp_fp_diff = fp_diff()
-# plot_result(mp_fp_diff, save_path, title="Multiparticle Food&Poison Difficult")
+### mp_fp_diff
+save_path = "visualization/ablation/mp_fp_diff.png" 
+mp_fp_diff = fp_diff()
+plot_result(mp_fp_diff, save_path, title="Multiparticle Food&Poison Difficult")
 
 
-# ### mp_fp_hard
-# save_path = "visualization/ablation/mp_fp_hard.png" 
-# mp_fp_hard = fp_hard()
-# plot_result(mp_fp_hard, save_path, title="Multiparticle Food&Poison Hard")
+### mp_fp_hard
+save_path = "visualization/ablation/mp_fp_hard.png" 
+mp_fp_hard = fp_hard()
+plot_result(mp_fp_hard, save_path, title="Multiparticle Food&Poison Hard")
 
-# ### mp_fp_medium
-# save_path = "visualization/ablation/mp_fp_medium.png" 
-# mp_fp_medium = fp_medium()
-# plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
+### mp_fp_medium
+save_path = "visualization/ablation/mp_fp_medium.png" 
+mp_fp_medium = fp_medium()
+plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
 
-# ### mp_fp_easy
-# save_path = "visualization/ablation/mp_fp_easy.png" 
-# mp_fp_easy = fp_easy()
-# plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
-
-
-### gunner_lim
-save_path = "visualization/ablation/gunner_lim.png" 
-gunner_lim = lim()
-plot_result(gunner_lim, save_path, title="Gunner Limitation")
+### mp_fp_easy
+save_path = "visualization/ablation/mp_fp_easy.png" 
+mp_fp_easy = fp_easy()
+plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
 
 
-## gunner_nolim
-save_path = "visualization/ablation/gunner_nolim.png" 
-gunner_nolim = nolim()
-plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
+# ### gunner_lim
+# save_path = "visualization/ablation/gunner_lim.png" 
+# gunner_lim = lim()
+# plot_result(gunner_lim, save_path, title="Gunner Limitation")
 
-# ### mp seq_easy
-# save_path = "visualization/ablation/mp_seq_easy.png" 
-# mp_seq_easy = seq_easy()
-# plot_result(mp_seq_easy, save_path, title="Multiparticle Sequential Easy")
 
-# ### mp seq_medium
-# save_path = "visualization/ablation/mp_seq_medium.png" 
-# mp_seq_medium = seq_medium()
-# plot_result(mp_seq_medium, save_path, title="Multiparticle Sequential Medium")
+# ## gunner_nolim
+# save_path = "visualization/ablation/gunner_nolim.png" 
+# gunner_nolim = nolim()
+# plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
 
-# ### mp seq_hard
-# save_path = "visualization/ablation/mp_seq_hard.png" 
-# mp_seq_hard = seq_hard()
-# plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
+### mp seq_easy
+save_path = "visualization/ablation/mp_seq_easy.png" 
+mp_seq_easy = seq_easy()
+plot_result(mp_seq_easy, save_path, title="Multiparticle Sequential Easy")
+
+### mp seq_medium
+save_path = "visualization/ablation/mp_seq_medium.png" 
+mp_seq_medium = seq_medium()
+plot_result(mp_seq_medium, save_path, title="Multiparticle Sequential Medium")
+
+### mp seq_hard
+save_path = "visualization/ablation/mp_seq_hard.png" 
+mp_seq_hard = seq_hard()
+plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
 
 
 # ## plot_groups
@@ -337,12 +341,29 @@ plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
 
 
 
+# ## plot_groups
+# dfs = [gunner_lim, gunner_nolim]
+# titles = [
+#     "Gunner with Limitation",
+#     "Gunner without Limitation"
+# ]
+
+# save_path = "visualization/ablation/grouped_results.png"
+# plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)
+
+
 ## plot_groups
-dfs = [gunner_lim, gunner_nolim]
+dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard]
 titles = [
-    "Gunner with Limitation",
-    "Gunner without Limitation"
+    "Food&Poison Difficult",
+    "Food&Poison Hard",
+    "Food&Poison Medium",
+    "Food&Poison Easy",
+    "Sequential Easy",
+    "Sequential Medium",
+    "Sequential Hard",
 ]
 
-save_path = "visualization/ablation/grouped_results.png"
-plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)
+save_path = "visualization/ablation/prior_knowledge_grouped_results.png"
+plot_grouped_results(dfs, titles, save_path=save_path, ncols=4)
+

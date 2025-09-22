@@ -94,6 +94,7 @@ class SUSD(IOD):
         self.do_print = False
         self.early_stopping = []
         self.early_stopping_with_names = []
+        self.q_values = []
 
         self.exp_name = exp_name
         self.susd_dist_norm = susd_dist_norm
@@ -217,7 +218,7 @@ class SUSD(IOD):
 
             self._optimize_te(tensors, v, runner)
             self._update_rewards(tensors, v)
-            self._optimize_op(tensors, v)
+            self._optimize_op(runner, tensors, v)
         
         print("Train Modules")
         return tensors
@@ -243,8 +244,8 @@ class SUSD(IOD):
             qfn_keys = [f'qf_{i}' for i in range(self.N)]
             self._gradient_descent(loss_qfn, optimizer_keys=qfn_keys)
 
-    def _optimize_op(self, tensors, internal_vars):
-        self._update_loss_qf(tensors, internal_vars)
+    def _optimize_op(self, runner, tensors, internal_vars):
+        self._update_loss_qf(runner, tensors, internal_vars)
 
         self._gradient_descent(
             tensors['LossQf1'] + tensors['LossQf2'],
@@ -427,7 +428,7 @@ class SUSD(IOD):
             loss_te.append(loss_te_i)
 
         if self.do_print:
-            self.do_print = False
+            # self.do_print = False
             self.te_losses.append((runner.step_itr, [loss_te[i].detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
 
 
@@ -524,19 +525,27 @@ class SUSD(IOD):
             'LossDualLam': loss_dual_lam,
         })
 
-    def _update_loss_qf(self, tensors, v):
+    def _update_loss_qf(self, runner, tensors, v):
         processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options'])
         next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
 
         if self.susd_q_function:
-            rewards = torch.zeros((v['rewards'].shape[0], 1), device=v['rewards'].device)
+            rewards = torch.zeros((v['rewards'].shape[0]), device=v['rewards'].device)
+            # print(rewards.shape)
+            rewards_logs = []
             for i in range(self.N):
                 start = self.partition_points[i]
                 end = self.partition_points[i + 1]
                 start_option = i * self.dim_option
                 end_option = (i + 1) * self.dim_option
                 reward_i = self.qf1_list[i](self._get_concat_obs(self.option_policy.process_observations(v['obs'][:, start:end]), v['options'][:, start_option:end_option]), v['actions'])
-                rewards = rewards + reward_i
+                reward_i = reward_i.view(-1)
+                rewards_logs.append(reward_i)
+                rewards = rewards + reward_i 
+            if self.do_print:
+                self.do_print = False
+                self.q_values.append((runner.step_itr, [rewards_logs[i].mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
+
         else:
             if self.susd_ablation_mode == 1: # just CSD weight
                 rewards = v['rewards'].sum(dim=1)
@@ -602,6 +611,41 @@ class SUSD(IOD):
             plt.show()
 
         plt.close()
+
+
+    def plot_q_decomposition(self, runner):
+        if len(self.q_values) == 0:
+            return
+
+        epochs, q_values = zip(*self.q_values)
+        epochs = np.array(epochs)
+        q_values =  np.array(q_values)
+        
+        os.makedirs(f'results/{self.exp_name}', exist_ok=True)
+
+        for i in range(q_values.shape[1]):
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            ax.plot(
+                epochs,
+                q_values[:, i],
+                label=f'Factor {i}',
+                marker='o',
+                markersize=3,
+                linewidth=1
+            )
+
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('Q Value')
+            ax.set_title(f'Q Value for Factor {i} over Epochs')
+            ax.legend()
+            ax.grid(True)
+            fig.tight_layout()
+
+            # Save each factor's plot separately
+            csd_plot_path = f'results/{self.exp_name}/q_plot_epoch_{runner.step_itr}_q_{i}.png'
+            fig.savefig(csd_plot_path)
+            plt.close(fig)
 
     def plot_mus(self, runner):
         if len(self.mus) == 0:
@@ -836,10 +880,11 @@ class SUSD(IOD):
                 )
             self._log_eval_metrics(runner)
 
-        self.plot_csd_logs(runner)
-        self.plot_csd_reward_logs(runner)
-        self.plot_te_losses(runner)
-        self.plot_mus(runner)
+        # self.plot_csd_logs(runner)
+        # self.plot_csd_reward_logs(runner)
+        # self.plot_te_losses(runner)
+        # self.plot_mus(runner)
+        self.plot_q_decomposition(runner)
 
 
         #### plot the task coverage for franka kitchen

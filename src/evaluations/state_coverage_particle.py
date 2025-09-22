@@ -13,6 +13,7 @@ import csv
 from pettingzoo.mpe import simple_heterogenous_v3
 from pettingzoo.utils.wrappers.centralized_wrapper import CentralizedWrapper
 from envs.mp.particle import Particle
+from src.dusdi_utils import Actor
 
 import os
 os.environ["MUJOCO_GL"] = "egl"
@@ -20,7 +21,7 @@ os.environ["MUJOCO_GL"] = "egl"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 mode = "plot" # ["plot", "eval"]
-algo = "susd" # ["csd", "metra", "lsd", "diyan", "susd"]
+algo = "dusdi" # ["csd", "metra", "lsd", "diyan", "susd", "dusdi"]
 skill_dim = 2
 
 if algo == "susd":
@@ -44,28 +45,47 @@ elif algo == "diayn":
     option_policy_checkpoint_path = 'final_models/particle/DIAYN/option_policy10000.pt'    
     traj_encoder_checkpoint_path = 'final_models/particle/DIAYN/traj_encoder10000.pt'
 
+elif algo == "dusdi":
+    option_policy_checkpoint_path = 'final_models/particle/DUSDI/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/particle/DUSDI/traj_encoder10000.pt'
+    skill_dim = 50 # N = 10 & D = 5
+
 
 csv_path = f"final_models/particle/COVERAGE/state_coverage_{algo}_particle.csv"
-option_ckpt = torch.load(option_policy_checkpoint_path)
-traj_ckpt = torch.load(traj_encoder_checkpoint_path)
-option_policy = option_ckpt["policy"]
-traj_encoder = traj_ckpt["traj_encoder"]
+
+if algo == "dusdi":
+    option_policy = Actor("state", 120, 20, 50, 1024, True, [-10, 2], "particle")
+    cp_dict = torch.load(option_policy_checkpoint_path, map_location='cpu')
+    option_policy.load_state_dict(cp_dict)
+else:
+    option_ckpt = torch.load(option_policy_checkpoint_path)
+    option_policy = option_ckpt["policy"]
+
 option_policy = option_policy.to(device).eval()
-traj_encoder = traj_encoder.to(device).eval()
 
-distances = list(range(0, 10))       # 0–9
-agent_info = list(range(10, 50))     # 10–49
-station_info = list(range(50, 70))   # 50–69
+# option_ckpt = torch.load(option_policy_checkpoint_path)
+# traj_ckpt = torch.load(traj_encoder_checkpoint_path)
+# option_policy = option_ckpt["policy"]
+# traj_encoder = traj_ckpt["traj_encoder"]
+# traj_encoder = traj_encoder.to(device).eval()
 
-custom_order = []
 
-for i in range(10):
-    custom_order.append(distances[i])                       
-    custom_order.extend(agent_info[i*4:(i+1)*4])           
-    custom_order.extend(station_info[i*2:(i+1)*2])
+if algo == "dusdi":
+    custom_order = list(range(0, 70))
+    agent_positions = {0: (12, 13), 1: (16, 17), 2: (20, 21), 3: (24, 25), 4: (28, 29), 5: (32, 33), 6: (36, 37), 7: (40, 41), 8: (44, 45), 9: (48, 49)}
+else:
+    distances = list(range(0, 10))       # 0–9
+    agent_info = list(range(10, 50))     # 10–49
+    station_info = list(range(50, 70))   # 50–69
 
-# agent_positions = {0: (12, 13), 1: (16, 17), 2: (20, 21), 3: (24, 25), 4: (28, 29), 5: (32, 33), 6: (36, 37), 7: (40, 41), 8: (44, 45), 9: (48, 49)}
-agent_positions = {0: (3, 4), 1: (10, 11), 2: (17, 18), 3: (24, 25), 4: (31, 32), 5: (38, 39), 6: (45, 46), 7: (52, 53), 8: (59, 60), 9: (66, 67)}
+    custom_order = []
+
+    for i in range(10):
+        custom_order.append(distances[i])                       
+        custom_order.extend(agent_info[i*4:(i+1)*4])           
+        custom_order.extend(station_info[i*2:(i+1)*2])
+
+    agent_positions = {0: (3, 4), 1: (10, 11), 2: (17, 18), 3: (24, 25), 4: (31, 32), 5: (38, 39), 6: (45, 46), 7: (52, 53), 8: (59, 60), 9: (66, 67)}
 
 
 def create_particle_env():
@@ -82,6 +102,13 @@ def create_particle_env():
     return env
 
 
+def random_one_hot_concat(N, d):
+    import random
+    indices = [random.choice(range(d)) for _ in range(N)]
+    one_hot = np.zeros((N, d), dtype=int)
+    one_hot[np.arange(N), indices] = 1
+    return one_hot.reshape(1, -1)
+
 def eval(env):
     log = []
     record_video = False
@@ -95,13 +122,19 @@ def eval(env):
         if done:
             obs = env.reset()
             done = False
-            random_z = np.random.randn(1, skill_dim)
-            random_z /= np.linalg.norm(random_z)
+            if algo == "dusdi":
+                random_z = random_one_hot_concat(N=10, d=5)
+            else:
+                random_z = np.random.randn(1, skill_dim)
+                random_z /= np.linalg.norm(random_z)
             random_z = torch.tensor(random_z, dtype=torch.float32).to(device)
         else:
             if steps % z_period ==0:
-                random_z = np.random.randn(1, skill_dim)
-                random_z /= np.linalg.norm(random_z)
+                if algo == "dusdi":
+                    random_z = random_one_hot_concat(N=10, d=5)
+                else:
+                    random_z = np.random.randn(1, skill_dim)
+                    random_z /= np.linalg.norm(random_z)
                 random_z = torch.tensor(random_z, dtype=torch.float32).to(device)
                 obs = env.reset() # RESET EACH 200 STEPS
 
@@ -109,7 +142,11 @@ def eval(env):
 
             input_tensor = torch.cat([obs, random_z], dim=-1)
             with torch.no_grad():
-                action_np, _ = option_policy.get_action(input_tensor)
+                if algo == "dusdi":
+                    action_dist = option_policy(input_tensor)
+                    action_np = action_dist.mean.detach().cpu().numpy()
+                else:
+                    action_np, _ = option_policy.get_action(input_tensor)
             action = action_np[0]
 
             obs, _, done, info = env.step(action)
@@ -174,48 +211,6 @@ def smooth_curve(values, alpha=0.6):
         last = alpha * v + (1 - alpha) * last
         smoothed.append(last)
     return np.array(smoothed)
-
-
-
-
-
-
-# def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, confidence=0.95, save_path=None):
-#     common_times = np.arange(0, max_duration + dt, dt)
-
-#     plt.figure(figsize=(10, 6))
-
-#     for method, all_logs in logs_by_method.items():
-#         interp_rewards = []
-#         for log in all_logs:
-#             times, rewards = zip(*log)
-#             times = np.array(times)
-#             rewards = np.array(rewards)
-            
-#             interp = np.interp(common_times, times, rewards)
-#             interp_rewards.append(interp)
-        
-#         interp_rewards = np.array(interp_rewards)
-#         mean_rewards = np.mean(interp_rewards, axis=0)
-
-#         mean_rewards = smooth_curve(mean_rewards, alpha=0.15)
-
-#         plt.plot(common_times, mean_rewards, label=method, linewidth=0.8)
-
-#     plt.xlabel('Steps')
-#     plt.ylabel('State Coverage')
-#     plt.title('Average State Coverage over Steps')
-#     plt.legend()
-#     plt.grid(True)
-#     plt.tight_layout()
-
-#     if save_path:
-#         plt.savefig(save_path)
-#         print(f"✅ Plot saved to: {save_path}")
-#     else:
-#         plt.show()
-
-
 
 
 def smooth_rewards(values, alpha=0.6, context=5):
@@ -298,6 +293,8 @@ elif mode == "plot":
     csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle.csv")
     lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
     diayn_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_diayn_particle.csv")
+    dusdi_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_dusdi_particle.csv")
+
 
 
     logs_by_method = {
@@ -305,7 +302,8 @@ elif mode == "plot":
         "METRA": metra_logs,
         "CSD": csd_logs,
         "LSD": lsd_logs,
-        "DIAYN": diayn_logs
+        "DIAYN": diayn_logs,
+        "DUSDI": dusdi_logs,
     }
 
     plot_multiple_methods_unique_steps(
