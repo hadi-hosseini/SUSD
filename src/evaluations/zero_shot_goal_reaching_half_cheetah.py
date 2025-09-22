@@ -9,42 +9,38 @@ from tqdm import tqdm
 import pandas as pd
 import csv
 
-from downstream_tasks.ant_multi_goals import AntMultiGoalsEnv
+# from downstream_tasks.half_cheetah_multi_goals import half_cheetahMultiGoalsEnv
 from garagei.envs.consistent_normalized_env import consistent_normalize
 from iod.utils import get_normalizer_preset
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-algo = "lsd" # ["susd", "metra", "lsd", "csd", "diayn"]
+algo = "susd" # ["susd", "metra", "lsd", "csd", "diayn"]
 num_runs = 8 
 max_duration = 1e4 # steps
 max_steps = 200
 mode = "eval" # ["eval", "plot"]
 
 if algo == "susd":
-    option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000.pt'
-    traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = f'final_models/half_cheetah/SUSD/option_policy10000.pt'
+    traj_encoder_checkpoint_path = f'final_models/half_cheetah/SUSD/traj_encoder10000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/ant/METRA/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/METRA/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/half_cheetah/METRA/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/half_cheetah/METRA/traj_encoder10000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/ant/CSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/CSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/half_cheetah/CSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/half_cheetah/CSD/traj_encoder10000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/ant/LSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/LSD/traj_encoder10000.pt'
-
-elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/ant/DIAYN/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/DIAYN/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/half_cheetah/LSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/half_cheetah/LSD/traj_encoder10000.pt'
 
 
 # Load pretrained option_policy
-csv_path = f"final_models/ant/COVERAGE/zero_shot_{algo}_ant.csv"
+csv_path = f"final_models/half_cheetah/COVERAGE/zero_shot_{algo}_half_cheetah.csv"
 checkpoint = torch.load(option_policy_checkpoint_path)
 option_policy = checkpoint['policy']
 option_policy.to(device)
@@ -130,7 +126,7 @@ def zero_shot_eval(env, max_duration=30.0, max_steps=200):
 
     env.close()
 
-    # video_path = "results/zero_shot_ant_run.mp4"
+    # video_path = "results/zero_shot_half_cheetah_run.mp4"
     # imageio.mimsave(video_path, frames, fps=30)
     # print(f"\n✅ Cumulative Reward: {cumulative_reward:.2f}")
     # print(f"🎞️ Video saved to: {video_path}")
@@ -144,10 +140,10 @@ def run_multiple_seeds(num_runs=8, max_duration=30, max_steps=200):
     
     for seed in tqdm(range(num_runs)):
         print(f"Running seed {seed}...")
-        env = AntMultiGoalsEnv(render_hw=256)
+        env = half_cheetahMultiGoalsEnv(render_hw=256)
         env.seed(seed)
         
-        normalizer_mean, normalizer_std = get_normalizer_preset(f'ant_preset')
+        normalizer_mean, normalizer_std = get_normalizer_preset(f'half_cheetah_preset')
         env = consistent_normalize(env, normalize_obs=True, mean=normalizer_mean, std=normalizer_std)
         
         time_reward_log, _ = zero_shot_eval(env, max_duration=max_duration, max_steps=max_steps)
@@ -241,11 +237,11 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=num_runs, max_duration=max_duration, max_steps=200)
 elif mode == "plot":
-    susd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_susd_ant.csv")
-    metra_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_metra_ant.csv")
-    csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_csd_ant.csv")
-    lsd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_lsd_ant.csv")
-    # diayn_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_diayn_ant.csv")
+    susd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_susd_half_cheetah.csv")
+    metra_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_metra_half_cheetah.csv")
+    csd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_csd_half_cheetah.csv")
+    lsd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_lsd_half_cheetah.csv")
+    # diayn_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_diayn_half_cheetah.csv")
 
 
     logs_by_method = {
@@ -260,5 +256,5 @@ elif mode == "plot":
         logs_by_method,
         max_duration=1e4,
         dt=1.0,
-        save_path=f"final_models/ant/COVERAGE/zero_shot_ant_comparison_ours.png"
+        save_path=f"final_models/half_cheetah/COVERAGE/zero_shot_half_cheetah_comparison_ours.png"
     )

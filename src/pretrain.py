@@ -64,8 +64,8 @@ else:
 
 # args = SUSDFrankaKitchenConfig()
 # args = SUSDParticle()
-args = SUSDHalfCheetahConfig()
-# args = SUSDGunner()
+# args = SUSDHalfCheetahConfig()
+args = SUSDGunner()
 # args = SUSDEldenKitchen()
 
 

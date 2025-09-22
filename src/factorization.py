@@ -59,8 +59,9 @@ def factorize_environment(args):
         state_factorization_points = [0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70] # ORIGINAL
         # state_factorization_points = [0, 5, 7, 12, 14, 19, 21, 26, 28, 33, 35, 40, 42, 47, 49, 54, 56, 61, 63, 68, 70] # V2
     elif args.env == "gunner":
-        state_factorization_points = [0, 6, 13, 18]  # ORIGINAL
+        # state_factorization_points = [0, 6, 13, 18]  # ORIGINAL
         # state_factorization_points = [0, 4, 8, 12]  # DISCRETE
+        state_factorization_points = [0, 4, 8, 12, 16] # 4 factors
     elif args.env == "elden_kitchen":
         ##### original ordering (without target): 128 
         # object-state - 4: [robot0_eef_vel (3), button_joint_qpos (1)], [0-3]

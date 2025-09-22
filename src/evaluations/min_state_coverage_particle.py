@@ -21,7 +21,7 @@ os.environ["MUJOCO_GL"] = "egl"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 mode = "plot" # ["plot", "eval"]
-algo = "diayn" # ["csd", "metra", "lsd", "diayn", "susd", "dusdi"]
+algo = "dusdi" # ["csd", "metra", "lsd", "diyan", "susd", "dusdi"]
 skill_dim = 2
 
 if algo == "susd":
@@ -62,6 +62,13 @@ else:
     option_policy = option_ckpt["policy"]
 
 option_policy = option_policy.to(device).eval()
+
+# option_ckpt = torch.load(option_policy_checkpoint_path)
+# traj_ckpt = torch.load(traj_encoder_checkpoint_path)
+# option_policy = option_ckpt["policy"]
+# traj_encoder = traj_ckpt["traj_encoder"]
+# traj_encoder = traj_encoder.to(device).eval()
+
 
 if algo == "dusdi":
     custom_order = list(range(0, 70))
@@ -111,7 +118,7 @@ def eval(env):
     z_period = 200
     unique_pairs= [set() for _ in range(10)]
 
-    while steps <= 1e5:
+    while steps <= 2e4:
         if done:
             obs = env.reset()
             done = False
@@ -156,11 +163,12 @@ def eval(env):
                 frame = env.render()
                 frames.append(frame)
 
-            sum_unique_pairs = sum(len(s) for s in unique_pairs)
-            log.append((steps, sum_unique_pairs))
+            min_len = min(len(s) for s in unique_pairs)
+            log.append((steps, min_len))
 
-    sum_unique_pairs = sum(len(s) for s in unique_pairs)
-    print(f"unique pairs: {sum_unique_pairs}")
+    min_len = min(len(s) for s in unique_pairs)
+    print([len(s) for s in unique_pairs])
+    print(f"unique pairs: {min_len}")
 
     if record_video:
         video_path = f"eval_state_coverage_ant_{algo}.mp4"
@@ -182,10 +190,10 @@ def run_multiple_seeds(num_runs=8):
         all_logs.append(time_reward_log)
 
         for time_val, unique_steps in time_reward_log:
-            csv_rows.append({'iter': iteration, 'time': time_val, 'sum_unique_pairs': unique_steps})
+            csv_rows.append({'iter': iteration, 'time': time_val, 'min_unique_steps': unique_steps})
 
 
-    fieldnames = ['iter', 'time', 'sum_unique_pairs']
+    fieldnames = ['iter', 'time', 'min_unique_steps']
     with open(csv_path, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -253,7 +261,7 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
 
     plt.xlabel('Steps')
     plt.ylabel('State Coverage')
-    plt.title('Average State Coverage (Multi-Particle)')
+    plt.title('Average State Coverage (Minimum Across Factors)')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -271,7 +279,7 @@ def load_logs_from_csv(csv_path):
 
     for iter, group in df.groupby("iter"):
         sorted_group = group.sort_values("time")
-        log = list(zip(sorted_group["time"], sorted_group["sum_unique_pairs"]))
+        log = list(zip(sorted_group["time"], sorted_group["min_unique_steps"]))
         all_logs.append(log)
 
     return all_logs
@@ -284,21 +292,23 @@ elif mode == "plot":
     metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_metra_particle.csv")
     csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle.csv")
     lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
-    # diayn_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_diayn_particle.csv")
+    diayn_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_diayn_particle.csv")
     dusdi_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_dusdi_particle.csv")
+
+
 
     logs_by_method = {
         "SUSD": susd_logs,
         "METRA": metra_logs,
         "CSD": csd_logs,
         "LSD": lsd_logs,
-        # "DIAYN": diayn_logs,
+        "DIAYN": diayn_logs,
         "DUSDI": dusdi_logs,
     }
 
     plot_multiple_methods_unique_steps(
         logs_by_method,
-        max_duration=1e5,
+        max_duration=2e4,
         dt=1.0,
-        save_path=f"final_models/particle/COVERAGE/state_coverage_particle.png"
+        save_path=f"final_models/particle/COVERAGE/state_coverage_particle_comparison_ours.png"
     )

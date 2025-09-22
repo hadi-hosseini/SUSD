@@ -35,7 +35,7 @@ def factorized_mse(preds, targets, partitions):
         losses.append(mse)
     return torch.mean(torch.stack(losses))
 
-def train_model_mse(model, X_train, y_train, X_val, y_val, partitions, batch_size=512, epochs=100, lr=1e-3, device=None):
+def train_model_mse(model, X_train, y_train, X_val, y_val, partitions, batch_size=512, epochs=100, lr=1e-4, device=None):
 
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -95,8 +95,7 @@ def load_model(d: int, path: str, hidden_sizes=(35, 70), device=None):
     return model
 
 
-def train_decoder(algo, skill_dim, save_path, hidden_sizes, obs_list=None, phi_list= None):
-    partitions = [0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70]
+def train_decoder(algo, save_path, hidden_sizes, partitions, skill_dim=2, obs_list=None, phi_list= None):
 
     if obs_list is None:
         phi_list = np.load(f"results/decoder/data/phi_list_{algo}.npy")
@@ -125,26 +124,12 @@ def rollouts(algo, env_name, skill_dim=2):
         traj_encoder_checkpoint_path = f'final_models/{env_name}/SUSD/traj_encoder10000.pt'
 
     elif algo == "metra": 
-        if skill_dim == 2:
-            option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000.pt'    
-            traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000.pt'
-        elif skill_dim == 5:
-            option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000_dim_5.pt'    
-            traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000_dim_5.pt'
-        elif skill_dim == 10:
-            option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000_dim_10.pt'    
-            traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000_dim_10.pt'
-        elif skill_dim == 20:
-            option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000_dim_20.pt'    
-            traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000_dim_20.pt'
+        option_policy_checkpoint_path = f'final_models/{env_name}/METRA/option_policy10000.pt'    
+        traj_encoder_checkpoint_path = f'final_models/{env_name}/METRA/traj_encoder10000.pt'
 
     elif algo == "csd":
-        if skill_dim == 2:
-            option_policy_checkpoint_path = f'final_models/{env_name}/CSD/option_policy10000.pt'    
-            traj_encoder_checkpoint_path = f'final_models/{env_name}/CSD/traj_encoder10000.pt'
-        elif skill_dim == 5:
-            option_policy_checkpoint_path = f'final_models/{env_name}/CSD/option_policy10000_dim_5.pt'    
-            traj_encoder_checkpoint_path = f'final_models/{env_name}/CSD/traj_encoder10000_dim_5.pt'
+        option_policy_checkpoint_path = f'final_models/{env_name}/CSD/option_policy10000.pt'    
+        traj_encoder_checkpoint_path = f'final_models/{env_name}/CSD/traj_encoder10000.pt'
 
     elif algo == "lsd":
         option_policy_checkpoint_path = f'final_models/{env_name}/LSD/option_policy10000.pt'    
@@ -168,10 +153,16 @@ def rollouts(algo, env_name, skill_dim=2):
         env = create_particle_env()
     elif env_name == "elden_kitchen":
         env = create_elden_env()
+    elif env_name == "gunner":
+        env = create_gunner_env()
+    elif env_name == "ant":
+        env = create_ant_env()
+    elif env_name == "half_cheetah":
+        env = create_half_cheetah()
 
     # tqdm progress bar
-    with tqdm(total=100000, desc=f"Rollouts ({algo})") as pbar: # 10000000
-        while steps < 100000:
+    with tqdm(total=1e5, desc=f"Rollouts ({algo})") as pbar: # 10000000
+        while steps < 1e5:
             if done:
                 obs = env.reset()
                 done = False
@@ -250,15 +241,60 @@ def create_elden_env(seed=0):
     env = EldenKitchen(env, custom_order=custom_order) 
     return env
 
+def create_gunner_env(seed=0):
+    from envs.moma_2d.moma_2d_gym_env import MoMa2DGymEnv
+    custom_order = [0, 1, 2, 3, 12, 13,
+                        4, 5, 6, 7, 14, 15, 16,
+                        8, 9, 10, 11, 17] # base, arm, view (ORIGINAL)
+    env = MoMa2DGymEnv(max_step=1000, custom_order=custom_order)
+    env.reset()
+    return env
+
+def create_ant_env(seed=0):
+    from envs.mujoco.ant_env import AntEnv
+    env = AntEnv(render_hw=100)
+    return env
+
+def create_half_cheetah(seed=0):
+    from envs.mujoco.half_cheetah_env import HalfCheetahEnv
+    env = HalfCheetahEnv(render_hw=100)
+    return env
+
 
 algo = "lsd"
 skill_dim = 2
-env_name = "particle"
+env_name = "elden_kitchen"
 
 if env_name == "particle":
     hidden_sizes = (35, 70)
-elif env_name == "elden_kitchen":
-    hidden_sizes = (64, 142)
+    partitions = [0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70]
+    if algo == "susd":
+        skill_dim = 20
 
-skill_dim, obs_list, phi_list = rollouts(algo=algo, env_name=env_name, skill_dim=skill_dim)
-train_decoder(algo=algo, skill_dim=skill_dim, hidden_sizes=hidden_sizes ,save_path=f"results/decoder/{algo}.pth")
+elif env_name == "elden_kitchen":
+    partitions = [0, 33, 55, 73, 92, 114, 128, 142]
+    hidden_sizes = (64, 142)
+    if algo == "susd":
+        skill_dim = 14
+
+elif env_name == "gunner":
+    partitions = [0, 6, 13, 18]
+    hidden_sizes = (9, 18)
+    if algo == "susd":
+        skill_dim = 6
+
+elif env_name == "half_cheetah":
+    partitions = [0, 18]
+    hidden_sizes = (9, 18)
+    if algo == "susd":
+        skill_dim = 2
+
+elif env_name == "ant":
+    partitions = [0, 29]
+    hidden_sizes = (10, 29)
+    if algo == "susd":
+        skill_dim = 2
+
+
+# skill_dim, obs_list, phi_list = rollouts(algo=algo, env_name=env_name, skill_dim=skill_dim)
+train_decoder(algo=algo, skill_dim=skill_dim, hidden_sizes=hidden_sizes, partitions=partitions, save_path=f"results/decoder/{algo}.pth")

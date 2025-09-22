@@ -18,7 +18,8 @@ import time
 from tqdm import tqdm
 import csv
 
-from envs.mujoco.ant_env import AntEnv
+from envs.mujoco.half_cheetah_env import HalfCheetahEnv
+
 
 import os
 os.environ["MUJOCO_GL"] = "egl"
@@ -30,27 +31,27 @@ algo = "lsd" # ["susd", "metra", "csd", "diayn", "lsd"]
 skill_dim = 2
 
 if algo == "susd":
-    option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000.pt'
-    traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = f'final_models/half_cheetah/SUSD/option_policy10000.pt'
+    traj_encoder_checkpoint_path = f'final_models/half_cheetah/SUSD/traj_encoder10000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/ant/METRA/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/METRA/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/half_cheetah/METRA/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/half_cheetah/METRA/traj_encoder10000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/ant/CSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/CSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/half_cheetah/CSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/half_cheetah/CSD/traj_encoder10000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/ant/LSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/LSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/half_cheetah/LSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/half_cheetah/LSD/traj_encoder10000.pt'
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/ant/DIAYN/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/ant/DIAYN/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/half_cheetah/DIAYN/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/half_cheetah/DIAYN/traj_encoder10000.pt'
 
 
-csv_path = f"final_models/ant/COVERAGE/state_coverage_{algo}_ant.csv"
+csv_path = f"final_models/half_cheetah/COVERAGE/state_coverage_{algo}_half_cheetah.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)
 traj_ckpt = torch.load(traj_encoder_checkpoint_path)
 option_policy = option_ckpt["policy"]
@@ -58,7 +59,7 @@ traj_encoder = traj_ckpt["traj_encoder"]
 option_policy = option_policy.to(device).eval()
 traj_encoder = traj_encoder.to(device).eval()
 
-env = AntEnv(render_hw=100)
+env = HalfCheetahEnv(render_hw=100, fixed_initial_state=True)
 max_steps = 200
 
 
@@ -70,9 +71,9 @@ def eval(env):
     frames = []
     steps = 0
     z_period = 200
-    unique_pairs = set()
+    unique_xs = set()
 
-    while steps <= 1e5:
+    while steps <= 1e4:
         if done:
             obs = env.reset()
             done = False
@@ -96,20 +97,20 @@ def eval(env):
             obs, reward, done, info = env.step(action)
             steps += 1
 
-            x, y = env.sim.data.qpos[0], env.sim.data.qpos[1]
-            pair = (round(x, 2), round(y, 2))
-            unique_pairs.add(pair)
+            x = env.sim.data.qpos[0]
+            x = round(x, 2)
+            unique_xs.add(x)
 
             if record_video:
                 frame = env.render()
                 frames.append(frame)
 
-            log.append((steps, len(unique_pairs)))
+            log.append((steps, len(unique_xs)))
 
-    print(f"unique pairs: {len(unique_pairs):.2f}")
+    print(f"unique X: {len(unique_xs):.2f}")
 
     if record_video:
-        video_path = f"eval_state_coverage_ant_{algo}.mp4"
+        video_path = f"eval_state_coverage_half_cheetah_{algo}.mp4"
         imageio.mimsave(video_path, frames, fps=30)
         print(f"🎞️ Video saved to: {video_path}")
 
@@ -122,7 +123,7 @@ def run_multiple_seeds(num_runs=8):
     
     for seed in tqdm(range(num_runs)):
         print(f"Running seed {seed}...")
-        env = AntEnv(render_hw=100)
+        env = HalfCheetahEnv(render_hw=100, fixed_initial_state=True)
         env.seed(seed)
                 
         time_reward_log = eval(env)
@@ -192,23 +193,21 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    susd_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_susd_ant.csv")
-    metra_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_metra_ant.csv")
-    csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_csd_ant.csv")
-    lsd_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_lsd_ant.csv")
-    # diayn_logs = load_logs_from_csv("final_models/ant/COVERAGE/state_coverage_diayn_ant.csv")
+    susd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/state_coverage_susd_half_cheetah.csv")
+    metra_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/state_coverage_metra_half_cheetah.csv")
+    csd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/state_coverage_csd_half_cheetah.csv")
+    lsd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/state_coverage_lsd_half_cheetah.csv")
 
     logs_by_method = {
         "SUSD": susd_logs,
         "METRA": metra_logs,
         "CSD": csd_logs,
         "LSD": lsd_logs,
-        # "DIAYN": diayn_logs,
     }
 
     plot_multiple_methods_cumulative_reward(
         logs_by_method,
-        max_duration=1e5,
+        max_duration=1e4,
         dt=1.0,
-        save_path=f"final_models/ant/COVERAGE/state_coverage_ant_comparison_ours.png"
+        save_path=f"final_models/half_cheetah/COVERAGE/state_coverage_half_cheetah_comparison_ours.png"
     )

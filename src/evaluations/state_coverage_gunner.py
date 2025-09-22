@@ -10,9 +10,6 @@ import imageio
 from tqdm import tqdm
 import csv
 
-from pettingzoo.mpe import simple_heterogenous_v3
-from pettingzoo.utils.wrappers.centralized_wrapper import CentralizedWrapper
-from envs.mp.particle import Particle
 from src.dusdi_utils import Actor
 
 import os
@@ -25,36 +22,36 @@ algo = "diayn" # ["csd", "metra", "lsd", "diayn", "susd", "dusdi"]
 skill_dim = 2
 
 if algo == "susd":
-    option_policy_checkpoint_path = f'final_models/particle/SUSD/option_policy10000.pt'
-    traj_encoder_checkpoint_path = f'final_models/particle/SUSD/traj_encoder10000.pt'
-    skill_dim = 20 # N=10 & d=2
+    option_policy_checkpoint_path = f'final_models/gunner/SUSD/option_policy10000.pt'
+    traj_encoder_checkpoint_path = f'final_models/gunner/SUSD/traj_encoder10000.pt'
+    skill_dim = 6 # N=3 & d=2
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = 'final_models/particle/METRA/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/METRA/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/gunner/METRA/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/gunner/METRA/traj_encoder10000.pt'
 
 elif algo == "csd":
-    option_policy_checkpoint_path = 'final_models/particle/CSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/CSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/gunner/CSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/gunner/CSD/traj_encoder10000.pt'
 
 elif algo == "lsd":
-    option_policy_checkpoint_path = 'final_models/particle/LSD/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/LSD/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/gunner/LSD/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/gunner/LSD/traj_encoder10000.pt'
 
 elif algo == "diayn":
-    option_policy_checkpoint_path = 'final_models/particle/DIAYN/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/DIAYN/traj_encoder10000.pt'
+    option_policy_checkpoint_path = 'final_models/gunner/DIAYN/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/gunner/DIAYN/traj_encoder10000.pt'
 
 elif algo == "dusdi":
-    option_policy_checkpoint_path = 'final_models/particle/DUSDI/option_policy10000.pt'    
-    traj_encoder_checkpoint_path = 'final_models/particle/DUSDI/traj_encoder10000.pt'
-    skill_dim = 50 # N = 10 & D = 5
+    option_policy_checkpoint_path = 'final_models/gunner/DUSDI/option_policy10000.pt'    
+    traj_encoder_checkpoint_path = 'final_models/gunner/DUSDI/traj_encoder10000.pt'
+    skill_dim = 20 # N = 3 & D = 5
 
 
-csv_path = f"final_models/particle/COVERAGE/state_coverage_{algo}_particle.csv"
+csv_path = f"final_models/gunner/COVERAGE/state_coverage_{algo}_gunner.csv"
 
 if algo == "dusdi":
-    option_policy = Actor("state", 120, 20, 50, 1024, True, [-10, 2], "particle")
+    option_policy = Actor("state", 38, 6, 20, 1024, True, [-10, 2], "moma2D")
     cp_dict = torch.load(option_policy_checkpoint_path, map_location='cpu')
     option_policy.load_state_dict(cp_dict)
 else:
@@ -64,36 +61,23 @@ else:
 option_policy = option_policy.to(device).eval()
 
 if algo == "dusdi":
-    custom_order = list(range(0, 70))
-    agent_positions = {0: (12, 13), 1: (16, 17), 2: (20, 21), 3: (24, 25), 4: (28, 29), 5: (32, 33), 6: (36, 37), 7: (40, 41), 8: (44, 45), 9: (48, 49)}
+    custom_order = list(range(18))
 else:
-    distances = list(range(0, 10))       # 0–9
-    agent_info = list(range(10, 50))     # 10–49
-    station_info = list(range(50, 70))   # 50–69
+    custom_order = [0, 1, 2, 3, 12, 13,
+                        4, 5, 6, 7, 14, 15, 16,
+                        8, 9, 10, 11, 17]
 
-    custom_order = []
-
-    for i in range(10):
-        custom_order.append(distances[i])                       
-        custom_order.extend(agent_info[i*4:(i+1)*4])           
-        custom_order.extend(station_info[i*2:(i+1)*2])
-
-    agent_positions = {0: (3, 4), 1: (10, 11), 2: (17, 18), 3: (24, 25), 4: (31, 32), 5: (38, 39), 6: (45, 46), 7: (52, 53), 8: (59, 60), 9: (66, 67)}
-
-
-def create_particle_env():
-    env = simple_heterogenous_v3.parallel_env(
-            render_mode= "rgb_array",
-            max_cycles=1000,
-            continuous_actions=True,
-            local_ratio=0,
-            N=10,
-            img_encoder=None)
-
-    env = CentralizedWrapper(env, simplify_action_space=True)
-    env = Particle(env, custom_order, (512, 480))
+def create_gunner_env(seed=0):
+    from envs.moma_2d.moma_2d_gym_env import MoMa2DGymEnv
+    if algo == "dusdi":
+        custom_order = list(range(18))
+    else:
+        custom_order = [0, 1, 2, 3, 12, 13,
+                        4, 5, 6, 7, 14, 15, 16,
+                        8, 9, 10, 11, 17] # base, arm, view (ORIGINAL)
+    env = MoMa2DGymEnv(max_step=1000, custom_order=custom_order)
+    env.reset()
     return env
-
 
 def random_one_hot_concat(N, d):
     import random
@@ -109,14 +93,14 @@ def eval(env):
     frames = []
     steps = 0
     z_period = 200
-    unique_pairs= [set() for _ in range(10)]
+    unique_pairs= set()
 
     while steps <= 1e5:
         if done:
             obs = env.reset()
             done = False
             if algo == "dusdi":
-                random_z = random_one_hot_concat(N=10, d=5)
+                random_z = random_one_hot_concat(N=4, d=5)
             else:
                 random_z = np.random.randn(1, skill_dim)
                 random_z /= np.linalg.norm(random_z)
@@ -124,7 +108,7 @@ def eval(env):
         else:
             if steps % z_period ==0:
                 if algo == "dusdi":
-                    random_z = random_one_hot_concat(N=10, d=5)
+                    random_z = random_one_hot_concat(N=4, d=5)
                 else:
                     random_z = np.random.randn(1, skill_dim)
                     random_z /= np.linalg.norm(random_z)
@@ -145,22 +129,17 @@ def eval(env):
             obs, _, done, info = env.step(action)
             steps += 1
 
-            for i in range(10):
-                x_index, y_index = agent_positions[i]
-                x = obs[x_index]
-                y = obs[y_index]
-                pair = (round(x, 2), round(y, 2))
-                unique_pairs[i].add(pair)
+            x, y = env.agent_pos
+            pair = (round(x, 2), round(y, 2))
+            unique_pairs.add(pair)
 
             if record_video:
                 frame = env.render()
                 frames.append(frame)
 
-            sum_unique_pairs = sum(len(s) for s in unique_pairs)
-            log.append((steps, sum_unique_pairs))
+            log.append((steps, len(unique_pairs)))
 
-    sum_unique_pairs = sum(len(s) for s in unique_pairs)
-    print(f"unique pairs: {sum_unique_pairs}")
+    print(f"unique pairs: {len(unique_pairs)}")
 
     if record_video:
         video_path = f"eval_state_coverage_ant_{algo}.mp4"
@@ -176,16 +155,16 @@ def run_multiple_seeds(num_runs=8):
     
     for iteration in tqdm(range(num_runs)):
         print(f"Iteration {iteration}...")
-        env = create_particle_env()
+        env = create_gunner_env()
                 
         time_reward_log = eval(env)
         all_logs.append(time_reward_log)
 
         for time_val, unique_steps in time_reward_log:
-            csv_rows.append({'iter': iteration, 'time': time_val, 'sum_unique_pairs': unique_steps})
+            csv_rows.append({'iter': iteration, 'time': time_val, 'unique_pairs': unique_steps})
 
 
-    fieldnames = ['iter', 'time', 'sum_unique_pairs']
+    fieldnames = ['iter', 'time', 'unique_pairs']
     with open(csv_path, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -253,7 +232,7 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
 
     plt.xlabel('Steps')
     plt.ylabel('State Coverage')
-    plt.title('Average State Coverage (Multi-Particle)')
+    plt.title('Average State Coverage (2D-Gunner)')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -271,7 +250,7 @@ def load_logs_from_csv(csv_path):
 
     for iter, group in df.groupby("iter"):
         sorted_group = group.sort_values("time")
-        log = list(zip(sorted_group["time"], sorted_group["sum_unique_pairs"]))
+        log = list(zip(sorted_group["time"], sorted_group["unique_pairs"]))
         all_logs.append(log)
 
     return all_logs
@@ -280,12 +259,12 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    susd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_susd_particle.csv")
-    metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_metra_particle.csv")
-    csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle.csv")
-    lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
-    # diayn_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_diayn_particle.csv")
-    dusdi_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_dusdi_particle.csv")
+    susd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_susd_gunner.csv")
+    metra_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_metra_gunner.csv")
+    csd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_csd_gunner.csv")
+    lsd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_lsd_gunner.csv")
+    # diayn_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_diayn_gunner.csv")
+    dusdi_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_dusdi_gunner.csv")
 
     logs_by_method = {
         "SUSD": susd_logs,
@@ -300,5 +279,5 @@ elif mode == "plot":
         logs_by_method,
         max_duration=1e5,
         dt=1.0,
-        save_path=f"final_models/particle/COVERAGE/state_coverage_particle.png"
+        save_path=f"final_models/gunner/COVERAGE/state_coverage_gunner.png"
     )
