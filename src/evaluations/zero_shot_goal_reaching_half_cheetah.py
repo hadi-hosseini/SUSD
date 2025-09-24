@@ -9,18 +9,18 @@ from tqdm import tqdm
 import pandas as pd
 import csv
 
-# from downstream_tasks.half_cheetah_multi_goals import half_cheetahMultiGoalsEnv
+from downstream_tasks.half_cheetah_multi_goals import HalfCheetahGoal
 from garagei.envs.consistent_normalized_env import consistent_normalize
 from iod.utils import get_normalizer_preset
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-algo = "susd" # ["susd", "metra", "lsd", "csd", "diayn"]
+algo = "csd" # ["susd", "metra", "lsd", "csd", "diayn"]
 num_runs = 8 
-max_duration = 1e4 # steps
+max_duration = 2e4 # steps
 max_steps = 200
-mode = "eval" # ["eval", "plot"]
+mode = "plot" # ["eval", "plot"]
 
 if algo == "susd":
     option_policy_checkpoint_path = f'final_models/half_cheetah/SUSD/option_policy10000.pt'
@@ -53,85 +53,77 @@ traj_encoder.to(device)
 option_policy.eval()
 traj_encoder.eval()
 
+
 def zero_shot_eval(env, max_duration=30.0, max_steps=200):
 
     obs = env.reset()
-
-    done = False
     cumulative_reward = 0.0
-    # frames = []
+    frames = []
+    record_video = False
 
     time_reward_log = []
-    episode_step_counts = []
     steps = 0
     total_steps = 0
-
     
-    # while time.time() - start_time < max_duration:
     while total_steps < max_duration: 
-        if done:
+
+        if steps >= max_steps:
             obs = env.reset()
-            done = False
             steps = 0
 
-        # while not done and steps < max_steps and (time.time() - start_time < max_duration):
-        while not done and steps < max_steps and (total_steps < max_duration):
+        goal = env.current_goal
 
-            # ---- 1. Get current state and goal ----
-            goal = env.current_goal
+        s_tensor = torch.from_numpy(obs).float().unsqueeze(0).to(device)
+        g_tensor = torch.from_numpy(np.copy(obs)).float().unsqueeze(0).to(device)
+        g_tensor[:, 0] = torch.tensor(goal)  
 
-            # ---- 2. Encode current and goal to skill space ----
-            s_tensor = torch.from_numpy(obs).float().unsqueeze(0).to(device)
-            g_tensor = torch.from_numpy(np.copy(obs)).float().unsqueeze(0).to(device)
-            g_tensor[:, 0] = torch.tensor(goal[0])  # Overwrite x
-            g_tensor[:, 1] = torch.tensor(goal[1])  # Overwrite y
+        g_tensor = env._apply_normalize_obs(g_tensor.cpu()).float().to('cuda')
+        s_tensor = env._apply_normalize_obs(s_tensor.cpu()).float().to('cuda')
 
-            if algo == "susd":
-                phi_s = traj_encoder(s_tensor).detach()
-                phi_g = traj_encoder(g_tensor).detach()
-            else:
-                phi_s = traj_encoder(s_tensor).mean.detach()
-                phi_g = traj_encoder(g_tensor).mean.detach()
+        if algo == "susd":
+            phi_s = traj_encoder(s_tensor).detach()
+            phi_g = traj_encoder(g_tensor).detach()
+        else:
+            phi_s = traj_encoder(s_tensor).mean.detach()
+            phi_g = traj_encoder(g_tensor).mean.detach()
 
-            z = phi_g - phi_s
-            z /= torch.norm(z, dim=-1, keepdim=True) + 1e-12
+        z = phi_g - phi_s
+        z /= torch.norm(z, dim=-1, keepdim=True) + 1e-12
 
-            # ---- 3. Get action from option policy ----
-            if isinstance(obs, np.ndarray):
-                obs = torch.from_numpy(obs).to(torch.float32).to(z.device).unsqueeze(0)
+        if isinstance(obs, np.ndarray):
+            obs = env._apply_normalize_obs(obs)
+            obs = torch.from_numpy(obs).to(torch.float32).to(z.device).unsqueeze(0)
 
 
-            input_tensor = torch.cat([obs] +  [z], dim=1)
-            action_np, _ = option_policy.get_action(input_tensor)
-            action = action_np[0]
+        input_tensor = torch.cat([obs] +  [z], dim=1)
+        action_np, _ = option_policy.get_action(input_tensor)
+        action = action_np[0]
 
-            # ---- 4. Step environment ----
-            obs, reward, done, info = env.step(action)
-            cumulative_reward += reward
-            steps += 1
-            total_steps += 1
+        obs, reward, done, info = env.step(action)
+        cumulative_reward += reward
+        steps += 1
+        total_steps += 1
 
-            # frame = env.render(mode="rgb_array")
-            # frames.append(frame)
+        if record_video:
+            frame = env.render(mode="rgb_array")
+            frames.append(frame)
 
-            time_reward_log.append((total_steps, cumulative_reward))
+        time_reward_log.append((total_steps, cumulative_reward))
 
-            # print(f"Step {step:3d}: "
-            #     f"action={np.round(action, 2)} "
-            #     f"pos=({current_pos[0]:.2f}, {current_pos[1]:.2f}) "
-            #     f"goal=({goal[0]:.2f}, {goal[1]:.2f}) "
-            #     f"reward={reward:.2f}, done={done}")
-        
-        episode_step_counts.append(steps)
+        # print(f"Step={steps}, pos=({env.sim.data.qpos[0]:.2f}), goal=({goal:.2f}), reward={reward:.2f}")
 
     env.close()
 
-    # video_path = "results/zero_shot_half_cheetah_run.mp4"
-    # imageio.mimsave(video_path, frames, fps=30)
-    # print(f"\n✅ Cumulative Reward: {cumulative_reward:.2f}")
-    # print(f"🎞️ Video saved to: {video_path}")
+    # print(cumulative_reward)
+    # exit()
 
-    return time_reward_log, episode_step_counts
+    if record_video:
+        video_path = "results/zero_shot_half_cheetah_run.mp4"
+        imageio.mimsave(video_path, frames, fps=30)
+        print(f"\n✅ Cumulative Reward: {cumulative_reward:.2f}")
+        print(f"🎞️ Video saved to: {video_path}")
+
+    return time_reward_log
 
 
 def run_multiple_seeds(num_runs=8, max_duration=30, max_steps=200):
@@ -140,13 +132,12 @@ def run_multiple_seeds(num_runs=8, max_duration=30, max_steps=200):
     
     for seed in tqdm(range(num_runs)):
         print(f"Running seed {seed}...")
-        env = half_cheetahMultiGoalsEnv(render_hw=256)
-        env.seed(seed)
+        env = HalfCheetahGoal(render_hw=256)
         
         normalizer_mean, normalizer_std = get_normalizer_preset(f'half_cheetah_preset')
-        env = consistent_normalize(env, normalize_obs=True, mean=normalizer_mean, std=normalizer_std)
+        env = consistent_normalize(env, normalize_obs=False, mean=normalizer_mean, std=normalizer_std)
         
-        time_reward_log, _ = zero_shot_eval(env, max_duration=max_duration, max_steps=max_steps)
+        time_reward_log = zero_shot_eval(env, max_duration=max_duration, max_steps=max_steps)
         all_logs.append(time_reward_log)
 
         for time_val, reward in time_reward_log:
@@ -254,7 +245,7 @@ elif mode == "plot":
 
     plot_multiple_methods_cumulative_reward(
         logs_by_method,
-        max_duration=1e4,
+        max_duration=2e4,
         dt=1.0,
         save_path=f"final_models/half_cheetah/COVERAGE/zero_shot_half_cheetah_comparison_ours.png"
     )

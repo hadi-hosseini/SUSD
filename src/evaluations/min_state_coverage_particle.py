@@ -118,7 +118,7 @@ def eval(env):
     z_period = 200
     unique_pairs= [set() for _ in range(10)]
 
-    while steps <= 2e4:
+    while steps <= 1e5:
         if done:
             obs = env.reset()
             done = False
@@ -261,7 +261,7 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
 
     plt.xlabel('Steps')
     plt.ylabel('State Coverage')
-    plt.title('Average State Coverage (Minimum Across Factors)')
+    plt.title('Minimum State Coverage Across Factors')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -292,7 +292,7 @@ elif mode == "plot":
     metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_metra_particle.csv")
     csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle.csv")
     lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
-    diayn_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_diayn_particle.csv")
+    # diayn_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_diayn_particle.csv")
     dusdi_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_dusdi_particle.csv")
 
 
@@ -302,13 +302,13 @@ elif mode == "plot":
         "METRA": metra_logs,
         "CSD": csd_logs,
         "LSD": lsd_logs,
-        "DIAYN": diayn_logs,
+        # "DIAYN": diayn_logs,
         "DUSDI": dusdi_logs,
     }
 
     plot_multiple_methods_unique_steps(
         logs_by_method,
-        max_duration=2e4,
+        max_duration=1e5,
         dt=1.0,
         save_path=f"final_models/particle/COVERAGE/state_coverage_particle_comparison_ours.png"
     )

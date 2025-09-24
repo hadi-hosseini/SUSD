@@ -28,7 +28,7 @@ class ChildPolicyEnvParticle(gym.Wrapper):
         super().__init__(env)
 
 
-        mode = 0 # 0: susd  1: dsd  2:dusdi
+        mode = 1 # 0: susd  1: dsd  2:dusdi
         self.mode = mode
 
         if mode == 2: # dusdi

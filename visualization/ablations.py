@@ -5,10 +5,13 @@ import numpy as np
 import math
 
 # methods = ["CSD", "ABLATION1", "ABLATION2", "SUSD", "DUSDI", "SUSD (N=20)"]
+# methods = ["CSD", "ABLATION2", "SUSD"]
 # methods = ["SUSD", "SUSD (N=20)", "DUSDI"]
-methods = ["SUSD", "SUSD (N=20)"]
+# methods = ["SUSD", "SUSD (N=20)"]
 # methods = ["SUSD (D=2)", "SUSD (D=5)"]
 # methods = ["SUSD Continuous", "SUSD Discrete"]
+methods = ["SUSD", "METRA (D=2)", "METRA (D=20)", "CSD (D=2)", "CSD (D=20)"]
+
 
 
 def fp_diff(): # task_diff = 4
@@ -96,6 +99,14 @@ def seq_easy(): # task_diff = 5
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_5_ABLATION2", pivot=True)
         elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_5_V2", pivot=True)
+        elif method == "METRA (D=2)":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_5", pivot=True)
+        elif method == "METRA (D=20)":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_5_20", pivot=True)
+        elif method == "CSD (D=2)":
+            reader = SummaryReader(f"./exp/HRL_CSD_seq_5", pivot=True)
+        elif method == "CSD (D=20)":
+            reader = SummaryReader(f"./exp/HRL_CSD_seq_5_20", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_5", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -115,6 +126,14 @@ def seq_medium(): # task_diff = 6
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_6_ABLATION2", pivot=True)
         elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_6_V2", pivot=True)
+        elif method == "METRA (D=2)":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_6", pivot=True)
+        elif method == "METRA (D=20)":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_6_20", pivot=True)
+        elif method == "CSD (D=2)":
+            reader = SummaryReader(f"./exp/HRL_CSD_seq_6", pivot=True)
+        elif method == "CSD (D=20)":
+            reader = SummaryReader(f"./exp/HRL_CSD_seq_6_20", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_6", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -134,6 +153,14 @@ def seq_hard(): # task_diff = 7
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_7_ABLATION2", pivot=True)
         elif method == "SUSD (N=20)":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_7_V2", pivot=True)
+        elif method == "METRA (D=2)":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_7", pivot=True)
+        elif method == "METRA (D=20)":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_7_20", pivot=True)
+        elif method == "CSD (D=2)":
+            reader = SummaryReader(f"./exp/HRL_CSD_seq_7", pivot=True)
+        elif method == "CSD (D=20)":
+            reader = SummaryReader(f"./exp/HRL_CSD_seq_7_20", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_7", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -228,12 +255,12 @@ def plot_result_on_ax(df, ax, title):
         smoothed = group_sorted["mean"].rolling(window, min_periods=1).mean()
         smoothed_ci = group_sorted["ci95"].rolling(window, min_periods=1).mean()
 
-        # if method == "ABLATION2":
-        #     ax.plot(group_sorted["step"], smoothed, label="Ablation", linewidth=2, alpha=0.8)
-        # else:
-        if method == "SUSD":
-            method = "SUSD (N=10)"
-        ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
+        if method == "ABLATION2":
+            ax.plot(group_sorted["step"], smoothed, label="Ablation", linewidth=2, alpha=0.8)
+        else:
+        # if method == "SUSD":
+        #     method = "SUSD (N=10)"
+            ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
 
         max_margin = 3
         ci_clipped = np.minimum(smoothed_ci, max_margin)
@@ -260,7 +287,7 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
     # shared legend
     handles, labels = axs[0].get_legend_handles_labels()
     fig.legend(
-        handles, labels, title="Method", fontsize=12, title_fontsize=13,
+        handles, labels, title="", fontsize=12, title_fontsize=13,
         loc="upper center", ncol=len(labels)
     )
 
@@ -273,26 +300,26 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
 
 
 
-### mp_fp_diff
-save_path = "visualization/ablation/mp_fp_diff.png" 
-mp_fp_diff = fp_diff()
-plot_result(mp_fp_diff, save_path, title="Multiparticle Food&Poison Difficult")
+# ### mp_fp_diff
+# save_path = "visualization/ablation/mp_fp_diff.png" 
+# mp_fp_diff = fp_diff()
+# plot_result(mp_fp_diff, save_path, title="Multiparticle Food&Poison Difficult")
 
 
-### mp_fp_hard
-save_path = "visualization/ablation/mp_fp_hard.png" 
-mp_fp_hard = fp_hard()
-plot_result(mp_fp_hard, save_path, title="Multiparticle Food&Poison Hard")
+# ### mp_fp_hard
+# save_path = "visualization/ablation/mp_fp_hard.png" 
+# mp_fp_hard = fp_hard()
+# plot_result(mp_fp_hard, save_path, title="Multiparticle Food&Poison Hard")
 
-### mp_fp_medium
-save_path = "visualization/ablation/mp_fp_medium.png" 
-mp_fp_medium = fp_medium()
-plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
+# ### mp_fp_medium
+# save_path = "visualization/ablation/mp_fp_medium.png" 
+# mp_fp_medium = fp_medium()
+# plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
 
-### mp_fp_easy
-save_path = "visualization/ablation/mp_fp_easy.png" 
-mp_fp_easy = fp_easy()
-plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
+# ### mp_fp_easy
+# save_path = "visualization/ablation/mp_fp_easy.png" 
+# mp_fp_easy = fp_easy()
+# plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
 
 
 # ### gunner_lim
@@ -336,7 +363,7 @@ plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
 #     "Gunner without Limitation"
 # ]
 
-# save_path = "visualization/ablation/grouped_results.png"
+# save_path = "visualization/ablation/ablation_grouped_results.png"
 # plot_grouped_results(dfs, titles, save_path=save_path, ncols=3)
 
 
@@ -348,22 +375,35 @@ plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
 #     "Gunner without Limitation"
 # ]
 
-# save_path = "visualization/ablation/grouped_results.png"
+# save_path = "visualization/ablation/discrete_grouped_results.png"
 # plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)
 
 
+# ## plot_groups
+# dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard]
+# titles = [
+#     "Food&Poison Difficult",
+#     "Food&Poison Hard",
+#     "Food&Poison Medium",
+#     "Food&Poison Easy",
+#     "Sequential Easy",
+#     "Sequential Medium",
+#     "Sequential Hard",
+# ]
+
+# save_path = "visualization/ablation/prior_knowledge_grouped_results.png"
+# plot_grouped_results(dfs, titles, save_path=save_path, ncols=4)
+
+
+
 ## plot_groups
-dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard]
+dfs = [mp_seq_easy, mp_seq_medium, mp_seq_hard]
 titles = [
-    "Food&Poison Difficult",
-    "Food&Poison Hard",
-    "Food&Poison Medium",
-    "Food&Poison Easy",
-    "Sequential Easy",
-    "Sequential Medium",
-    "Sequential Hard",
+    "Multiparticle Sequential Easy",
+    "Multiparticle Sequential Medium",
+    "Multiparticle Sequential Hard",
 ]
 
-save_path = "visualization/ablation/prior_knowledge_grouped_results.png"
-plot_grouped_results(dfs, titles, save_path=save_path, ncols=4)
+save_path = "visualization/ablation/high_dimension_grouped_results.png"
+plot_grouped_results(dfs, titles, save_path=save_path, ncols=3)
 
