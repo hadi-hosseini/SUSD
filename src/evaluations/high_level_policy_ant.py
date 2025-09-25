@@ -30,8 +30,8 @@ if algo == "dsd":
     traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752248887_ant_metra/traj_encoder19000.pt'
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
-    traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
+    option_policy_checkpoint_path = 'exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
+    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
 
 csv_path = f"results/high_level_{algo}.csv"
 option_ckpt = torch.load(option_policy_checkpoint_path)

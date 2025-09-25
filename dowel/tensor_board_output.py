@@ -68,7 +68,7 @@ class TensorBoardOutput(LogOutput):
         # Used in tests to emulate Tensorflow not being installed.
         self._tf = tf
 
-        self.wandb = False # hadi
+        self.wandb = False
         
         # if 'WANDB_API_KEY' in os.environ:
         #     self.wandb = True

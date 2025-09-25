@@ -389,7 +389,7 @@ class SUSD(IOD):
 
                 if self.susd_ablation_mode == 1 or self.susd_ablation_mode == 3: # just CSD weight or Oversampling
                     csd_distances = torch.mean(normalized_csd, dim=1)
-                elif self.susd_ablation_mode == 0: # SUSD
+                elif self.susd_ablation_mode == 0 or self.susd_ablation_mode == 2: # SUSD
                     if self.susd_dist_norm:
                         if self.env_name == "kitchen_franka":
                             csd_distances = [(59.0 * normalized_csd[:, start:end])/(end - start) for start, end in zip(self.partition_points[:-1], self.partition_points[1:])]
@@ -553,7 +553,7 @@ class SUSD(IOD):
             elif self.susd_ablation_mode == 0: # SUSD method
                 rewards = v['rewards'] * torch.sqrt(v['csd_distances'])
                 rewards = rewards.sum(dim=1)
-            elif self.susd_ablation_mode == 3: # Oversampling
+            elif self.susd_ablation_mode == 3 or self.susd_ablation_mode == 2: # Oversampling
                 rewards = v['rewards'].sum(dim=1)
 
         sac_utils.update_loss_qf(

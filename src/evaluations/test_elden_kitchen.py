@@ -15,8 +15,8 @@ algo = "susd" # ["csd", "metra", "lsd", "diyan", "susd"]
 skill_dim = 2
 
 if algo == "susd":
-    high_option_policy_path = f'/home/hadi/rl/SUSD/exp/HRL_SUSD_elden_BiP/sd000_1757762930_elden_kitchen_sac/option_policy9000.pt'
-    traj_encoder_checkpoint_path = f'/home/hadi/rl/SUSD/exp/HRL_SUSD_elden_BiP/sd000_1757762930_elden_kitchen_sac/traj_encoder9000.pt'
+    high_option_policy_path = f'exp/HRL_SUSD_elden_BiP/sd000_1757762930_elden_kitchen_sac/option_policy9000.pt'
+    traj_encoder_checkpoint_path = f'exp/HRL_SUSD_elden_BiP/sd000_1757762930_elden_kitchen_sac/traj_encoder9000.pt'
 
     low_level_policy_path = 'final_models/elden_kitchen/SUSD/option_policy10000.pt'    
     skill_dim = 14 # N=7 & d=2

@@ -318,7 +318,7 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
-    baseline: str = "LSD"
+    baseline: str = "DIAYN"
     max_path_length: int = 50
     dim_option: int = 2 # 2 others, 35 DUSDI
     downstream_task: str = "elden_BiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
@@ -361,8 +361,8 @@ class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
 class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     max_path_length: int = 50
     dim_option: int = 2
-    downstream_task: str = "elden_PoT" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
-    run_group: str = f"HRL_SUSD_{downstream_task}"
+    downstream_task: str = "elden_MiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
+    run_group: str = f"HRL_SUSD_{downstream_task}_ABLATION"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -384,7 +384,9 @@ class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy10000.pt" # SUSD
+    # cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy10000.pt" # SUSD
+    # cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy6000_IND.pt" # EACH FACTOR INDEPENDENT
+    cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy6000_abl.pt" # EACH FACTOR INDEPENDENT
     cp_unit_length: int = 1
 
     env: str = "elden_kitchen"
@@ -420,20 +422,20 @@ def get_causal_vector(task_diff):
     return causal_vector, agent_list
 
 
-# method = "baseline_elden" # ["susd_elden", "baseline_elden"]
+method = "susd_elden" # ["susd_elden", "baseline_elden"]
 
-# if method == "susd_elden":
-#     args = SUSDHighLevelEldenKitchenConfig()
-# elif method == "baseline_elden":
-#     args = BaseHighLevelEldenKitchenConfig()
+if method == "susd_elden":
+    args = SUSDHighLevelEldenKitchenConfig()
+elif method == "baseline_elden":
+    args = BaseHighLevelEldenKitchenConfig()
 
 
-method = "baseline_particle" # ["susd_particle", "baseline_particle"]
+# method = "baseline_particle" # ["susd_particle", "baseline_particle"]
 
-if method == "susd_particle":
-    args = SUSDHighLevelParticleConfig()
-elif method == "baseline_particle":
-    args = BaselineHighLevelParticleConfig()
+# if method == "susd_particle":
+#     args = SUSDHighLevelParticleConfig()
+# elif method == "baseline_particle":
+#     args = BaselineHighLevelParticleConfig()
 
 
 # method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
@@ -543,7 +545,7 @@ def run(ctxt=None):
         return lr
 
 
-    set_seed(args.seed)
+    set_seed(args.seed) # args.seed
     runner = OptionLocalRunner(ctxt)
 
 

@@ -32,8 +32,8 @@ if algo == "csd":
     csv_path = "results/zero_shot_dsd.csv"
 
 elif algo == "metra": 
-    option_policy_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
-    traj_encoder_checkpoint_path = '/home/hadi/RL/LDG/METRA/exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
+    option_policy_checkpoint_path = 'exp/Debug/sd000_1752257820_ant_metra/option_policy17000.pt'    
+    traj_encoder_checkpoint_path = 'exp/Debug/sd000_1752257820_ant_metra/traj_encoder17000.pt'
     csv_path = "results/metra.csv"
 
 

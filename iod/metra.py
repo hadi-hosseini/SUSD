@@ -147,7 +147,7 @@ class METRA(IOD):
             self._update_rewards(tensors, v)
             self._optimize_op(tensors, v)
         
-        print("Train Modules") # hadi
+        print("Train Modules")
 
         return tensors
 
@@ -428,7 +428,7 @@ class METRA(IOD):
                     _deterministic_policy=True,
                 ),
             )
-            # record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames) # hadi
+            # record_video(runner, 'Video_RandomZ', video_trajectories, skip_frames=self.video_skip_frames)
 
         eval_option_metrics.update(runner._env.calc_eval_metrics(random_trajectories, is_option_trajectories=True))
         with global_context.GlobalContext({'phase': 'eval', 'policy': 'option'}):

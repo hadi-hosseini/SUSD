@@ -21,7 +21,7 @@ os.environ["MUJOCO_GL"] = "egl"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 mode = "plot" # ["plot", "eval"]
-algo = "diayn" # ["csd", "metra", "lsd", "diayn", "susd", "dusdi"]
+algo = "dusdi" # ["csd", "metra", "lsd", "diayn", "susd", "dusdi"]
 skill_dim = 2
 
 if algo == "susd":
@@ -51,7 +51,7 @@ elif algo == "dusdi":
     skill_dim = 50 # N = 10 & D = 5
 
 
-csv_path = f"final_models/particle/COVERAGE/state_coverage_{algo}_particle.csv"
+csv_path = f"final_models/particle/COVERAGE/state_coverage_{algo}_particle_sum.csv"
 
 if algo == "dusdi":
     option_policy = Actor("state", 120, 20, 50, 1024, True, [-10, 2], "particle")
@@ -231,6 +231,8 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
     common_times = np.arange(0, max_duration + dt, dt)
 
     plt.figure(figsize=(10, 6))
+    plt.rcParams.update({'font.size': 18})
+
 
     for method, all_logs in logs_by_method.items():
         interp_rewards = []
@@ -280,12 +282,12 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    susd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_susd_particle.csv")
-    metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_metra_particle.csv")
-    csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle.csv")
-    lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle.csv")
+    susd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_susd_particle_sum.csv")
+    metra_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_metra_particle_sum.csv")
+    csd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_csd_particle_sum.csv")
+    lsd_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_lsd_particle_sum.csv")
     # diayn_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_diayn_particle.csv")
-    dusdi_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_dusdi_particle.csv")
+    dusdi_logs = load_logs_from_csv("final_models/particle/COVERAGE/state_coverage_dusdi_particle_sum.csv")
 
     logs_by_method = {
         "SUSD": susd_logs,

@@ -49,6 +49,8 @@ def train_model_mse(model, X_train, y_train, X_val, y_val, partitions, batch_siz
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.MSELoss()
 
+    validation_losses = []
+
     for epoch in range(1, epochs + 1):
         # --- Training ---
         model.train()
@@ -73,12 +75,13 @@ def train_model_mse(model, X_train, y_train, X_val, y_val, partitions, batch_siz
                 loss = factorized_mse(preds, yb, partitions)
                 val_loss += loss.item() * xb.size(0)
         val_loss /= len(val_dataset)
+        validation_losses.append(val_loss)
 
         # Print results
         if epoch == 1 or epoch % 10 == 0 or epoch == epochs:
             print(f"Epoch {epoch}/{epochs}, Train MSE: {epoch_loss:.6f}, Val MSE: {val_loss:.6f}")
 
-    return model
+    return model, validation_losses
 
 
 def save_model(model: nn.Module, path: str):
@@ -87,7 +90,7 @@ def save_model(model: nn.Module, path: str):
 
 
 def load_model(d: int, path: str, hidden_sizes=(35, 70), device=None):
-    model = Decoder(d=d, hidden_sizes=hidden_sizes, is_mse=is_mse).to(device)
+    model = Decoder(d=d, hidden_sizes=hidden_sizes).to(device)
 
     model.load_state_dict(torch.load(path, map_location=device))
     model.eval()
@@ -98,8 +101,8 @@ def load_model(d: int, path: str, hidden_sizes=(35, 70), device=None):
 def train_decoder(algo, save_path, hidden_sizes, partitions, skill_dim=2, obs_list=None, phi_list= None):
 
     if obs_list is None:
-        phi_list = np.load(f"results/decoder/data/phi_list_{algo}.npy")
-        obs_list = np.load(f"results/decoder/data/obs_list_{algo}.npy")
+        phi_list = np.load(f"results/decoder/data/phi_list_{algo}_{env_name}.npy")
+        obs_list = np.load(f"results/decoder/data/obs_list_{algo}_{env_name}.npy")
 
     X_train, X_val, y_train, y_val = train_test_split(phi_list, obs_list, test_size=0.2, random_state=42, shuffle=True)
     X_train = torch.from_numpy(X_train).float()
@@ -111,9 +114,11 @@ def train_decoder(algo, save_path, hidden_sizes, partitions, skill_dim=2, obs_li
     print("Validation shape:", X_val.shape, y_val.shape)
 
     model = Decoder(skill_dim=skill_dim, hidden_sizes=hidden_sizes)
-    model = train_model_mse(model, X_train, y_train, X_val, y_val, partitions, batch_size=1024, epochs=100, lr=1e-3)
+    model, validation_losses = train_model_mse(model, X_train, y_train, X_val, y_val, partitions, batch_size=1024, epochs=100, lr=1e-3)
 
     save_model(model, save_path)
+
+    return min(validation_losses)
 
 
 def rollouts(algo, env_name, skill_dim=2):
@@ -197,8 +202,8 @@ def rollouts(algo, env_name, skill_dim=2):
     phi_list = np.array(phi_list)
     obs_list = np.array(obs_list)
 
-    np.save(f"results/decoder/data/phi_list_{algo}.npy", phi_list)
-    np.save(f"results/decoder/data/obs_list_{algo}.npy", obs_list)
+    np.save(f"results/decoder/data/phi_list_{algo}_{env_name}.npy", phi_list)
+    np.save(f"results/decoder/data/obs_list_{algo}_{env_name}.npy", obs_list)
 
     return skill_dim, obs_list, phi_list
 
@@ -263,38 +268,41 @@ def create_half_cheetah(seed=0):
 
 algo = "lsd"
 skill_dim = 2
-env_name = "elden_kitchen"
+env_name = "ant"
 
 if env_name == "particle":
     hidden_sizes = (35, 70)
+    candidate_hidden_sizes = [(30, 70), (35, 70), (40, 70), (45, 70), (50, 70), (55, 70), (60, 70), (65, 70)]
     partitions = [0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70]
     if algo == "susd":
         skill_dim = 20
 
 elif env_name == "elden_kitchen":
     partitions = [0, 33, 55, 73, 92, 114, 128, 142]
-    hidden_sizes = (64, 142)
+    candidate_hidden_sizes = [(20, 142), (30, 142), (40, 142), (50, 142), (60, 142), (70, 142), (80, 142), (90, 142)]
     if algo == "susd":
         skill_dim = 14
 
 elif env_name == "gunner":
     partitions = [0, 6, 13, 18]
-    hidden_sizes = (9, 18)
+    candidate_hidden_sizes = [(10, 18), (12, 18), (14, 18), (16, 18)]
     if algo == "susd":
         skill_dim = 6
 
 elif env_name == "half_cheetah":
     partitions = [0, 18]
-    hidden_sizes = (9, 18)
-    if algo == "susd":
-        skill_dim = 2
+    candidate_hidden_sizes = [(5, 18), (10, 18), (15, 18)]
 
 elif env_name == "ant":
     partitions = [0, 29]
-    hidden_sizes = (10, 29)
-    if algo == "susd":
-        skill_dim = 2
+    candidate_hidden_sizes = [(5, 29), (10, 29), (15, 29), (20, 29), (25, 29)]
 
 
 # skill_dim, obs_list, phi_list = rollouts(algo=algo, env_name=env_name, skill_dim=skill_dim)
-train_decoder(algo=algo, skill_dim=skill_dim, hidden_sizes=hidden_sizes, partitions=partitions, save_path=f"results/decoder/{algo}.pth")
+
+best_resuls = []
+for candidate_hidden_size in candidate_hidden_sizes:
+    best_val_loss = train_decoder(algo=algo, skill_dim=skill_dim, hidden_sizes=candidate_hidden_size, partitions=partitions, save_path=f"results/decoder/{algo}.pth")
+    best_resuls.append(best_val_loss)
+print(best_resuls)
+print(min(best_resuls))

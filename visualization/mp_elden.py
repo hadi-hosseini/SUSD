@@ -5,6 +5,9 @@ import numpy as np
 import math
 
 methods = ["CSD", "METRA", "LSD", "DIAYN", "SUSD", "DUSDI"]
+# methods = ["ABLATION2", "SUSD"]
+# methods = ["ABLATION", "SUSD"]
+
 
 def fp_diff(): # task_diff = 4
     all_dfs = []
@@ -91,35 +94,67 @@ def seq_hard(): # task_diff = 7
     return seq_hard
 
 
-def lim():  # gunner with lim
+def elden_BiP(): 
     all_dfs = []
     for method in methods:
-        if method == "DUSDI":
-            reader = SummaryReader(f"./exp/HRL_{method}_lim_V2", pivot=True)  
+        if method == "ABLATION":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_BiP_IND", pivot=True)
         else:
-            reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
+            reader = SummaryReader(f"./exp/HRL_{method}_elden_BiP", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
+        # df = df[df["step"] <= 4000]
         all_dfs.append(df)
 
-    seq_hard = pd.concat(all_dfs)
-    return seq_hard
+    bip = pd.concat(all_dfs)
+    return bip
 
-def nolim(): # gunner without lim
+def elden_MiP():
     all_dfs = []
     for method in methods:
-        if method == "DUSDI":
-            reader = SummaryReader(f"./exp/HRL_{method}_nolim_V2", pivot=True)
+        if method == "ABLATION":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_MiP_IND", pivot=True)
         else:
-            reader = SummaryReader(f"./exp/HRL_{method}_nolim", pivot=True)
+            reader = SummaryReader(f"./exp/HRL_{method}_elden_MiP", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
+        # df = df[df["step"] <= 4000]
         all_dfs.append(df)
 
-    seq_hard = pd.concat(all_dfs)
-    return seq_hard
+    mip = pd.concat(all_dfs)
+    return mip
+
+
+def elden_PoS():
+    all_dfs = []
+    for method in methods:
+        reader = SummaryReader(f"./exp/HRL_{method}_elden_PoS", pivot=True)
+        df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
+        df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
+        df["method"] = method
+        df = df[df["step"] <= 4000]
+        all_dfs.append(df)
+
+    pos = pd.concat(all_dfs)
+    return pos
+
+
+
+# def elden_PoT():
+#     all_dfs = []
+#     for method in methods:
+#         reader = SummaryReader(f"./exp/HRL_{method}_elden_PoT", pivot=True)
+#         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
+#         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
+#         df["method"] = method
+#         df = df[df["step"] <= 4000]
+#         all_dfs.append(df)
+
+#     pot = pd.concat(all_dfs)
+#     return pot
+
 
 def plot_result(df, save_path, title):
     plt.figure(figsize=(10,6))
@@ -130,24 +165,31 @@ def plot_result(df, save_path, title):
     plt.show()
 
 
-def plot_result_on_ax(df, ax, title):
-    window = 10
+def plot_result_on_ax(df, ax, title, window=10, has_margin=True):
     for method, group in df.groupby("method"):
+        if method == "SUSD":
+            has_margin = True
+
         group_sorted = group.sort_values("step").copy()
 
         # compute mean and CI
         group_sorted["mean"] = group_sorted["EvalOp/AverageDiscountedReturn"].apply(lambda x: np.mean(x))
-        group_sorted["ci95"] = group_sorted["EvalOp/AverageDiscountedReturn"].apply(
-            lambda x: 1.96 * np.std(x, ddof=1) / np.sqrt(len(x)) if len(x) > 1 else 0
-        )
+        if has_margin:
+            group_sorted["ci95"] = group_sorted["EvalOp/AverageDiscountedReturn"].apply(
+                lambda x: 1.96 * np.std(x, ddof=1) / np.sqrt(len(x)) if len(x) > 1 else 0
+            )
 
         smoothed = group_sorted["mean"].rolling(window, min_periods=1).mean()
-        smoothed_ci = group_sorted["ci95"].rolling(window, min_periods=1).mean()
+        if has_margin:
+            smoothed_ci = group_sorted["ci95"].rolling(window, min_periods=1).mean()
 
         ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
 
         max_margin = 3
-        ci_clipped = np.minimum(smoothed_ci, max_margin)
+        if has_margin:
+            ci_clipped = np.minimum(smoothed_ci, max_margin)
+        else:
+            ci_clipped = 0
         ax.fill_between(group_sorted["step"], smoothed - ci_clipped, smoothed + ci_clipped, alpha=0.05)
 
     ax.set_title(title, fontsize=14, weight="bold")
@@ -162,7 +204,10 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
     axs = axs.flatten()
 
     for i, (df, title) in enumerate(zip(dfs, titles)):
-        plot_result_on_ax(df, axs[i], title)
+        if "Multi" in title:
+            plot_result_on_ax(df, axs[i], title, window=10)
+        elif "Kitchen" in title:
+            plot_result_on_ax(df, axs[i], title, window=500, has_margin=False)
 
     # hide extra axes
     for j in range(len(dfs), len(axs)):
@@ -187,55 +232,67 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
 ### mp_fp_diff
 save_path = "visualization/vis/mp_fp_diff.png" 
 mp_fp_diff = fp_diff()
-plot_result(mp_fp_diff, save_path, title="Multiparticle Food&Poison Difficult")
+# plot_result(mp_fp_diff, save_path, title="Multiparticle Food&Poison Difficult")
 
 
 ### mp_fp_hard
 save_path = "visualization/vis/mp_fp_hard.png" 
 mp_fp_hard = fp_hard()
-plot_result(mp_fp_hard, save_path, title="Multiparticle Food&Poison Hard")
+# plot_result(mp_fp_hard, save_path, title="Multiparticle Food&Poison Hard")
 
 
 ### mp_fp_medium
 save_path = "visualization/vis/mp_fp_medium.png" 
 mp_fp_medium = fp_medium()
-plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
+# plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
 
 ### mp_fp_easy
 save_path = "visualization/vis/mp_fp_easy.png" 
 mp_fp_easy = fp_easy()
-plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
+# plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
 
 ### mp seq_easy
 save_path = "visualization/vis/mp_seq_easy.png" 
 mp_seq_easy = seq_easy()
-plot_result(mp_seq_easy, save_path, title="Multiparticle Sequential Easy")
+# plot_result(mp_seq_easy, save_path, title="Multiparticle Sequential Easy")
 
 ### mp seq_medium
 save_path = "visualization/vis/mp_seq_medium.png" 
 mp_seq_medium = seq_medium()
-plot_result(mp_seq_medium, save_path, title="Multiparticle Sequential Medium")
+# plot_result(mp_seq_medium, save_path, title="Multiparticle Sequential Medium")
 
 ### mp seq_hard
 save_path = "visualization/vis/mp_seq_hard.png" 
 mp_seq_hard = seq_hard()
-plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
+# plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
 
 
-### gunner_lim
-save_path = "visualization/vis/gunner_lim.png" 
-gunner_lim = lim()
-plot_result(gunner_lim, save_path, title="Gunner Limitation")
+### elden_BiP
+save_path = "visualization/vis/elden_BiP.png" 
+bip = elden_BiP()
+# plot_result(bip, save_path, title="Put Butter in Pot Task")
 
 
-### gunner_nolim
-save_path = "visualization/vis/gunner_nolim.png" 
-gunner_nolim = nolim()
-plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
+### elden_Mip
+save_path = "visualization/vis/elden_MiP.png" 
+mip = elden_MiP()
+# plot_result(mip, save_path, title="Put Meatball in Pot Task")
+
+
+### elden_PoS
+save_path = "visualization/vis/elden_PoS.png" 
+pos = elden_PoS()
+# plot_result(pos, save_path, title="Put Meatball in Pot Task")
+
+
+# ### elden_PoT
+# save_path = "visualization/vis/elden_PoT.png" 
+# pot = elden_PoT()
+# # plot_result(pot, save_path, title="Put Pot in Target Task")
 
 
 ### plot_groups
-dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard, gunner_lim, gunner_nolim]
+dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard, bip, mip]
 titles = [
     "Multiparticle Food&Poison Difficult",
     "Multiparticle Food&Poison Hard",
@@ -244,9 +301,23 @@ titles = [
     "Multiparticle Sequential Easy",
     "Multiparticle Sequential Medium",
     "Multiparticle Sequential Hard",
-    "Gunner with Limitation",
-    "Gunner without Limitation"
+    "Kitchen Butter in Pot",
+    "Kitchen Meatball in Pot",
+    "Kitchen Pot on Stove",
 ]
 
 save_path = "visualization/vis/grouped_results.png"
 plot_grouped_results(dfs, titles, save_path=save_path, ncols=3)
+
+
+
+
+# ### plot_groups
+# dfs = [bip, mip]
+# titles = [
+#     "Kitchen Butter in Pot",
+#     "Kitchen Meatball in Pot",
+# ]
+
+# save_path = "visualization/vis/factor_0_grouped_results.png"
+# plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)

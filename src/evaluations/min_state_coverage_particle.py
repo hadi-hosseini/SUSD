@@ -240,6 +240,8 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
 
     plt.figure(figsize=(10, 6))
 
+    plt.rcParams.update({'font.size': 18})
+
     for method, all_logs in logs_by_method.items():
         interp_rewards = []
         for log in all_logs:

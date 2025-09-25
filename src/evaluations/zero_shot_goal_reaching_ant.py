@@ -16,11 +16,11 @@ from iod.utils import get_normalizer_preset
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-algo = "lsd" # ["susd", "metra", "lsd", "csd", "diayn"]
+algo = "csd" # ["susd", "metra", "lsd", "csd", "diayn"]
 num_runs = 8 
-max_duration = 1e4 # steps
+max_duration = 2e4 # steps
 max_steps = 200
-mode = "eval" # ["eval", "plot"]
+mode = "plot" # ["eval", "plot"]
 
 if algo == "susd":
     option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000.pt'
@@ -258,7 +258,7 @@ elif mode == "plot":
 
     plot_multiple_methods_cumulative_reward(
         logs_by_method,
-        max_duration=1e4,
+        max_duration=2e4,
         dt=1.0,
         save_path=f"final_models/ant/COVERAGE/zero_shot_ant_comparison_ours.png"
     )
