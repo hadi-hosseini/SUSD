@@ -274,7 +274,7 @@ class SUSDGunner(SUSDConfig):
 
 @dataclass
 class SUSDEldenKitchen(SUSDConfig):
-    run_group: str = 'SUSD_ELDEN_KITCHEN'
+    run_group: str = 'SUSD_ELDEN_KITCHEN_INDP'
     env: str = 'elden_kitchen'
     max_path_length: int = 50
     seed: int = 0

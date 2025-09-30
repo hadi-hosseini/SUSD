@@ -254,8 +254,8 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
         plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.2)
 
     plt.xlabel('Steps')
-    plt.ylabel('State Coverage')
-    plt.title('Average State Coverage (Multi-Particle)')
+    plt.ylabel('Factor Coverage')
+    plt.title('Average Agent State Coverage (Multi-Particle)')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()

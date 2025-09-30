@@ -262,8 +262,8 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
         plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.2)
 
     plt.xlabel('Steps')
-    plt.ylabel('State Coverage')
-    plt.title('Minimum State Coverage Across Factors')
+    plt.ylabel('Factor Coverage')
+    plt.title('Worst Agent State Coverage (Multi-Particle)')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -312,5 +312,5 @@ elif mode == "plot":
         logs_by_method,
         max_duration=1e5,
         dt=1.0,
-        save_path=f"final_models/particle/COVERAGE/state_coverage_particle_comparison_ours.png"
+        save_path=f"final_models/particle/COVERAGE/min_state_coverage_particle.png"
     )

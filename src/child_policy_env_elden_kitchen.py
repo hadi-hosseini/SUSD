@@ -26,7 +26,7 @@ class ChildPolicyEnvEldenKitchen(gym.Wrapper):
     ):
         super().__init__(env)
 
-        mode = 0 # 0: susd   1: dsd baselines  2:dusdi
+        mode = 1 # 0: susd   1: dsd baselines  2:dusdi
         self.mode = mode
 
         if mode == 2: # dusdi

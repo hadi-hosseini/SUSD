@@ -234,7 +234,7 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
 
     plt.xlabel('Steps')
     plt.ylabel('State Coverage')
-    plt.title('Average State Coverage (2D-Gunner)')
+    plt.title('Agent State Coverage (2D-Gunner)')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()

@@ -318,11 +318,11 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
-    baseline: str = "DIAYN"
+    baseline: str = "METRA"
     max_path_length: int = 50
-    dim_option: int = 2 # 2 others, 35 DUSDI
+    dim_option: int = 14 # 2 others, 35 DUSDI
     downstream_task: str = "elden_BiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
-    run_group: str = f"HRL_{baseline}_{downstream_task}"
+    run_group: str = f"HRL_{baseline}_{downstream_task}_DIM_14"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -344,7 +344,8 @@ class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    cp_path: str = f"final_models/elden_kitchen/{baseline}/option_policy10000.pt"
+    # cp_path: str = f"final_models/elden_kitchen/{baseline}/option_policy10000.pt"
+    cp_path: str = f"final_models/elden_kitchen/{baseline}/option_policy10000_dim_14.pt"
     cp_unit_length: int = 1
 
     env: str = "elden_kitchen"
@@ -361,8 +362,8 @@ class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
 class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     max_path_length: int = 50
     dim_option: int = 2
-    downstream_task: str = "elden_MiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
-    run_group: str = f"HRL_SUSD_{downstream_task}_ABLATION"
+    downstream_task: str = "elden_BiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
+    run_group: str = f"HRL_SUSD_{downstream_task}_IND"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -384,9 +385,9 @@ class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    # cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy10000.pt" # SUSD
-    # cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy6000_IND.pt" # EACH FACTOR INDEPENDENT
-    cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy6000_abl.pt" # EACH FACTOR INDEPENDENT
+    # cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy10000.pt" # SUSD (FEED FIRST FACTOR TO OTHERS)
+    cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy10000_IND.pt" # EACH FACTOR INDEPENDENT
+    # cp_path: str = f"final_models/elden_kitchen/SUSD/option_policy6000_abl.pt" # EACH FACTOR INDEPENDENT
     cp_unit_length: int = 1
 
     env: str = "elden_kitchen"
@@ -422,7 +423,7 @@ def get_causal_vector(task_diff):
     return causal_vector, agent_list
 
 
-method = "susd_elden" # ["susd_elden", "baseline_elden"]
+method = "baseline_elden" # ["susd_elden", "baseline_elden"]
 
 if method == "susd_elden":
     args = SUSDHighLevelEldenKitchenConfig()
@@ -545,7 +546,7 @@ def run(ctxt=None):
         return lr
 
 
-    set_seed(args.seed) # args.seed
+    set_seed(100) # args.seed (100 for another seed)
     runner = OptionLocalRunner(ctxt)
 
 
