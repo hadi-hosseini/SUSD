@@ -53,7 +53,7 @@ from iod.dads import DADS
 
 from src.utils import get_exp_name, get_log_dir, make_env, make_q_function
 from src.factorization import get_gaussian_module_construction, factorize_environment, PartitionedTrajectoryEncoder, module_cls_factory, PartitionedTrajectoryEncoderWithInputFactor0
-from src.conf import SUSDFrankaKitchenConfig, SUSDParticle, SUSDGunner, SUSDEldenKitchen, SUSDHalfCheetahConfig
+from src.conf import SUSDFrankaKitchenConfig, SUSDParticle, SUSDGunner, SUSDEldenKitchen, SUSDHalfCheetahConfig, SUSDAntConfig
 
 
 if os.environ.get('START_METHOD') is not None:
@@ -67,6 +67,7 @@ else:
 # args = SUSDHalfCheetahConfig()
 # args = SUSDGunner()
 args = SUSDEldenKitchen()
+# args = SUSDAntConfig()
 
 
 @wrap_experiment(log_dir=get_log_dir(args), name=get_exp_name(args)[0])
@@ -311,23 +312,19 @@ def run(ctxt=None):
     if args.algo in ['metra', 'dads']:
         if args.susd_q_function:
             q1_list = []
-            # log_alpha_list = []
             for i in range(args.N):
-                start = partition_points[i]
-                end = partition_points[i + 1]
-                input_dim = end - start + args.dim_option
+                # start = partition_points[i]
+                # end = partition_points[i + 1]
+                # input_dim = end - start + args.dim_option
+                input_dim = policy_q_input_dim # full state and skill
                 q1_i = make_q_function(input_dim, action_dim, master_dims, nonlinearity, args.alpha)
 
                 optimizers.update({
                     f'qf_{i}': torch.optim.Adam([
                         {'params': list(q1_i.parameters()), 'lr': _finalize_lr(args.sac_lr_q)},
                     ]),
-                    # f'log_alpha_{i}': torch.optim.Adam([
-                    #     {'params': log_alpha_i.parameters(), 'lr': _finalize_lr(args.sac_lr_a)},
-                    # ])
                 })
                 q1_list.append(q1_i)
-                # log_alpha_list.append(log_alpha_i)
 
 
         qf1 = ContinuousMLPQFunctionEx(
@@ -404,7 +401,6 @@ def run(ctxt=None):
         qf1=qf1,
         qf2=qf2,
         q1_list = q1_list if args.susd_q_function else [],
-        # log_alpha_list = log_alpha_list if args.susd_q_function else [],
         log_alpha=log_alpha,
         tau=args.sac_tau,
         scale_reward=args.sac_scale_reward,

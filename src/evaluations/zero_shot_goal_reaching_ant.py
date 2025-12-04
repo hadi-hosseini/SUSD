@@ -16,7 +16,7 @@ from iod.utils import get_normalizer_preset
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-algo = "csd" # ["susd", "metra", "lsd", "csd", "diayn"]
+algo = "susd_5factor" # ["susd", "metra", "lsd", "csd", "diayn", "susd_2factor", "susd_3factor"]
 num_runs = 8 
 max_duration = 2e4 # steps
 max_steps = 200
@@ -25,6 +25,22 @@ mode = "plot" # ["eval", "plot"]
 if algo == "susd":
     option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000.pt'
     traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000.pt'
+
+elif algo == "susd_2factor":
+    option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000_2factor.pt'
+    traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000_2factor.pt'
+
+elif algo == "susd_3factor":
+    option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000_3factor.pt'
+    traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000_3factor.pt'
+
+elif algo == "susd_4factor":
+    option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000_4factor.pt'
+    traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000_4factor.pt'
+
+elif algo == "susd_5factor":
+    option_policy_checkpoint_path = f'final_models/ant/SUSD/option_policy10000_5factor.pt'
+    traj_encoder_checkpoint_path = f'final_models/ant/SUSD/traj_encoder10000_5factor.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = 'final_models/ant/METRA/option_policy10000.pt'    
@@ -90,7 +106,7 @@ def zero_shot_eval(env, max_duration=30.0, max_steps=200):
             g_tensor[:, 0] = torch.tensor(goal[0])  # Overwrite x
             g_tensor[:, 1] = torch.tensor(goal[1])  # Overwrite y
 
-            if algo == "susd":
+            if algo == "susd" or algo == "susd_2factor" or algo == "susd_3factor" or algo == "susd_4factor" or algo == "susd_5factor":
                 phi_s = traj_encoder(s_tensor).detach()
                 phi_g = traj_encoder(g_tensor).detach()
             else:
@@ -242,17 +258,25 @@ if mode == "eval":
     run_multiple_seeds(num_runs=num_runs, max_duration=max_duration, max_steps=200)
 elif mode == "plot":
     susd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_susd_ant.csv")
-    metra_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_metra_ant.csv")
-    csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_csd_ant.csv")
-    lsd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_lsd_ant.csv")
+    susd_logs2 = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_susd_2factor_ant.csv")
+    susd_logs3 = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_susd_3factor_ant.csv")
+    susd_logs4 = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_susd_4factor_ant.csv")
+    susd_logs5 = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_susd_5factor_ant.csv")
+    # metra_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_metra_ant.csv")
+    # csd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_csd_ant.csv")
+    # lsd_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_lsd_ant.csv")
     # diayn_logs = load_logs_from_csv("final_models/ant/COVERAGE/zero_shot_diayn_ant.csv")
 
 
     logs_by_method = {
-        "SUSD": susd_logs,
-        "METRA": metra_logs,
-        "CSD": csd_logs,
-        "LSD": lsd_logs,
+        "SUSD (1 Factor)": susd_logs,
+        "SUSD (2 Factors)": susd_logs2,
+        "SUSD (3 Factors)": susd_logs3,
+        "SUSD (4 Factors)": susd_logs4,
+        "SUSD (5 Factors)": susd_logs5
+        # "METRA": metra_logs,
+        # "CSD": csd_logs,
+        # "LSD": lsd_logs,
         # "DIAYN": diayn_logs,
     }
 
@@ -260,5 +284,5 @@ elif mode == "plot":
         logs_by_method,
         max_duration=2e4,
         dt=1.0,
-        save_path=f"final_models/ant/COVERAGE/zero_shot_ant_comparison_ours.png"
+        save_path=f"final_models/ant/COVERAGE/zero_shot_ant_comparison_ours_different_factors.png"
     )

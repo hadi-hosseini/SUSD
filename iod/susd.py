@@ -39,7 +39,6 @@ class SUSD(IOD):
             susd_dist_norm,
             susd_input_factor0,
             q1_list,
-            # log_alpha_list,
             susd_q_function,
             susd_ablation_mode,
 
@@ -58,7 +57,6 @@ class SUSD(IOD):
         self.susd_q_function = susd_q_function
         if self.susd_q_function:
             self.qf1_list = [qf1.to(self.device) for qf1 in q1_list]
-            # self.log_alpha_list = [log_alpha.to(self.device) for log_alpha in log_alpha_list]
             self.target_qf1_list = [copy.deepcopy(qf1) for qf1 in self.qf1_list]
 
         self.param_modules.update(
@@ -239,10 +237,6 @@ class SUSD(IOD):
                     tensors['LossDp'],
                     optimizer_keys=['dist_predictor'],)
                 
-        if self.susd_q_function:
-            loss_qfn = [tensors[f'LossQf1_{i}'] for i in range(self.N)]
-            qfn_keys = [f'qf_{i}' for i in range(self.N)]
-            self._gradient_descent(loss_qfn, optimizer_keys=qfn_keys)
 
     def _optimize_op(self, runner, tensors, internal_vars):
         self._update_loss_qf(runner, tensors, internal_vars)
@@ -264,14 +258,11 @@ class SUSD(IOD):
             optimizer_keys=['log_alpha'],
         )
 
-        # if self.susd_q_function:
-        #     self._update_loss_alpha_N(tensors, internal_vars)
-        #     for i in range(self.N):
-        #         self._gradient_descent(
-        #             tensors[f'LossAlpha_{i}'],
-        #             optimizer_keys=[f'log_alpha_{i}'],
-        #         )
-        #     sac_utils.update_targets_N(self)
+        if self.susd_q_function:
+            loss_qfn = [tensors[f'LossQf1_{i}'] for i in range(self.N)]
+            qfn_keys = [f'qf_{i}' for i in range(self.N)]
+            self._gradient_descent(loss_qfn, optimizer_keys=qfn_keys)
+            sac_utils.update_targets_N(self)
 
         sac_utils.update_targets(self)
 
@@ -436,16 +427,6 @@ class SUSD(IOD):
             'LossTe': loss_te
         })
 
-        if self.susd_q_function:
-            next_processed_cat_obs = self._get_concat_obs(self.option_policy.process_observations(v['next_obs']), v['next_options'])
-            sac_utils.update_loss_qf_N(
-                self, tensors, v,
-                actions=v['actions'],
-                next_obs=next_processed_cat_obs,
-                dones=v['dones'],
-                rewards=v['rewards'] * torch.sqrt(v['csd_distances']),
-                policy=self.option_policy,
-            )
 
     def plot_csd_reward_logs(self, runner):
         if len(self.csd_reward_logs) == 0:
@@ -538,13 +519,17 @@ class SUSD(IOD):
                 end = self.partition_points[i + 1]
                 start_option = i * self.dim_option
                 end_option = (i + 1) * self.dim_option
-                reward_i = self.qf1_list[i](self._get_concat_obs(self.option_policy.process_observations(v['obs'][:, start:end]), v['options'][:, start_option:end_option]), v['actions'])
+                # reward_i = self.qf1_list[i](self._get_concat_obs(self.option_policy.process_observations(v['obs'][:, start:end]), v['options'][:, start_option:end_option]), v['actions'])
+                reward_i = self.qf1_list[i](self._get_concat_obs(self.option_policy.process_observations(v['obs']), v['options']), v['actions'])
                 reward_i = reward_i.view(-1)
                 rewards_logs.append(reward_i)
                 rewards = rewards + reward_i 
+
             if self.do_print:
                 self.do_print = False
-                self.q_values.append((runner.step_itr, [rewards_logs[i].mean().detach().cpu().numpy().item() for i in range(len(self.partition_points) - 1)]))
+                ground_truth_rewards = v['rewards'] * torch.sqrt(v['csd_distances'])
+                # maxs = ground_truth_rewards.max(dim=0).values.tolist()
+                self.q_values.append((runner.step_itr, [(rewards_logs[i].mean().detach().cpu().numpy().item(), ground_truth_rewards[i].mean().detach().cpu().numpy().item()) for i in range(len(self.partition_points) - 1)]))
 
         else:
             if self.susd_ablation_mode == 1: # just CSD weight
@@ -566,6 +551,16 @@ class SUSD(IOD):
             policy=self.option_policy,
         )
 
+        if self.susd_q_function:
+            sac_utils.update_loss_qf_N(
+                self, tensors, v,
+                actions=v['actions'],
+                next_obs=next_processed_cat_obs,
+                dones=v['dones'],
+                rewards=v['rewards'] * torch.sqrt(v['csd_distances']),
+                policy=self.option_policy,
+            )
+
         v.update({
             'processed_cat_obs': processed_cat_obs,
             'next_processed_cat_obs': next_processed_cat_obs,
@@ -584,10 +579,6 @@ class SUSD(IOD):
             self, tensors, v,
         )
 
-    # def _update_loss_alpha_N(self, tensors, v):
-        # sac_utils.update_loss_alpha_N(
-        #     self, tensors, v,
-        # )   
 
     def plot_early_stopping(self, early_stopping):
         unique_tasks, step_iters = zip(*early_stopping)
@@ -619,18 +610,35 @@ class SUSD(IOD):
 
         epochs, q_values = zip(*self.q_values)
         epochs = np.array(epochs)
-        q_values =  np.array(q_values)
-        
+        q_values = np.array(q_values)
+
+        if q_values.ndim == 2:  
+            q_values = np.expand_dims(q_values, axis=-1)  
+
         os.makedirs(f'results/{self.exp_name}', exist_ok=True)
 
-        for i in range(q_values.shape[1]):
+        num_factors = q_values.shape[1]
+        for i in range(num_factors):
             fig, ax = plt.subplots(figsize=(10, 6))
 
+            # Predicted Q-values
             ax.plot(
                 epochs,
-                q_values[:, i],
-                label=f'Factor {i}',
+                q_values[:, i, 0],
+                label=f'Predicted Factor {i}',
+                color='blue',
                 marker='o',
+                markersize=3,
+                linewidth=1
+            )
+
+            # Ground-truth Q-values
+            ax.plot(
+                epochs,
+                q_values[:, i, 1],
+                label=f'Ground Truth Factor {i}',
+                color='red',
+                marker='x',
                 markersize=3,
                 linewidth=1
             )
@@ -646,6 +654,40 @@ class SUSD(IOD):
             csd_plot_path = f'results/{self.exp_name}/q_plot_epoch_{runner.step_itr}_q_{i}.png'
             fig.savefig(csd_plot_path)
             plt.close(fig)
+        
+    # def plot_q_decomposition(self, runner):
+    #     if len(self.q_values) == 0:
+    #         return
+
+    #     epochs, q_values = zip(*self.q_values)
+    #     epochs = np.array(epochs)
+    #     q_values =  np.array(q_values)
+        
+    #     os.makedirs(f'results/{self.exp_name}', exist_ok=True)
+
+    #     for i in range(q_values.shape[1]):
+    #         fig, ax = plt.subplots(figsize=(10, 6))
+
+    #         ax.plot(
+    #             epochs,
+    #             q_values[:, i],
+    #             label=f'Factor {i}',
+    #             marker='o',
+    #             markersize=3,
+    #             linewidth=1
+    #         )
+
+    #         ax.set_xlabel('Epoch')
+    #         ax.set_ylabel('Q Value')
+    #         ax.set_title(f'Q Value for Factor {i} over Epochs')
+    #         ax.legend()
+    #         ax.grid(True)
+    #         fig.tight_layout()
+
+    #         # Save each factor's plot separately
+    #         csd_plot_path = f'results/{self.exp_name}/q_plot_epoch_{runner.step_itr}_q_{i}.png'
+    #         fig.savefig(csd_plot_path)
+    #         plt.close(fig)
 
     def plot_mus(self, runner):
         if len(self.mus) == 0:

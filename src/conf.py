@@ -156,12 +156,12 @@ class SUSDFetchConfig(SUSDConfig):
 
 @dataclass
 class SUSDAntConfig(SUSDConfig):
-    run_group: str = 'SUSD_ANT'
+    run_group: str = 'SUSD_ANT_5'
     env: str = 'ant'
     max_path_length: int = 200
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 1 # 4
+    n_parallel: int = 8 # 4
     normalizer_type: str = 'preset'
     eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
     trans_optimization_epochs: int = 50 # 100 (I change this)
@@ -177,17 +177,22 @@ class SUSDAntConfig(SUSDConfig):
     dual_dist: str = 's2_from_s' 
     dual_lam: float = 3000
     dual_slack: float =  1e-06 
-    susd_ablation_mode: bool = 1 # 1: apply csd value, 0: don't apply it
+    sac_scale_reward: float = 1.0 # the reward that we multiply with intrinsic rewrad 
+    susd_dist_norm: int = 0 # using normalization for marginal distribution
+    susd_input_factor0: int = 0 # input factor zero (robot) to the other phi functions
+    susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
+    susd_ablation_mode: int = 0 #  mode=0, off, mode=1, just CSD weight; mode=2, Without weight, mode=3, Oversampling, 
+
 
 
 @dataclass
 class SUSDHalfCheetahConfig(SUSDConfig):
-    run_group: str = 'SUSD_HALF_CHEETAH'
+    run_group: str = 'SUSD_HALF_3'
     env: str = 'half_cheetah'
     max_path_length: int = 200
     seed: int = 0
     traj_batch_size: int = 8
-    n_parallel: int = 8 # 4
+    n_parallel: int = 4 # 4
     normalizer_type: str = 'preset'
     eval_plot_axis: Optional[List[float]] = field(default_factory=lambda: [-50, 50, -50, 50])
     trans_optimization_epochs: int = 50 # 100 (I change this)
@@ -244,7 +249,7 @@ class SUSDParticle(SUSDConfig):
 
 @dataclass
 class SUSDGunner(SUSDConfig):
-    run_group: str = 'SUSD_GUNNER'
+    run_group: str = 'SUSD_GUNNER_1'
     env: str = 'gunner'
     max_path_length: int = 50
     seed: int = 0
@@ -267,14 +272,14 @@ class SUSDGunner(SUSDConfig):
     susd_dist_norm: int = 0 # using normalization for marginal distribution
     susd_input_factor0: int = 0 # input factor zero (robot) to the other phi functions
     susd_q_function: int = 0 # 1: use q-function for reward estimation 0: off
-    susd_ablation_mode: int = 0
+    susd_ablation_mode: int = 0 # mode=0, off, mode=1, just CSD weight; mode=2, Without weight, mode=3, Oversampling,
     discrete: int = 0  # 1: discrete skills, 0: continuous
 
 
 
 @dataclass
 class SUSDEldenKitchen(SUSDConfig):
-    run_group: str = 'SUSD_ELDEN_KITCHEN_INDP'
+    run_group: str = 'SUSD_ELDEN_KITCHEN_TEST'
     env: str = 'elden_kitchen'
     max_path_length: int = 50
     seed: int = 0

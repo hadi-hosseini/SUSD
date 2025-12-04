@@ -17,8 +17,8 @@ os.environ["MUJOCO_GL"] = "egl"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-mode = "eval" # ["plot", "eval"]
-algo = "diayn" # ["csd", "metra", "lsd", "diayn", "susd", "dusdi"]
+mode = "plot" # ["plot", "eval"]
+algo = "dusdi" # ["csd", "metra", "lsd", "diayn", "susd", "dusdi"]
 skill_dim = 2
 
 if algo == "susd":
@@ -48,7 +48,7 @@ elif algo == "dusdi":
     skill_dim = 20 # N = 3 & D = 5
 
 
-csv_path = f"final_models/gunner/COVERAGE/state_coverage_{algo}_gunner.csv"
+csv_path = f"final_models/gunner/COVERAGE/bin_state_coverage_{algo}_gunner.csv"
 
 if algo == "dusdi":
     option_policy = Actor("state", 38, 6, 20, 1024, True, [-10, 2], "moma2D")
@@ -93,7 +93,16 @@ def eval(env):
     frames = []
     steps = 0
     z_period = 200
-    unique_pairs= set()
+
+    num_bins = 150
+    x_edges = np.linspace(0, 4.5, num_bins + 1)
+    y_edges = np.linspace(0, 4.5, num_bins + 1)
+    grid_sets = np.empty((num_bins, num_bins), dtype=object)
+
+
+    for i in range(num_bins):
+        for j in range(num_bins):
+            grid_sets[i, j] = set()
 
     while steps <= 1e5:
         if done:
@@ -130,16 +139,40 @@ def eval(env):
             steps += 1
 
             x, y = env.agent_pos
+
             pair = (round(x, 2), round(y, 2))
-            unique_pairs.add(pair)
+
+            x_bin = np.digitize(pair[0], x_edges) - 1
+            y_bin = np.digitize(pair[1], y_edges) - 1
+
+
+            if x_bin < 0:
+                x_bin = 0
+            if y_bin < 0:
+                y_bin = 0
+            if x_bin >= num_bins:
+                x_bin = num_bins - 1
+            if y_bin >= num_bins:
+                y_bin = num_bins - 1
+
+            grid_sets[x_bin][y_bin].add(pair)
 
             if record_video:
                 frame = env.render()
                 frames.append(frame)
 
-            log.append((steps, len(unique_pairs)))
+            # min_cell = min(len(s) for row in grid_sets for s in row)
+            # min_cell = sum(len(s) for row in grid_sets for s in row)
+            # min_cell = np.mean([len(s) for row in grid_sets for s in row if len(s) != 0])
+            min_cell = sum(1 for row in grid_sets for s in row if len(s) != 0)
 
-    print(f"unique pairs: {len(unique_pairs)}")
+            log.append((steps, min_cell/(num_bins * num_bins)))
+
+
+    # min_cell = min(len(s) for row in grid_sets for s in row)
+    # min_cell = sum(len(s) for row in grid_sets for s in row)
+    min_cell = sum(1 for row in grid_sets for s in row if len(s) != 0)
+    print(f"min cell pairs: {min_cell/(num_bins * num_bins)}")
 
     if record_video:
         video_path = f"eval_state_coverage_ant_{algo}.mp4"
@@ -233,8 +266,8 @@ def plot_multiple_methods_unique_steps(logs_by_method, max_duration, dt=1.0, con
         plt.fill_between(common_times, mean_rewards - margin, mean_rewards + margin, alpha=0.2)
 
     plt.xlabel('Steps')
-    plt.ylabel('State Coverage')
-    plt.title('Agent State Coverage (2D-Gunner)')
+    plt.ylabel('Bin Coverage')
+    plt.title('Bin Coverage (2D-Gunner) - 22500 Bins')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -261,12 +294,12 @@ def load_logs_from_csv(csv_path):
 if mode == "eval":
     run_multiple_seeds(num_runs=8)
 elif mode == "plot":
-    susd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_susd_gunner.csv")
-    metra_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_metra_gunner.csv")
-    csd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_csd_gunner.csv")
-    lsd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_lsd_gunner.csv")
+    susd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/bin_state_coverage_susd_gunner.csv")
+    metra_logs = load_logs_from_csv("final_models/gunner/COVERAGE/bin_state_coverage_metra_gunner.csv")
+    csd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/bin_state_coverage_csd_gunner.csv")
+    lsd_logs = load_logs_from_csv("final_models/gunner/COVERAGE/bin_state_coverage_lsd_gunner.csv")
     # diayn_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_diayn_gunner.csv")
-    dusdi_logs = load_logs_from_csv("final_models/gunner/COVERAGE/state_coverage_dusdi_gunner.csv")
+    dusdi_logs = load_logs_from_csv("final_models/gunner/COVERAGE/bin_state_coverage_dusdi_gunner.csv")
 
     logs_by_method = {
         "SUSD": susd_logs,
@@ -281,5 +314,5 @@ elif mode == "plot":
         logs_by_method,
         max_duration=1e5,
         dt=1.0,
-        save_path=f"final_models/gunner/COVERAGE/state_coverage_gunner.png"
+        save_path=f"final_models/gunner/COVERAGE/bin_state_coverage_gunner.png"
     )

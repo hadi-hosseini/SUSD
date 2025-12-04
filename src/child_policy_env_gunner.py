@@ -27,7 +27,7 @@ class ChildPolicyEnvGunner(gym.Wrapper):
     ):
         super().__init__(env)
 
-        mode = 1 # 0:susd   1:dsd  2:dusdi
+        mode = 0 # 0:susd   1:dsd  2:dusdi
         self.mode = mode
 
         if mode == 2: # dusdi
@@ -43,7 +43,7 @@ class ChildPolicyEnvGunner(gym.Wrapper):
             self.cp_discrete = cp_dict['discrete']
 
             if mode == 0: # susd
-                self.cp_N = getattr(cp_dict, 'N', 4) # susd (3)
+                self.cp_N = getattr(cp_dict, 'N', 1) # susd (3)
                 self.cp_discrete = cp_discrete # DISCRETE
 
             else: # dsd-baselines

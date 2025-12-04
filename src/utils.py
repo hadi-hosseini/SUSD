@@ -243,8 +243,6 @@ def make_q_function(input_dim, action_dim, master_dims, nonlinearity, alpha):
             hidden_sizes=master_dims,
             hidden_nonlinearity=nonlinearity or torch.relu,
         )
-    # log_alpha = ParameterModule(torch.Tensor([np.log(alpha)]))
-    # return qf1, alpha
     return qf1
 
 

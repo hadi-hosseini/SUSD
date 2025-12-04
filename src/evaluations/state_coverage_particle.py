@@ -20,7 +20,7 @@ os.environ["MUJOCO_GL"] = "egl"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-mode = "plot" # ["plot", "eval"]
+mode = "eval" # ["plot", "eval"]
 algo = "dusdi" # ["csd", "metra", "lsd", "diayn", "susd", "dusdi"]
 skill_dim = 2
 

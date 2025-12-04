@@ -16,7 +16,7 @@ from iod.utils import get_normalizer_preset
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-algo = "csd" # ["susd", "metra", "lsd", "csd", "diayn"]
+algo = "susd" # ["susd", "metra", "lsd", "csd", "diayn", "susd_2factor", "susd_3factor"]
 num_runs = 8 
 max_duration = 2e4 # steps
 max_steps = 200
@@ -25,6 +25,14 @@ mode = "plot" # ["eval", "plot"]
 if algo == "susd":
     option_policy_checkpoint_path = f'final_models/half_cheetah/SUSD/option_policy10000.pt'
     traj_encoder_checkpoint_path = f'final_models/half_cheetah/SUSD/traj_encoder10000.pt'
+
+elif algo == "susd_2factor":
+    option_policy_checkpoint_path = f'final_models/half_cheetah/SUSD/option_policy10000_2factor_new.pt'
+    traj_encoder_checkpoint_path = f'final_models/half_cheetah/SUSD/traj_encoder10000_2factor_new.pt'
+
+elif algo == "susd_3factor":
+    option_policy_checkpoint_path = f'final_models/half_cheetah/SUSD/option_policy10000_3factor.pt'
+    traj_encoder_checkpoint_path = f'final_models/half_cheetah/SUSD/traj_encoder10000_3factor.pt'
 
 elif algo == "metra": 
     option_policy_checkpoint_path = 'final_models/half_cheetah/METRA/option_policy10000.pt'    
@@ -80,7 +88,7 @@ def zero_shot_eval(env, max_duration=30.0, max_steps=200):
         g_tensor = env._apply_normalize_obs(g_tensor.cpu()).float().to('cuda')
         s_tensor = env._apply_normalize_obs(s_tensor.cpu()).float().to('cuda')
 
-        if algo == "susd":
+        if algo == "susd" or algo == "susd_2factor" or algo == "susd_3factor":
             phi_s = traj_encoder(s_tensor).detach()
             phi_g = traj_encoder(g_tensor).detach()
         else:
@@ -229,17 +237,21 @@ if mode == "eval":
     run_multiple_seeds(num_runs=num_runs, max_duration=max_duration, max_steps=200)
 elif mode == "plot":
     susd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_susd_half_cheetah.csv")
-    metra_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_metra_half_cheetah.csv")
-    csd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_csd_half_cheetah.csv")
-    lsd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_lsd_half_cheetah.csv")
+    susd_logs2 = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_susd_2factor_half_cheetah.csv")
+    susd_logs3 = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_susd_3factor_half_cheetah.csv")
+    # metra_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_metra_half_cheetah.csv")
+    # csd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_csd_half_cheetah.csv")
+    # lsd_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_lsd_half_cheetah.csv")
     # diayn_logs = load_logs_from_csv("final_models/half_cheetah/COVERAGE/zero_shot_diayn_half_cheetah.csv")
 
 
     logs_by_method = {
-        "SUSD": susd_logs,
-        "METRA": metra_logs,
-        "CSD": csd_logs,
-        "LSD": lsd_logs,
+        "SUSD (1 Factor)": susd_logs,
+        "SUSD (2 Factors)": susd_logs2,
+        "SUSD (3 Factors)": susd_logs3,
+        # "METRA": metra_logs,
+        # "CSD": csd_logs,
+        # "LSD": lsd_logs,
         # "DIAYN": diayn_logs,
     }
 
@@ -247,5 +259,5 @@ elif mode == "plot":
         logs_by_method,
         max_duration=2e4,
         dt=1.0,
-        save_path=f"final_models/half_cheetah/COVERAGE/zero_shot_half_cheetah_comparison_ours.png"
+        save_path=f"final_models/half_cheetah/COVERAGE/zero_shot_half_cheetah_comparison_ours_different_factors.png"
     )

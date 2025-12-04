@@ -264,11 +264,11 @@ class BaseHighLevelGunnerConfig(SUSDHighLevelConfig):
 @dataclass
 class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     max_path_length: int = 500
-    dim_option: int = 5 # susd # dim=2 or dim=5 or dim=1 or dim=5 for discrete
-    discrete: int = 1  # 1: discrete skills, 0: continuous
+    dim_option: int = 2 # susd # dim=2 or dim=5 or dim=1 or dim=5 for discrete
+    discrete: int = 0  # 1: discrete skills, 0: continuous
     downstream_task: str = "lim" # lim: with limitation; nolim: no limitation
     # run_group: str = f"HRL_SUSD_{downstream_task}_dim_{dim_option}"
-    run_group: str = f"HRL_SUSD_{downstream_task}" # V4 is 12 dimension and 3 factors
+    run_group: str = f"HRL_SUSD_{downstream_task}_1factor" # V4 is 12 dimension and 3 factors
     n_parallel: int = 4 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -290,7 +290,11 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
     n_epochs_per_pt_save: int = 1000 # 1000
     te_only_last_frame: int  = 0
     alpha: float = 0.1
-    cp_path: str = f"final_models/gunner/SUSD/option_policy10000_dim_{dim_option}.pt" # SUSD
+    # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_dim_{dim_option}.pt" # SUSD
+    # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_4factor.pt" # SUSD - overfactorized
+    # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_2factor.pt" # SUSD - underfactorized
+    cp_path: str = f"final_models/gunner/SUSD/option_policy10000_1factor.pt" # SUSD - underfactorized
+    # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_qf_full.pt" # SUSD with Q-Function
     # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_dim_{dim_option}_disc.pt" # SUSD
     # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_V2.pt" # SUSD
     # cp_path: str = f"final_models/gunner/SUSD/option_policy10000_V3.pt" # SUSD
@@ -318,11 +322,12 @@ class SUSDHighLevelGunnerConfig(SUSDHighLevelConfig):
 
 @dataclass
 class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
-    baseline: str = "METRA"
+    baseline: str = "DIAYN"
     max_path_length: int = 50
-    dim_option: int = 14 # 2 others, 35 DUSDI
-    downstream_task: str = "elden_BiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
+    dim_option: int = 14 # 2 or 14 others, 35 DUSDI
+    downstream_task: str = "elden_PoT" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
     run_group: str = f"HRL_{baseline}_{downstream_task}_DIM_14"
+    # run_group: str = f"HRL_{baseline}_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -362,8 +367,9 @@ class BaseHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
 class SUSDHighLevelEldenKitchenConfig(SUSDHighLevelConfig):
     max_path_length: int = 50
     dim_option: int = 2
-    downstream_task: str = "elden_BiP" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
+    downstream_task: str = "elden_PoT" # ['BiP', 'MiP', 'PoS', 'BiP_PoS', 'MiP_PoS', 'PoT']
     run_group: str = f"HRL_SUSD_{downstream_task}_IND"
+    # run_group: str = f"HRL_SUSD_{downstream_task}"
     n_parallel: int = 8 
     traj_batch_size: int = 1 
     num_random_trajectories: int = 100 # number of trajectories for evaluation
@@ -423,12 +429,12 @@ def get_causal_vector(task_diff):
     return causal_vector, agent_list
 
 
-method = "baseline_elden" # ["susd_elden", "baseline_elden"]
+# method = "susd_elden" # ["susd_elden", "baseline_elden"]
 
-if method == "susd_elden":
-    args = SUSDHighLevelEldenKitchenConfig()
-elif method == "baseline_elden":
-    args = BaseHighLevelEldenKitchenConfig()
+# if method == "susd_elden":
+#     args = SUSDHighLevelEldenKitchenConfig()
+# elif method == "baseline_elden":
+#     args = BaseHighLevelEldenKitchenConfig()
 
 
 # method = "baseline_particle" # ["susd_particle", "baseline_particle"]
@@ -439,12 +445,12 @@ elif method == "baseline_elden":
 #     args = BaselineHighLevelParticleConfig()
 
 
-# method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
+method = "susd_gunner" # ["susd_gunner", "baseline_gunner"]
 
-# if method == "susd_gunner":
-#     args = SUSDHighLevelGunnerConfig()
-# else:
-#     args = BaseHighLevelGunnerConfig()
+if method == "susd_gunner":
+    args = SUSDHighLevelGunnerConfig()
+else:
+    args = BaseHighLevelGunnerConfig()
 
 
 if args.env == "particle":
@@ -546,7 +552,7 @@ def run(ctxt=None):
         return lr
 
 
-    set_seed(100) # args.seed (100 for another seed)
+    set_seed(args.seed) # args.seed (100 for another seed)
     runner = OptionLocalRunner(ctxt)
 
 

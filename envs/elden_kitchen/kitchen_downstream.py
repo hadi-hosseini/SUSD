@@ -175,13 +175,13 @@ class KitchenDownStreamTask(SingleArmEnv):
 
         pot_on_target = target_pot_xy_dist < 0.07 and not pot_touched
 
-        if self.downstream_task == 1: # put butter in pot
+        if self.downstream_task == 1: # put butter in pot (BiP)
             if self.butter_in_pot:
                 return 1
-        elif self.downstream_task == 2: # put meatball in pot
+        elif self.downstream_task == 2: # put meatball in pot (MiP)
             if meatball_in_pot:
                 return 1
-        elif self.downstream_task == 3: # put pot on stove
+        elif self.downstream_task == 3: # put pot on stove (PoS)
             if pot_on_stove:
                 return 1
         elif self.downstream_task == 4: # put butter in pot and put pot on stove
@@ -198,7 +198,7 @@ class KitchenDownStreamTask(SingleArmEnv):
             if pot_on_stove:
                 stage = 2
             return stage
-        elif self.downstream_task == 6: # put pot on target
+        elif self.downstream_task == 6: # put pot on target (PoT)
             if pot_on_target:
                 return 1
             

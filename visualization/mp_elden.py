@@ -5,15 +5,24 @@ import numpy as np
 import math
 
 # methods = ["CSD", "METRA", "LSD", "DIAYN", "SUSD", "DUSDI"]
+# methods = ["SUSD"]
 # methods = ["ABLATION", "SUSD"]
-methods = ["SUSD (IND)", "SUSD"]
+# methods = ["SUSD (IND)", "SUSD"]
+# methods = ["CSD (DIM=14)", "METRA (DIM=14)", "LSD (DIM=14)", "DIAYN (DIM=14)", "SUSD", "SUSD (IND)", "DUSDI"]
+# methods = ["CSD (DIM=14)", "METRA (DIM=14)", "LSD (DIM=14)", "DIAYN (DIM=14)", "SUSD (DIM=14)", "DUSDI (DIM=35)"]
+# methods = ["CSD (DIM=14)", "SUSD", "DUSDI"]
+methods = ["SUSD (3 Factors)", "SUSD (4 Factors)", "SUSD (2 Factors)"]
+# methods = ["SUSD (3 Factors)", "SUSD (2 Factors)"]
+# methods = ["SUSD-wf", "SUSD", "SUSD-w"]
 
 
 def fp_diff(): # task_diff = 4
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_4_ABLATION2", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_fp_4", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_4", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -27,8 +36,10 @@ def fp_diff(): # task_diff = 4
 def fp_hard(): # task_diff = 3
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_3_ABLATION2", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_fp_3", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_3", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -42,8 +53,10 @@ def fp_hard(): # task_diff = 3
 def fp_medium(): # task_diff = 2
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_2_ABLATION2", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_fp_2", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_2", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -57,8 +70,10 @@ def fp_medium(): # task_diff = 2
 def fp_easy(): # task_diff = 1
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_fp_1_ABLATION2", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_fp_1", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_fp_1", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -72,8 +87,10 @@ def fp_easy(): # task_diff = 1
 def seq_easy(): # task_diff = 5
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_5_ABLATION2", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_5", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_5", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -87,8 +104,10 @@ def seq_easy(): # task_diff = 5
 def seq_medium(): # task_diff = 6
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_6_ABLATION2", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_6", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_6", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -102,8 +121,10 @@ def seq_medium(): # task_diff = 6
 def seq_hard(): # task_diff = 7
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_seq_7_ABLATION2", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_seq_7", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_seq_7", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -118,10 +139,24 @@ def seq_hard(): # task_diff = 7
 def elden_BiP(): 
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_elden_BiP_ABLATION", pivot=True)
         elif method == "SUSD (IND)":
             reader = SummaryReader(f"./exp/HRL_SUSD_elden_BiP_IND", pivot=True)
+        elif method == "SUSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_BiP_IND", pivot=True)
+        elif method == "DUSDI (DIM=35)":
+            reader = SummaryReader(f"./exp/HRL_DUSDI_elden_BiP", pivot=True)
+        elif method == "METRA (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_METRA_elden_BiP_DIM_14", pivot=True)
+        elif method == "CSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_CSD_elden_BiP_DIM_14", pivot=True)
+        elif method == "LSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_LSD_elden_BiP_DIM_14", pivot=True)
+        elif method == "DIAYN (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_DIAYN_elden_BiP_DIM_14", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_elden_BiP", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_elden_BiP", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -136,8 +171,24 @@ def elden_BiP():
 def elden_MiP():
     all_dfs = []
     for method in methods:
-        if method == "Ablation":
+        if method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_elden_MiP_ABLATION", pivot=True)
+        elif method == "SUSD (IND)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_MiP_IND", pivot=True)
+        elif method == "SUSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_MiP_IND", pivot=True)
+        elif method == "DUSDI (DIM=35)":
+            reader = SummaryReader(f"./exp/HRL_DUSDI_elden_MiP", pivot=True)
+        elif method == "METRA (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_METRA_elden_MiP_DIM_14", pivot=True)
+        elif method == "CSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_CSD_elden_MiP_DIM_14", pivot=True)
+        elif method == "LSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_LSD_elden_MiP_DIM_14", pivot=True)
+        elif method == "DIAYN (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_DIAYN_elden_MiP_DIM_14", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_elden_MiP", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_elden_MiP", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -153,7 +204,22 @@ def elden_MiP():
 def elden_PoS():
     all_dfs = []
     for method in methods:
-        reader = SummaryReader(f"./exp/HRL_{method}_elden_PoS", pivot=True)
+        if method == "METRA (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_METRA_elden_PoS_DIM_14", pivot=True)
+        elif method == "SUSD (IND)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_PoS_IND", pivot=True)
+        elif method == "SUSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_PoS_IND", pivot=True)
+        elif method == "DUSDI (DIM=35)":
+            reader = SummaryReader(f"./exp/HRL_DUSDI_elden_PoS", pivot=True)
+        elif method == "CSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_CSD_elden_PoS_DIM_14", pivot=True)
+        elif method == "LSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_LSD_elden_PoS_DIM_14", pivot=True)
+        elif method == "DIAYN (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_DIAYN_elden_PoS_DIM_14", pivot=True)
+        else:
+            reader = SummaryReader(f"./exp/HRL_{method}_elden_PoS", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
         df["method"] = method
@@ -171,7 +237,7 @@ def lim():
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_ABLATION1", pivot=True)
-        elif method == "Ablation":
+        elif method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_ABLATION2", pivot=True)
         elif method == "DUSDI":
             reader = SummaryReader(f"./exp/HRL_{method}_lim_V2", pivot=True)
@@ -184,6 +250,14 @@ def lim():
             # reader = SummaryReader(f"./exp/HRL_SUSD_lim_dusdi", pivot=True)                   
         elif method == "SUSD (D=5)":
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_dim_5", pivot=True)
+        elif method == "SUSD (3 Factors)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim", pivot=True)
+        elif method == "SUSD (4 Factors)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim_4factor", pivot=True)
+        elif method == "SUSD (2 Factors)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim_2factor", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_lim", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -199,7 +273,7 @@ def nolim():
     for method in methods:
         if method == "ABLATION1":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_ABLATION1", pivot=True)
-        elif method == "Ablation":
+        elif method == "Ablation" or method == "SUSD-w":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_ABLATION2", pivot=True)
         elif method == "DUSDI":
             reader = SummaryReader(f"./exp/HRL_{method}_nolim_V2", pivot=True)
@@ -214,6 +288,14 @@ def nolim():
             # reader = SummaryReader(f"./exp/HRL_SUSD_n`olim_dusdi", pivot=True)    
         elif method == "SUSD (D=5)":
             reader = SummaryReader(f"./exp/HRL_SUSD_nolim_dim_5", pivot=True)
+        elif method == "SUSD (3 Factors)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_nolim", pivot=True)
+        elif method == "SUSD (4 Factors)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_nolim_4factor", pivot=True)
+        elif method == "SUSD (2 Factors)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_nolim_2factor", pivot=True)
+        elif method == "SUSD-wf":
+            reader = SummaryReader(f"./exp/HRL_METRA_nolim", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_nolim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -225,18 +307,33 @@ def nolim():
     return seq_hard
 
 
-# def elden_PoT():
-#     all_dfs = []
-#     for method in methods:
-#         reader = SummaryReader(f"./exp/HRL_{method}_elden_PoT", pivot=True)
-#         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
-#         df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
-#         df["method"] = method
-#         df = df[df["step"] <= 5000]
-#         all_dfs.append(df)
+def elden_PoT():
+    all_dfs = []
+    for method in methods:
+        if method == "METRA (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_METRA_elden_PoT_DIM_14", pivot=True)
+        elif method == "SUSD (IND)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_PoT_IND", pivot=True)
+        elif method == "SUSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_elden_PoT_IND", pivot=True)
+        elif method == "DUSDI (DIM=35)":
+            reader = SummaryReader(f"./exp/HRL_DUSDI_elden_PoT", pivot=True)
+        elif method == "CSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_CSD_elden_PoT_DIM_14", pivot=True)
+        elif method == "LSD (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_LSD_elden_PoT_DIM_14", pivot=True)
+        elif method == "DIAYN (DIM=14)":
+            reader = SummaryReader(f"./exp/HRL_DIAYN_elden_PoT_DIM_14", pivot=True)
+        else:
+            reader = SummaryReader(f"./exp/HRL_{method}_elden_PoT", pivot=True)
+        df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
+        df = df.dropna(subset=["EvalOp/AverageDiscountedReturn"])
+        df["method"] = method
+        # df = df[df["step"] <= 5000]
+        all_dfs.append(df)
 
-#     pot = pd.concat(all_dfs)
-#     return pot
+    pot = pd.concat(all_dfs)
+    return pot
 
 
 def plot_result(df, save_path, title):
@@ -298,7 +395,7 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
     # shared legend
     handles, labels = axs[0].get_legend_handles_labels()
     fig.legend(
-        handles, labels, title="Method", fontsize=12, title_fontsize=13,
+        handles, labels, fontsize=12, title_fontsize=13,
         loc="upper center", ncol=len(labels)
     )
 
@@ -350,43 +447,43 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
 
 
 ### elden_BiP
-save_path = "visualization/vis/elden_BiP.png" 
-bip = elden_BiP()
+# save_path = "visualization/vis/elden_BiP.png" 
+# bip = elden_BiP()
 # plot_result(bip, save_path, title="Put Butter in Pot Task")
 
 
-# ### elden_Mip
+### elden_Mip
 # save_path = "visualization/vis/elden_MiP.png" 
 # mip = elden_MiP()
-# # plot_result(mip, save_path, title="Put Meatball in Pot Task")
+# plot_result(mip, save_path, title="Put Meatball in Pot Task")
 
 
 # ### gunner_lim
-# save_path = "visualization/ablation/gunner_lim.png" 
-# gunner_lim = lim()
+save_path = "visualization/ablation/gunner_lim.png" 
+gunner_lim = lim()
 # # plot_result(gunner_lim, save_path, title="Gunner Limitation")
 
 
 # ## gunner_nolim
-# save_path = "visualization/ablation/gunner_nolim.png" 
-# gunner_nolim = nolim()
+save_path = "visualization/ablation/gunner_nolim.png" 
+gunner_nolim = nolim()
 # # plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
 
 
-# ### elden_PoS
+### elden_PoS
 # save_path = "visualization/vis/elden_PoS.png" 
 # pos = elden_PoS()
-# # plot_result(pos, save_path, title="Put Pot on Stove Task")
+# plot_result(pos, save_path, title="Put Pot on Stove Task")
 
 
 ### elden_PoT
 # save_path = "visualization/vis/elden_PoT.png" 
 # pot = elden_PoT()
-# # plot_result(pot, save_path, title="Put Pot in Target Task")
+# plot_result(pot, save_path, title="Put Pot in Target Task")
 
 
 ### plot_groups
-# dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard, gunner_lim, gunner_nolim, bip, mip, pos]
+# dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard, gunner_lim, gunner_nolim, bip, mip]
 # titles = [
 #     "Multiparticle Food&Poison Difficult",
 #     "Multiparticle Food&Poison Hard",
@@ -400,21 +497,47 @@ bip = elden_BiP()
 #     "Kitchen Butter in Pot",
 #     "Kitchen Meatball in Pot",
 #     "Kitchen Pot on Stove",
+#     "Kitchen Pot on Target",
 # ]
 
 # # save_path = "visualization/vis/ablations_grouped_results.png"
-# save_path = "visualization/vis/grouped_results.png"
+# save_path = "visualization/vis/ablation_grouped_results.png"
 # plot_grouped_results(dfs, titles, save_path=save_path, ncols=3)
 
 
 
 
 ### plot_groups
-dfs = [bip]
+# dfs = [pos, pot]
+# titles = [
+#     "Kitchen Butter in Pot",
+#     "Kitchen Meatball in Pot",
+#     "Kitchen Pot on Stove",
+#     "Kitchen Pot on Target",
+# ]
+
+# save_path = "visualization/vis/main_grouped_results.png"
+# plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)
+
+# ### plot_groups
+# dfs = [bip, mip, pos]
+# titles = [
+#     "Kitchen Butter in Pot",
+#     "Kitchen Meatball in Pot",
+#     "Kitchen Pot on Stove"
+# ]
+
+# save_path = "visualization/vis/more_dimension_grouped_results.png"
+# plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)
+
+
+
+# plot_groups
+dfs = [gunner_lim, gunner_nolim]
 titles = [
-    "Kitchen Butter in Pot",
-    "Kitchen Meatball in Pot",
+    "Gunner with Limitation",
+    "Gunner without Limitation",
 ]
 
-save_path = "visualization/vis/factor_0_grouped_results.png"
+save_path = "visualization/vis/more_factors_gunner_grouped_results.png"
 plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)

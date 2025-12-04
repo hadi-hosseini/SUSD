@@ -47,9 +47,15 @@ def get_gaussian_module_construction(args,
 
 def factorize_environment(args):
     if args.env == "ant":
-        state_factorization_points = [0, 29]
+        # state_factorization_points = [0, 29]
+        # state_factorization_points = [0, 14, 29] # 2 factors
+        # state_factorization_points = [0, 7, 14, 29] # 3 factors
+        # state_factorization_points = [0, 7, 14, 21, 29] # 4 factors
+        state_factorization_points = [0, 7, 10, 14, 21, 29] # 5 factors
     elif args.env == "half_cheetah":
-        state_factorization_points = [0, 18]
+        # state_factorization_points = [0, 18]
+        # state_factorization_points = [0, 2, 18] # 2 factors
+        state_factorization_points = [0, 2, 16, 18] # 3 factors
     elif args.env == "kitchen_franka":
         # state_factorization_points = [0, 18, 38, 44, 46, 59]
         state_factorization_points = [0, 59]
@@ -62,6 +68,11 @@ def factorize_environment(args):
         state_factorization_points = [0, 6, 13, 18]  # ORIGINAL
         # state_factorization_points = [0, 4, 8, 12]  # DISCRETE
         # state_factorization_points = [0, 4, 8, 12, 16] # 4 factors
+        # state_factorization_points = [0, 4, 6, 13, 18]  #  4 factors
+        # state_factorization_points = [0, 9, 18]  # 2 factors
+        # state_factorization_points = [0, 18]  # 1 factors
+
+
     elif args.env == "elden_kitchen":
         ##### original ordering (without target): 128 
         # object-state - 4: [robot0_eef_vel (3), button_joint_qpos (1)], [0-3]

@@ -6,13 +6,14 @@ import math
 
 # methods = ["CSD", "ABLATION1", "ABLATION2", "SUSD", "DUSDI", "SUSD (N=20)"]
 # methods = ["ABLATION2", "SUSD"]
-methods = ["SUSD", "SUSD (N=20)", "DUSDI"]
+# methods = ["SUSD", "SUSD (N=20)", "DUSDI"]
 # methods = ["SUSD", "SUSD (N=20)"]
 # methods = ["SUSD (D=2)", "SUSD (D=5)"]
 # methods = ["SUSD Continuous", "SUSD Discrete"]
 # methods = ["SUSD", "METRA (D=2)", "METRA (D=20)", "CSD (D=2)", "CSD (D=20)"]
 
 # methods = ["ABLATION2", "SUSD"]
+methods = ["SUSD", "SUSD (+Q)"]
 
 
 def fp_diff(): # task_diff = 4
@@ -191,6 +192,8 @@ def lim():
             # reader = SummaryReader(f"./exp/HRL_SUSD_lim_dusdi", pivot=True)                   
         elif method == "SUSD (D=5)":
             reader = SummaryReader(f"./exp/HRL_SUSD_lim_dim_5", pivot=True)
+        elif method == "SUSD (+Q)":
+            reader = SummaryReader(f"./exp/HRL_SUSD_lim_QF_FULL", pivot=True)
         else:
             reader = SummaryReader(f"./exp/HRL_{method}_lim", pivot=True)
         df = reader.scalars[["step", "EvalOp/AverageDiscountedReturn"]].copy()
@@ -259,8 +262,8 @@ def plot_result_on_ax(df, ax, title):
         if method == "ABLATION2":
             ax.plot(group_sorted["step"], smoothed, label="Ablation", linewidth=2, alpha=0.8)
         else:
-            if method == "SUSD":
-                method = "SUSD (N=10)"
+            # if method == "SUSD":
+            #     method = "SUSD (N=10)"
             ax.plot(group_sorted["step"], smoothed, label=method, linewidth=2, alpha=0.8)
 
         max_margin = 3
@@ -301,31 +304,31 @@ def plot_grouped_results(dfs, titles, save_path=None, ncols=3, figsize=(15, 8)):
 
 
 
-### mp_fp_diff
-save_path = "visualization/ablation/mp_fp_diff.png" 
-mp_fp_diff = fp_diff()
-plot_result(mp_fp_diff, save_path, title="Multiparticle Food&Poison Difficult")
+# ### mp_fp_diff
+# save_path = "visualization/ablation/mp_fp_diff.png" 
+# mp_fp_diff = fp_diff()
+# plot_result(mp_fp_diff, save_path, title="Multiparticle Food&Poison Difficult")
 
 
-### mp_fp_hard
-save_path = "visualization/ablation/mp_fp_hard.png" 
-mp_fp_hard = fp_hard()
-plot_result(mp_fp_hard, save_path, title="Multiparticle Food&Poison Hard")
+# ### mp_fp_hard
+# save_path = "visualization/ablation/mp_fp_hard.png" 
+# mp_fp_hard = fp_hard()
+# plot_result(mp_fp_hard, save_path, title="Multiparticle Food&Poison Hard")
 
-### mp_fp_medium
-save_path = "visualization/ablation/mp_fp_medium.png" 
-mp_fp_medium = fp_medium()
-plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
+# ### mp_fp_medium
+# save_path = "visualization/ablation/mp_fp_medium.png" 
+# mp_fp_medium = fp_medium()
+# plot_result(mp_fp_medium, save_path, title="Multiparticle Food&Poison Medium")
 
-### mp_fp_easy
-save_path = "visualization/ablation/mp_fp_easy.png" 
-mp_fp_easy = fp_easy()
-plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
+# ### mp_fp_easy
+# save_path = "visualization/ablation/mp_fp_easy.png" 
+# mp_fp_easy = fp_easy()
+# plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
 
 
-# ### gunner_lim
-# save_path = "visualization/ablation/gunner_lim.png" 
-# gunner_lim = lim()
+### gunner_lim
+save_path = "visualization/ablation/gunner_lim.png" 
+gunner_lim = lim()
 # plot_result(gunner_lim, save_path, title="Gunner Limitation")
 
 
@@ -334,20 +337,20 @@ plot_result(mp_fp_easy, save_path, title="Multiparticle Food&Poison Easy")
 # gunner_nolim = nolim()
 # plot_result(gunner_nolim, save_path, title="Gunner No Limitation")
 
-### mp seq_easy
-save_path = "visualization/ablation/mp_seq_easy.png" 
-mp_seq_easy = seq_easy()
-plot_result(mp_seq_easy, save_path, title="Multiparticle Sequential Easy")
+# ### mp seq_easy
+# save_path = "visualization/ablation/mp_seq_easy.png" 
+# mp_seq_easy = seq_easy()
+# plot_result(mp_seq_easy, save_path, title="Multiparticle Sequential Easy")
 
-### mp seq_medium
-save_path = "visualization/ablation/mp_seq_medium.png" 
-mp_seq_medium = seq_medium()
-plot_result(mp_seq_medium, save_path, title="Multiparticle Sequential Medium")
+# ### mp seq_medium
+# save_path = "visualization/ablation/mp_seq_medium.png" 
+# mp_seq_medium = seq_medium()
+# plot_result(mp_seq_medium, save_path, title="Multiparticle Sequential Medium")
 
-### mp seq_hard
-save_path = "visualization/ablation/mp_seq_hard.png" 
-mp_seq_hard = seq_hard()
-plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
+# ### mp seq_hard
+# save_path = "visualization/ablation/mp_seq_hard.png" 
+# mp_seq_hard = seq_hard()
+# plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
 
 
 # ## plot_groups
@@ -380,20 +383,20 @@ plot_result(mp_seq_hard, save_path, title="Multiparticle Sequential Hard")
 # plot_grouped_results(dfs, titles, save_path=save_path, ncols=2)
 
 
-## plot_groups
-dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard]
-titles = [
-    "Food&Poison Difficult",
-    "Food&Poison Hard",
-    "Food&Poison Medium",
-    "Food&Poison Easy",
-    "Sequential Easy",
-    "Sequential Medium",
-    "Sequential Hard",
-]
+# ## plot_groups
+# dfs = [mp_fp_diff, mp_fp_hard, mp_fp_medium, mp_fp_easy, mp_seq_easy, mp_seq_medium, mp_seq_hard]
+# titles = [
+#     "Food&Poison Difficult",
+#     "Food&Poison Hard",
+#     "Food&Poison Medium",
+#     "Food&Poison Easy",
+#     "Sequential Easy",
+#     "Sequential Medium",
+#     "Sequential Hard",
+# ]
 
-save_path = "visualization/ablation/prior_knowledge_grouped_results.png"
-plot_grouped_results(dfs, titles, save_path=save_path, ncols=4)
+# save_path = "visualization/ablation/prior_knowledge_grouped_results.png"
+# plot_grouped_results(dfs, titles, save_path=save_path, ncols=4)
 
 
 
@@ -408,3 +411,13 @@ plot_grouped_results(dfs, titles, save_path=save_path, ncols=4)
 # save_path = "visualization/ablation/high_dimension_grouped_results.png"
 # plot_grouped_results(dfs, titles, save_path=save_path, ncols=3)
 
+
+
+## plot_groups
+dfs = [gunner_lim]
+titles = [
+    "Gunner with Limitation",
+]
+
+save_path = "visualization/ablation/q_function_grouped_results.png"
+plot_grouped_results(dfs, titles, save_path=save_path, ncols=4)

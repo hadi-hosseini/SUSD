@@ -21,27 +21,23 @@ def update_loss_qf_N(algo, tensors, v, actions, next_obs, dones, rewards, policy
         end = algo.partition_points[i + 1]
         start_option = i * algo.dim_option
         end_option = (i + 1) * algo.dim_option
+
     
-        # log_alpha = algo.log_alpha_list[i]
         qf1 = algo.qf1_list[i]
         target_qf1 = algo.target_qf1_list[i]
 
-        # with torch.no_grad():
-        #     alpha = log_alpha.param.exp()
-
-        q1_pred = qf1(algo._get_concat_obs(algo.option_policy.process_observations(v['obs'][:, start:end]), v['options'][:, start_option:end_option]), actions).flatten()
+        # q1_pred = qf1(algo._get_concat_obs(algo.option_policy.process_observations(v['obs'][:, start:end]), v['options'][:, start_option:end_option]), actions).flatten()
+        q1_pred = qf1(algo._get_concat_obs(algo.option_policy.process_observations(v['obs']), v['options']), actions).flatten()
 
         next_action_dists, *_ = policy(next_obs)
         if hasattr(next_action_dists, 'rsample_with_pre_tanh_value'):
-            new_next_actions_pre_tanh, new_next_actions = next_action_dists.rsample_with_pre_tanh_value()
-            new_next_action_log_probs = next_action_dists.log_prob(new_next_actions, pre_tanh_value=new_next_actions_pre_tanh)
+            _, new_next_actions = next_action_dists.rsample_with_pre_tanh_value()
         else:
             new_next_actions = next_action_dists.rsample()
             new_next_actions = _clip_actions(algo, new_next_actions)
-            new_next_action_log_probs = next_action_dists.log_prob(new_next_actions)
 
-        target_q_values = target_qf1(algo._get_concat_obs(algo.option_policy.process_observations(v['next_obs'][:, start:end]), v['next_options'][:, start_option:end_option]), new_next_actions).flatten()
-        target_q_values = target_q_values - 0.02 * new_next_action_log_probs # alpha = 0.02
+        # target_q_values = target_qf1(algo._get_concat_obs(algo.option_policy.process_observations(v['next_obs'][:, start:end]), v['options'][:, start_option:end_option]), new_next_actions).flatten()
+        target_q_values = target_qf1(algo._get_concat_obs(algo.option_policy.process_observations(v['next_obs']), v['options']), new_next_actions).flatten()
         target_q_values = target_q_values * algo.discount
 
         with torch.no_grad():
@@ -134,18 +130,6 @@ def update_loss_sacp(
     v.update({
         'new_action_log_probs': new_action_log_probs,
     })
-
-
-# def update_loss_alpha_N(algo, tensors, v):
-    # for i in range(algo.N):
-    #     loss_alpha = (-algo.log_alpha_list[i].param * (
-    #             v['new_action_log_probs'].detach() + algo._target_entropy
-    #     )).mean()
-
-    #     tensors.update({
-    #         f'Alpha_{i}': algo.log_alpha_list[i].param.exp(),
-    #         f'LossAlpha_{i}': loss_alpha,
-    #     })
 
 def update_loss_alpha(algo, tensors, v):
     loss_alpha = (-algo.log_alpha.param * (

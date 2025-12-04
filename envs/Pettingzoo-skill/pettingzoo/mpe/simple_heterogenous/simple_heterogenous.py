@@ -168,7 +168,7 @@ class Scenario(BaseScenario):
         # random properties for landmarks
         for i, landmark in enumerate(world.landmarks):
             # landmark.color = np.array([0.25, 0.25, 0.25])
-            # landmark.color = colors[i+10]  # np.array([0, 0, 1]) * i / len(world.landmarks)
+            # landmark.color = colors[i+2]  # np.array([0, 0, 1]) * i / len(world.landmarks)
             landmark.color = colors[i]  # np.array([0, 0, 1]) * i / len(world.landmarks)
 
 
